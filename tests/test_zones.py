@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from stratweb.main import create_app
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY
-from stratweb.zones.definitions import MIRAGE_ZONE_SET, zone_set_for
+from stratweb.zones.definitions import ANCIENT_ZONE_SET, MIRAGE_ZONE_SET, zone_set_for
 from stratweb.zones.engine import point_in_polygon, polygon_area, resolve_zone
 from stratweb.zones.models import (
     ZoneDefinition,
@@ -192,6 +192,26 @@ def test_mirage_zones_resolve_known_evidence_points() -> None:
     assert ct_spawn.zone_id == "ct_spawn"
     assert site_a.zone_id == "bombsite_a"
     assert site_a.kind is ZoneKind.BOMBSITE
+    assert site_b.zone_id == "bombsite_b"
+    assert far_outside.status is ZoneResolutionStatus.UNKNOWN
+
+
+def test_ancient_zone_set_is_valid_and_resolves_evidence_points() -> None:
+    assert validate_zone_set(ANCIENT_ZONE_SET) == ()
+    assert zone_set_for("de_ancient", "cs2-1.41.7.1-d263aa1118fb") is ANCIENT_ZONE_SET
+
+    # Freeze-end side centroids of match 24708cef round 1 (tick 10705) and the
+    # Valve bombA/bombB overview anchors converted through the pinned
+    # calibration (-2953/2164, scale 5).
+    ct_spawn = resolve_zone(ANCIENT_ZONE_SET, -345.6, 1702.4, None)
+    t_spawn = resolve_zone(ANCIENT_ZONE_SET, -456.0, -2262.4, None)
+    site_a = resolve_zone(ANCIENT_ZONE_SET, -1365.8, 884.0, None)
+    site_b = resolve_zone(ANCIENT_ZONE_SET, 1143.0, 116.0, None)
+    far_outside = resolve_zone(ANCIENT_ZONE_SET, 20_000.0, 20_000.0, None)
+
+    assert ct_spawn.zone_id == "ct_spawn"
+    assert t_spawn.zone_id == "t_spawn"
+    assert site_a.zone_id == "bombsite_a"
     assert site_b.zone_id == "bombsite_b"
     assert far_outside.status is ZoneResolutionStatus.UNKNOWN
 

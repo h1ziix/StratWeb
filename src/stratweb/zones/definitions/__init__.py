@@ -6,10 +6,11 @@ set simply has no zones, and every resolution against it stays unknown.
 
 from __future__ import annotations
 
+from stratweb.zones.definitions.ancient import ANCIENT_ZONE_SET
 from stratweb.zones.definitions.mirage import MIRAGE_ZONE_SET
 from stratweb.zones.models import ZoneSetDefinition
 
-ALL_ZONE_SETS: tuple[ZoneSetDefinition, ...] = (MIRAGE_ZONE_SET,)
+ALL_ZONE_SETS: tuple[ZoneSetDefinition, ...] = (MIRAGE_ZONE_SET, ANCIENT_ZONE_SET)
 
 
 def zone_set_for(map_name: str, map_revision: str) -> ZoneSetDefinition | None:
@@ -19,4 +20,4 @@ def zone_set_for(map_name: str, map_revision: str) -> ZoneSetDefinition | None:
     return None
 
 
-__all__ = ["ALL_ZONE_SETS", "MIRAGE_ZONE_SET", "zone_set_for"]
+__all__ = ["ALL_ZONE_SETS", "ANCIENT_ZONE_SET", "MIRAGE_ZONE_SET", "zone_set_for"]
