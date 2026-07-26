@@ -5,9 +5,10 @@ the calibrated transform (origin -3230/1713, scale 5.0, 1024 px) that
 tests/test_maps_ground_truth.py pins against Valve spawn anchors and real
 freeze-end demo positions. Bombsites and spawns are anchored to Valve's own
 overview metadata (bombA/bombB/CTSpawn/TSpawn icons and the site markers
-baked into the shipped asset); corridor boundaries are eyeballed from the
-same asset and stay PROPOSED until the developer overlay review upgrades
-them to OVERLAY_VERIFIED.
+baked into the shipped asset). Callout names and relative placement follow
+the official callout reference supplied by the user on 2026-07-27; corridor
+boundaries stay PROPOSED until the developer overlay review upgrades them to
+OVERLAY_VERIFIED.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from stratweb.zones.models import (
 
 _MAP_NAME = "de_mirage"
 _MAP_REVISION = "cs2-1.41.7.1-d263aa1118fb"
+_CALLOUT_REFERENCE = "official callout reference supplied by the user (2026-07-27)"
 
 
 def _rect(
@@ -53,7 +55,10 @@ def _rect(
 MIRAGE_ZONE_SET = ZoneSetDefinition(
     map_name=_MAP_NAME,
     map_revision=_MAP_REVISION,
-    source="Authored 2026-07-27 from the pinned VPK overview asset and Valve anchors.",
+    source=(
+        "Authored 2026-07-27 from the pinned VPK overview asset, Valve anchors and the "
+        "official callout reference supplied by the user."
+    ),
     zones=(
         _rect(
             "bombsite_a",
@@ -90,20 +95,68 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             "projects to (0.296, 0.704)",
         ),
         _rect(
+            "b_apartments",
+            "B Apartments",
+            ZoneKind.PATHWAY,
+            0,
+            ((-1591.6, 996.2), (-567.6, 996.2), (-567.6, 458.6), (-1591.6, 458.6)),
+            f"West half of the top band per {_CALLOUT_REFERENCE}",
+        ),
+        _rect(
+            "t_apps",
+            "T Apps",
+            ZoneKind.PATHWAY,
+            0,
+            ((-567.6, 996.2), (456.4, 996.2), (456.4, 458.6), (-567.6, 458.6)),
+            f"East half of the top band per {_CALLOUT_REFERENCE}",
+        ),
+        _rect(
             "mid",
             "Mid",
             ZoneKind.PATHWAY,
             0,
-            ((-1130.8, -27.8), (-465.2, -27.8), (-465.2, -1461.4), (-1130.8, -1461.4)),
-            "Central corridor eyeballed on the pinned asset; pending overlay verification",
+            ((-977.2, -27.8), (-414.0, -27.8), (-414.0, -1256.6), (-977.2, -1256.6)),
+            f"Central corridor narrowed per {_CALLOUT_REFERENCE}",
+        ),
+        _rect(
+            "top_mid",
+            "Top Mid",
+            ZoneKind.PATHWAY,
+            0,
+            ((-362.8, -232.6), (456.4, -232.6), (456.4, -949.4), (-362.8, -949.4)),
+            f"Open area east of Mid toward T Spawn per {_CALLOUT_REFERENCE}",
+        ),
+        _rect(
+            "window",
+            "Window",
+            ZoneKind.AREA,
+            0,
+            ((-1438.0, -437.4), (-1028.4, -437.4), (-1028.4, -1051.8), (-1438.0, -1051.8)),
+            f"Room west of Mid per {_CALLOUT_REFERENCE} (previously mislabeled Underpass)",
+        ),
+        _rect(
+            "underpass",
+            "Underpass",
+            ZoneKind.CHOKEPOINT,
+            5,
+            ((-1028.4, -437.4), (-670.0, -437.4), (-670.0, -847.0), (-1028.4, -847.0)),
+            f"Tunnel under Catwalk per {_CALLOUT_REFERENCE}",
         ),
         _rect(
             "connector",
             "Connector",
             ZoneKind.CHOKEPOINT,
             5,
-            ((-1489.2, -1051.8), (-977.2, -1051.8), (-977.2, -1666.2), (-1489.2, -1666.2)),
-            "Mid-to-CT link eyeballed on the pinned asset; pending overlay verification",
+            ((-1079.6, -1103.0), (-567.6, -1103.0), (-567.6, -1512.6), (-1079.6, -1512.6)),
+            f"Mid-to-Jungle link recentered per {_CALLOUT_REFERENCE}",
+        ),
+        _rect(
+            "jungle",
+            "Jungle",
+            ZoneKind.AREA,
+            0,
+            ((-1386.8, -1461.4), (-874.8, -1461.4), (-874.8, -1871.0), (-1386.8, -1871.0)),
+            f"Area above Bombsite A shifted west per {_CALLOUT_REFERENCE}",
         ),
         _rect(
             "palace",
@@ -111,33 +164,15 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ZoneKind.PATHWAY,
             0,
             ((-4.4, -1973.4), (917.2, -1973.4), (917.2, -2587.8), (-4.4, -2587.8)),
-            "Covered building adjoining Bombsite A; pending overlay verification",
+            f"Covered building adjoining Bombsite A per {_CALLOUT_REFERENCE}",
         ),
         _rect(
-            "a_ramp",
-            "A Ramp",
+            "ramp",
+            "Ramp",
             ZoneKind.PATHWAY,
             0,
             ((558.8, -949.4), (1378.0, -949.4), (1378.0, -1871.0), (558.8, -1871.0)),
-            "T-side approach to Bombsite A; pending overlay verification",
-        ),
-        _rect(
-            "b_apartments",
-            "B Apartments",
-            ZoneKind.PATHWAY,
-            0,
-            ((-1591.6, 996.2), (456.4, 996.2), (456.4, 458.6), (-1591.6, 458.6)),
-            "Top-edge apartment band eyeballed on the pinned asset; pending overlay "
-            "verification",
-        ),
-        _rect(
-            "underpass",
-            "Underpass",
-            ZoneKind.CHOKEPOINT,
-            5,
-            ((-1438.0, -437.4), (-1028.4, -437.4), (-1028.4, -1051.8), (-1438.0, -1051.8)),
-            "Mid-to-apartments link eyeballed on the pinned asset; pending overlay "
-            "verification",
+            f"T-side approach to Bombsite A (Ramp/Shadow) per {_CALLOUT_REFERENCE}",
         ),
         _rect(
             "market",
@@ -145,15 +180,7 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ZoneKind.AREA,
             0,
             ((-1950.0, -437.4), (-1386.8, -437.4), (-1386.8, -1256.6), (-1950.0, -1256.6)),
-            "Window/market rooms eyeballed on the pinned asset; pending overlay verification",
-        ),
-        _rect(
-            "jungle",
-            "Jungle",
-            ZoneKind.AREA,
-            0,
-            ((-977.2, -1359.0), (-362.8, -1359.0), (-362.8, -1819.8), (-977.2, -1819.8)),
-            "Stairs area above Bombsite A; pending overlay verification",
+            f"Market/B Window rooms per {_CALLOUT_REFERENCE}",
         ),
     ),
 )

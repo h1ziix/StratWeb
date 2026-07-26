@@ -56,7 +56,9 @@ Valve-якорям), затем `overlay_verified` через ручной devel
 
 Авторские наборы (`src/stratweb/zones/definitions/`):
 
-- `de_mirage` @ `cs2-1.41.7.1-d263aa1118fb` — 12 зон. Bombsites и spawns
+- `de_mirage` @ `cs2-1.41.7.1-d263aa1118fb` — 15 зон. Bombsites и spawns
   заякорены официальными Valve-иконками overview и freeze-end центроидами
-  матча `e0f188cf`; mid/connector/palace/a_ramp/b_apartments/underpass/
-  market/jungle размечены по ассету и ждут overlay-проверки.
+  матча `e0f188cf`; имена и взаимное расположение коридоров
+  (b_apartments/t_apps/mid/top_mid/window/underpass/connector/jungle/
+  palace/ramp/market) выверены по официальной callout-карте, переданной
+  пользователем 2026-07-27, и ждут overlay-проверки границ.
