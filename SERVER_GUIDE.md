@@ -24,6 +24,13 @@ Set-Location "C:\Users\rausa\OneDrive\Рабочий стол\StratWeb"
 Скрипт намеренно вызывает `.venv\Scripts\python.exe` напрямую. Поэтому не требуется выполнять
 `Activate.ps1`, и случайный системный Python из `WindowsApps` не используется.
 
+## Где лежат данные
+
+Runtime-данные (DuckDB-база и изображения карт) хранятся **вне OneDrive** в
+`C:\Users\rausa\StratWeb-data`, потому что конфликты синхронизации могут повредить
+файлы DuckDB. Пути заданы в `.env` проекта и в параметрах `start_server.ps1`
+(`-DatabasePath`, `-MapOverviewDir`).
+
 ## Режим разработки
 
 Автоперезапуск после изменения Python-файлов:

@@ -1,15 +1,18 @@
 param(
     [ValidateRange(1, 65535)]
     [int]$Port = 8000,
-    [switch]$Reload
+    [switch]$Reload,
+    # Runtime data lives outside OneDrive: sync conflicts can corrupt DuckDB files.
+    [string]$DatabasePath = "C:\Users\rausa\StratWeb-data\faceit-spatial.duckdb",
+    [string]$MapOverviewDir = "C:\Users\rausa\StratWeb-data\map_overviews"
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
-$databasePath = Join-Path $projectRoot ".stage7-manual\faceit-spatial.duckdb"
-$mapOverviewPath = Join-Path $projectRoot "data\map_overviews"
+$databasePath = $DatabasePath
+$mapOverviewPath = $MapOverviewDir
 
 foreach ($requiredPath in @($pythonPath, $databasePath, $mapOverviewPath)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
