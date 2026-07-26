@@ -748,7 +748,16 @@ gameplay patterns, findings, recommendations, reports or LLM integration.
   маршрутов;
 - [x] освежить README (вводная, дерево структуры, «Текущие ограничения»).
 
-## Stage 8.2 — Map Zone Engine (не начат)
+## Stage 8.2 — Map Zone Engine (в работе)
+
+Статус 2026-07-27: ядро реализовано (`src/stratweb/zones/`, нормативная
+семантика в [ZONE_MODEL.md](ZONE_MODEL.md)) — версионированный
+`ZoneSetDefinition` c fingerprint, `point_in_polygon_v1` c тотальной
+границей, высотные `min_z`/`max_z` (этажи Nuke), `unknown` без догадок,
+детерминированный приоритет при перекрытии, структурная валидация и
+`sampled_coverage`. Осталось: авторинг полигонов реальных карт
+(proposed → overlay_verified → demo_validated), developer overlay,
+закрепление fingerprint в runs и «клик по игроку показывает зону» в UI.
 
 Цель: преобразовать координаты в доказанные именованные области карты.
 
