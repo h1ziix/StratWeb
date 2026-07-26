@@ -755,13 +755,14 @@ gameplay patterns, findings, recommendations, reports or LLM integration.
 `ZoneSetDefinition` c fingerprint, `point_in_polygon_v1` c тотальной
 границей, высотные `min_z`/`max_z` (этажи Nuke), `unknown` без догадок,
 детерминированный приоритет при перекрытии, структурная валидация и
-`sampled_coverage`. Также готово: первый авторский набор
-`de_mirage` (12 зон в `zones/definitions/mirage.py`: сайты/спавны по
-Valve-якорям и демо-центроидам, коридоры `proposed`) и developer overlay
-(`/ui/dev/zones/{map}` + `/api/dev/zones/{map}`, за
-`STRATWEB_MAP_DEVELOPER_MODE`). Осталось: ручная overlay-проверка Mirage
-пользователем (proposed → overlay_verified), авторинг остальных карт,
-закрепление fingerprint в runs и «клик по игроку показывает зону» в UI.
+`sampled_coverage`. Также готово: developer overlay c ручным редактором
+(`/ui/dev/zones/{map}`: перетаскивание, вершины, freehand-карандаш,
+свои зоны с именами; сохранение в `zone_proposals/{map}.json`, которое
+живьём заменяет авторскую разметку) и **принятый эталон `de_mirage` —
+33 зоны, полностью расставленные пользователем вручную,
+OVERLAY_VERIFIED** (fold 2026-07-27, evidence-тесты зелёные). Осталось:
+разметка остальных карт тем же редактором, закрепление zone fingerprint
+в runs и «клик по игроку показывает зону» в UI.
 
 Цель: преобразовать координаты в доказанные именованные области карты.
 

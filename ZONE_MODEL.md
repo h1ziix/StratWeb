@@ -56,9 +56,9 @@ Valve-якорям), затем `overlay_verified` через ручной devel
 
 Авторские наборы (`src/stratweb/zones/definitions/`):
 
-- `de_mirage` @ `cs2-1.41.7.1-d263aa1118fb` — 15 зон. Bombsites и spawns
-  заякорены официальными Valve-иконками overview и freeze-end центроидами
-  матча `e0f188cf`; имена и взаимное расположение коридоров
-  (b_apartments/t_apps/mid/top_mid/window/underpass/connector/jungle/
-  palace/ramp/market) выверены по официальной callout-карте, переданной
-  пользователем 2026-07-27, и ждут overlay-проверки границ.
+- `de_mirage` @ `cs2-1.41.7.1-d263aa1118fb` — **33 зоны, OVERLAY_VERIFIED**.
+  Все границы расставлены пользователем вручную в overlay-редакторе
+  (сохранено 2026-07-26T23:20:49Z, ~40 минут ручной разметки). Evidence:
+  freeze-end центроиды сторон матча `e0f188cf` и Valve-якоря bombA/bombB
+  резолвятся в свои зоны (`tests/test_zones.py`). Принятая разметка
+  заархивирована в `zone_proposals/de_mirage.accepted-2026-07-27.json`.

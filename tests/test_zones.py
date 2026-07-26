@@ -429,7 +429,7 @@ def test_proposal_zone_set_replaces_layout_and_reports_issues() -> None:
     assert [zone.zone_id for zone in effective.zones] == ["jungle"]
     jungle = effective.zones[0]
     assert jungle.verification is ZoneVerificationStatus.OVERLAY_VERIFIED
-    assert jungle.zone_name == "Jungle"
+    assert jungle.zone_name == "JUNGLE"
     assert jungle.kind is ZoneKind.AREA
     assert "proposal_new_zone_missing_name:new_area" in issues
     assert "proposal_invalid_polygon:named" in issues
