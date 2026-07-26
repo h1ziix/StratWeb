@@ -1,0 +1,20 @@
+services:
+  api:
+    build:
+      context: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      STRATWEB_HOST: 0.0.0.0
+      STRATWEB_PORT: 8000
+      STRATWEB_DATA_DIR: /app/data
+      STRATWEB_DUCKDB_PATH: /app/data/stratweb.duckdb
+      STRATWEB_MAP_OVERVIEW_DIR: /app/data/map_overviews
+      STRATWEB_MAP_DEVELOPER_MODE: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    command: ["python", "-m", "uvicorn", "stratweb.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped

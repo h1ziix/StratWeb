@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{% block title %}StratWeb{% endblock %}</title>
+  <link rel="icon" href="{{ static_asset('favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ static_asset('css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/layout.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/components.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="app-bar">
+    <a class="brand" href="/ui" aria-label="StratWeb match library">STRAT<span>WEB</span></a>
+    <nav class="top-nav" aria-label="Primary">
+      <a href="/ui">Matches</a>
+      <a href="/ui/opponents">Opponents</a>
+      {% if match_context %}
+      <a href="/ui/matches/{{ match_context.match_id }}">Overview</a>
+      <a href="/ui/matches/{{ match_context.match_id }}#rounds">Rounds</a>
+      <a href="/ui/temporal/{{ match_context.match_id }}">Timeline</a>
+      <a href="/ui/spatial/{{ match_context.match_id }}/rounds/1">Map</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/players">Players</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/diagnostics">Diagnostics</a>
+      {% endif %}
+    </nav>
+    <span class="offline-badge">Offline evidence</span>
+  </header>
+  {% if match_context %}
+  <section class="match-bar" aria-label="Current match">
+    <strong>{{ match_context.map_name }}</strong>
+    <span>{{ match_context.team_names|join(' vs ') }}</span>
+    <span>{{ match_context.score }}</span>
+    <code title="Full match identifier">{{ match_context.short_id }}</code>
+  </section>
+  {% endif %}
+  <main id="content" class="app-content {% block content_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ static_asset('js/api-client.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

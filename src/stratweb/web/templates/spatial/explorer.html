@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ match_context.map_name }} · Round {{ round_number }} map · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/spatial-viewer.css') }}">{% endblock %}
+{% block content_class %}viewer-content{% endblock %}
+{% block content %}
+<section class="viewer-shell" id="viewerShell">
+  <aside class="viewer-sidebar" aria-label="Round and spatial filters">
+    <div class="viewer-identity">
+      <span class="viewer-kicker">Match viewer</span>
+      <h1>{{ overview.display_name or overview.map_name }}</h1>
+      <span>Round {{ round_number }}</span>
+    </div>
+    <div class="sidebar-group compact-filters">
+      <label>Round<select id="roundSelect">{% for number in round_numbers %}<option value="{{ number }}" {% if number == round_number %}selected{% endif %}>Round {{ number }}</option>{% endfor %}</select></label>
+      <label>Team<select id="teamFilter"><option value="">All teams</option>{% for team in teams %}<option value="{{ team.team_id }}" {% if filters.team == team.team_id %}selected{% endif %}>{{ team.display_name or team.internal_name }}</option>{% endfor %}</select></label>
+      <label>Player<select id="playerFilter"><option value="">All players</option>{% for player in players %}<option value="{{ player.player_id }}" {% if filters.player == player.player_id %}selected{% endif %}>{{ player.current_name }}</option>{% endfor %}</select></label>
+    </div>
+    <fieldset class="sidebar-group utility-filters">
+      <legend>Utility</legend>
+      <label class="check-row"><input id="utility-all" type="checkbox" checked> All</label>
+      <label class="check-row"><input id="utility-smoke" type="checkbox" checked> Smoke</label>
+      <label class="check-row"><input id="utility-flashbang" type="checkbox" checked> Flash</label>
+      <label class="check-row"><input id="utility-he_grenade" type="checkbox" checked> HE</label>
+      <label class="check-row"><input id="utility-molotov" type="checkbox" checked> Molotov</label>
+      <label class="check-row"><input id="utility-incendiary" type="checkbox" checked> Incendiary</label>
+      <label class="check-row"><input id="utility-fire" type="checkbox" checked> Fire</label>
+      <label class="check-row"><input id="utility-decoy" type="checkbox" checked> Decoy</label>
+    </fieldset>
+    <label class="sidebar-group">Jump<select id="eventJump"><option value="">Choose event</option>{% for event in events %}<option value="{{ event.tick }}">tick {{ event.tick }} · {{ event.label }}</option>{% endfor %}</select></label>
+    <div class="sidebar-group playback-settings">
+      <span class="sidebar-label">Playback</span>
+      <label>Mode<select id="playbackMode"><option value="smooth">Smooth</option><option value="exact">Exact</option></select></label>
+      <label>Speed<select id="playbackSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+      <label>Labels<select id="labelMode"><option value="medium" selected>Medium</option><option value="short">Short</option><option value="hidden">Hidden</option></select></label>
+      <label class="auto-focus-control"><input id="autoFocus" type="checkbox"> Auto focus</label>
+    </div>
+    <div class="viewer-actions">
+      <button id="diagnosticsToggle" class="secondary" type="button">Diagnostics</button>
+      <button id="fullscreen" class="secondary" type="button">Fullscreen</button>
+    </div>
+  </aside>
+
+  <section class="map-panel">
+    <div id="mapStage" class="map-stage" tabindex="0" aria-label="Spatial map viewer">
+      {% if overview.image_url %}<img class="map-stage-backdrop" src="{{ overview.image_url }}" alt="" aria-hidden="true" draggable="false">{% endif %}
+      <div id="mapViewport" class="map-viewport">
+        <div
+          id="mapCanvas"
+          class="map-canvas"
+          data-level-mode="automatic"
+          data-map-width="{{ overview.width or 1024 }}"
+          data-map-height="{{ overview.height or 1024 }}"
+        >
+          {% if overview.image_url %}
+          <img id="upperOverview" class="upper-overview" src="{{ overview.image_url }}" alt="Official {{ overview.map_name }} upper overview" draggable="false">
+          {% if overview.lower_image_url %}<img id="lowerOverview" class="lower-overview" src="{{ overview.lower_image_url }}" alt="Official {{ overview.map_name }} lower overview" draggable="false">{% endif %}
+          {% else %}
+          <div class="map-overview-missing" role="img" aria-label="Map overview unavailable"></div>
+          {% endif %}
+          <canvas id="projectileTrailsLayer" class="render-layer projectile-trails-layer" aria-hidden="true"></canvas>
+          <div id="playersLayer" class="render-layer players-layer"></div>
+          <div id="projectilesLayer" class="render-layer projectiles-layer" aria-hidden="true"></div>
+          <div id="utilityEffectsLayer" class="render-layer effects-layer" aria-hidden="true"></div>
+          <div id="eventsLayer" class="render-layer events-layer"></div>
+          <div id="bombLayer" class="render-layer bomb-layer" aria-hidden="true"></div>
+          <div id="labelsLayer" class="render-layer labels-layer" aria-hidden="true"></div>
+          <div id="selectionLayer" class="render-layer selection-layer" aria-hidden="true"></div>
+          <span id="levelBadge" class="level-badge" {% if not overview.lower_image_url %}hidden{% endif %}>Automatic levels</span>
+        </div>
+      </div>
+
+      <svg class="icon-sprite" aria-hidden="true" width="0" height="0">
+        <defs>
+          <g id="icon-player"><path d="M0-11 9-6 7 7 0 11-7 7-9-6Z"></path><path class="player-core" d="M0-6 4 2 0 6-4 2Z"></path></g>
+          <g id="icon-death"><path d="M-7-7 7 7M7-7-7 7"></path><path d="M-9 0H9M0-9V9" opacity=".22"></path></g>
+          <g id="icon-selection"><path d="M0-15 13-7 13 7 0 15-13 7-13-7Z"></path></g>
+          <g id="icon-bomb"><path d="M-7-7H5V7H-7Z"></path><path d="M5-4C11-4 11 3 6 3M-3-7V-10H2"></path></g>
+          <g id="icon-utility"><path d="M-5-4H5L6 7H-6Z"></path><path d="M-3-4V-8H3V-4M3-7H7"></path></g>
+          <g id="icon-smoke"><path d="M-8 5C-10 1-8-3-3-3-2-8 5-8 6-3 11-2 10 5 6 6H-5C-7 6-8 6-8 5Z"></path></g>
+          <g id="icon-flash"><path d="M0-10 2-3 9-6 4 0 10 3 3 3 4 10 0 5-5 10-4 3-10 2-4-1-9-6-2-3Z"></path></g>
+          <g id="icon-he"><path d="M0-9 8-4 7 5 0 9-7 5-8-4Z"></path><path d="M-4 0H4M0-4V4"></path></g>
+          <g id="icon-fire"><path d="M0-10C5-5 8-1 6 5 4 10-5 10-7 4-8 0-5-3-2-6-2-1 0 0 1 3 3 0 2-4 0-10Z"></path></g>
+          <g id="icon-decoy"><path d="M-6-4H6V7H-6Z"></path><path d="M0-4V-9M-3-7 0-9 3-7"></path></g>
+          <g id="icon-shot"><path d="M0-9V-3M-8-4-3-1M8-4 3-1M-3 3 0 6 3 3"></path></g>
+          <g id="icon-damage"><path d="M0-8 8 0 0 8-8 0Z"></path><path d="M-3 0H3M0-3V3"></path></g>
+          <g id="icon-defuse"><path d="M-7 6 2-3M0-6 6 0M-4 3 1 8"></path></g>
+          <g id="icon-explosion"><path d="M0-10 3-4 9-6 5 0 10 4 3 4 0 10-3 4-10 6-5 0-9-5-3-4Z"></path></g>
+          <g id="icon-trade"><path d="M-8-3H5M2-6 6-3 2 0M8 4H-5M-2 1-6 4-2 7"></path></g>
+          <g id="icon-opening"><path d="M0-8 8 0 0 8-8 0ZM0-4V4M-4 0H4"></path></g>
+          <g id="icon-event"><path d="M0-7 7 0 0 7-7 0Z"></path></g>
+        </defs>
+      </svg>
+
+      <div class="map-toolbar" aria-label="Map view controls">
+        {% if overview.lower_image_url %}<label>Level<select id="levelFilter"><option value="automatic">Auto</option><option value="upper">Upper</option><option value="lower">Lower</option><option value="both">Both</option></select></label>{% endif %}
+        <button id="zoomOut" class="secondary" type="button" aria-label="Zoom out">−</button>
+        <button id="zoomIn" class="secondary" type="button" aria-label="Zoom in">+</button>
+        <button id="resetView" class="secondary" type="button">Reset</button>
+        <button id="fitMap" class="secondary" type="button">Fit</button>
+      </div>
+
+      {% if overview_unavailable %}<div class="viewer-warning">Overview unavailable · coordinates remain queryable</div>{% endif %}
+      {% if overview.revision_selection_status == 'unproven' %}<div class="viewer-warning">Map revision is not proven by demo metadata</div>{% endif %}
+      {% if overview.legacy_map_semantics %}<div class="viewer-warning">Legacy map semantics · revision not backfilled</div>{% endif %}
+      <div class="map-legend" aria-label="Map legend"><span class="t">T</span><span class="ct">CT</span><span>C4</span><span>Smoke</span><span>Flash</span><span>HE</span><span>Fire</span></div>
+      <div id="loadingState" class="map-state" hidden>Loading playback buffer…</div>
+      <div id="errorState" class="map-state error" hidden><strong>Playback request failed</strong><span id="errorMessage"></span><button id="retry" type="button">Retry</button></div>
+      <div id="emptyState" class="map-state" hidden>No players match the selected filters.</div>
+    </div>
+
+    <div id="eventCards" class="event-ribbon" aria-label="Events at current tick"></div>
+    <section class="transport-bar" aria-label="Playback controls">
+      <div class="transport-buttons">
+        <button id="beginning" type="button" aria-label="Beginning of round">⏮</button>
+        <button id="previousEvent" type="button" aria-label="Previous event">⇤</button>
+        <button id="previous" type="button" aria-label="Previous exact sample">◀</button>
+        <button id="playPause" type="button" aria-label="Play">▶ Play</button>
+        <button id="next" type="button" aria-label="Next exact sample">▶</button>
+        <button id="nextEvent" type="button" aria-label="Next event">⇥</button>
+        <button id="ending" type="button" aria-label="End of round">⏭</button>
+      </div>
+      <label class="scrubber-label"><span><strong id="sampleIndex">0</strong></span><input id="scrubber" type="range" min="0" max="{{ total_samples - 1 if total_samples else 0 }}" value="{{ initial_index }}" aria-label="Authoritative sample index"></label>
+    </section>
+  </section>
+</section>
+
+<aside id="diagnosticsDrawer" class="diagnostics-drawer" hidden aria-label="Playback diagnostics">
+  <div class="drawer-heading"><h2>Diagnostics</h2><button id="closeDiagnostics" class="secondary" type="button" aria-label="Close diagnostics">Close</button></div>
+  <fieldset class="diagnostic-filters"><legend>Additional evidence filters</legend><label class="check-row"><input id="aliveFilter" type="checkbox" {% if filters.alive_only %}checked{% endif %}> Alive only</label><label class="check-row"><input id="bombFilter" type="checkbox" {% if filters.bomb_carrier_only %}checked{% endif %}> C4 carrier only</label></fieldset>
+  <dl><dt>Frame state</dt><dd id="frameStatus">Exact stored sample</dd><dt>Evidence tick</dt><dd id="tickStatus">—</dd><dt>Buffer</dt><dd id="bufferStatus">—</dd><dt>Selected player</dt><dd id="selectedPlayerStatus">All players</dd><dt>Current event</dt><dd id="currentEventStatus">No current event</dd><dt>Playback schema</dt><dd><code>{{ initial_chunk.schema_version }}</code></dd><dt>Clock basis</dt><dd>{{ initial_chunk.clock.basis }}</dd><dt>Clock rate</dt><dd>{{ initial_chunk.clock.presentation_ticks_per_second }} presentation ticks/s · not canonical tickrate</dd><dt>Spatial run</dt><dd><code>{{ initial_chunk.spatial_run_id }}</code></dd><dt>Temporal run</dt><dd><code>{{ initial_chunk.temporal_run_id }}</code></dd><dt>Projectile rule</dt><dd><code>{{ initial_chunk.projectile_metadata.extraction_rule_version if initial_chunk.projectile_metadata else 'legacy / unavailable' }}</code></dd><dt>Projectile positions</dt><dd>{{ initial_chunk.projectile_capabilities.positions.status }}</dd><dt>Bounce evidence</dt><dd>{{ initial_chunk.projectile_capabilities.bounce_events.status }}</dd><dt>Map revision</dt><dd><code>{{ overview.selected_revision or 'legacy_map_semantics' }}</code></dd><dt>Revision evidence</dt><dd>{{ overview.selection_evidence|join(', ') or 'unproven / legacy' }}</dd><dt>Definition</dt><dd><code>{{ overview.map_definition_fingerprint or 'not pinned' }}</code></dd><dt>Calibration</dt><dd>{{ overview.calibration_status or 'legacy' }}</dd><dt>Level policy</dt><dd>{{ overview.level_policy.kind if overview.level_policy else 'legacy' }}</dd><dt>Map warnings</dt><dd>{{ overview.warnings|join(', ') or 'none' }}</dd><dt>Evidence</dt><dd>Stored authoritative entities; visual frames are not evidence</dd><dt>DOM nodes</dt><dd id="metricNodes">—</dd><dt>HTTP fetches</dt><dd id="metricFetches">0</dd><dt>Average frame</dt><dd id="metricRender">—</dd><dt>Average DOM diff</dt><dd id="metricDom">—</dd><dt>Average layer diff</dt><dd id="metricSvg">—</dd><dt>Average sidebar diff</dt><dd id="metricSidebar">—</dd><dt>Average event-list diff</dt><dd id="metricEventList">—</dd><dt>Updated nodes/frame</dt><dd id="metricUpdatedNodes">0</dd><dt>Recreated nodes</dt><dd id="metricRecreatedNodes">0</dd><dt>Active players</dt><dd id="metricActivePlayers">0</dd><dt>Active projectiles</dt><dd id="metricActiveProjectiles">0</dd><dt>Crossed samples</dt><dd id="metricClockCrossed">0</dd><dt>Max samples/frame</dt><dd id="metricClockMaxCrossed">0</dd><dt>Label plan builds</dt><dd id="metricLabelPlans">0</dd><dt>Label anchor flips</dt><dd id="metricAnchorFlips">0</dd><dt>Dropped frames</dt><dd id="metricDropped">0</dd><dt>Buffering entries</dt><dd id="metricBuffering">0</dd><dt>Rejected markers</dt><dd id="metricRejected">0</dd><dt>Repeated samples</dt><dd id="metricRepeated">{{ initial_chunk.diagnostics.repeated_player_samples }}</dd><dt>Suspicious jumps</dt><dd id="metricJumps">{{ initial_chunk.diagnostics.suspicious_player_jumps }}</dd><dt>Projectile samples</dt><dd id="metricProjectileSamples">{{ initial_chunk.diagnostics.authoritative_projectile_samples }}</dd><dt>Utility effects</dt><dd id="metricUtilityEffects">{{ initial_chunk.diagnostics.utility_effects }}</dd></dl>
+  <h3>Live playback overlay</h3><dl class="live-playback-metrics"><dt>Evidence tick</dt><dd id="developerCurrentTick">—</dd><dt>Next tick</dt><dd id="developerNextTick">—</dd><dt>Progress</dt><dd id="developerProgress">0%</dd><dt>Tick gap</dt><dd id="developerTickGap">—</dd><dt>Buffered</dt><dd id="developerBuffered">0</dd><dt>Pending request</dt><dd id="developerPending">none</dd><dt>Render FPS</dt><dd id="developerFps">—</dd><dt>Stale/held players</dt><dd id="developerStale">0</dd><dt>Unavailable players</dt><dd id="developerUnavailable">0</dd><dt>Rendered frames</dt><dd id="developerRendered">0</dd><dt>Max frame time</dt><dd id="developerMaxRender">—</dd><dt>API requests/min</dt><dd id="developerApiMinute">0</dd></dl>
+  <div class="button-row"><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}/diagnostics">Match diagnostics</a><a id="jsonLink" class="button secondary" href="#">Exact sample JSON</a><a id="temporalLink" class="button secondary" href="#">Temporal snapshot</a></div>
+</aside>
+<script id="spatialConfig" type="application/json">{{ config_json|safe }}</script>
+<script id="initialChunk" type="application/json">{{ initial_chunk_json|safe }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/label-layout.js') }}" defer></script><script src="{{ static_asset('js/url-state.js') }}" defer></script><script src="{{ static_asset('js/buffer-ranges.js') }}" defer></script><script src="{{ static_asset('js/playback-clock.js') }}" defer></script><script src="{{ static_asset('js/event-buffer.js') }}" defer></script><script src="{{ static_asset('js/map-renderer.js') }}" defer></script><script src="{{ static_asset('js/spatial-player.js') }}" defer></script>{% endblock %}

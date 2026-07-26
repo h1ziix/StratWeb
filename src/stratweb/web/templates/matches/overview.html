@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ overview.match.map_name }} · StratWeb{% endblock %}
+{% block content %}
+<section class="page-heading match-heading"><div><p class="eyebrow">Match overview</p>
+  <h1>{{ overview.match.map_name }}</h1><p>{{ overview.match.source_name }} · {{ overview.match.round_count }} rounds</p></div>
+  <div class="headline-score">{% if overview.match.score_available %}{% for team in overview.match.teams %}<span>{{ team.name }} <strong>{{ team.score }}</strong></span>{% endfor %}{% else %}<span>Score unavailable</span>{% endif %}</div>
+</section>
+<section class="health-grid" aria-label="Data health">
+{% for item in overview.health %}<a class="health-card {{ item.status }}" {% if item.href %}href="{{ item.href }}"{% endif %}>
+  <span>{{ item.label }}</span><strong>{{ item.status|capitalize }}</strong><small>{{ item.detail }}</small></a>{% endfor %}
+</section>
+<section id="rounds"><div class="section-heading"><h2>Rounds</h2><span>Select map or timeline</span></div>
+  <div class="round-strip">{% for round in overview.rounds %}<article class="round-pill {% if not round.complete %}partial{% endif %}">
+    <strong>R{{ round.round_number }}</strong><span>{{ round.score }}</span><small>{{ round.winner }}</small>
+    <div>{% if round.map_href %}<a href="{{ round.map_href }}">Map</a>{% endif %}{% if round.timeline_href %}<a href="{{ round.timeline_href }}">Timeline</a>{% endif %}</div>
+  </article>{% endfor %}</div>
+</section>
+<section class="metric-grid" aria-label="Observed event counts">
+  <article><span>Opening duels</span><strong>{{ overview.opening_duels }}</strong></article>
+  <article><span>Trades</span><strong>{{ overview.trades }}</strong></article>
+  <article><span>Plants</span><strong>{{ overview.plants }}</strong></article>
+  <article><span>Defuses</span><strong>{{ overview.defuses }}</strong></article>
+</section>
+<section id="players"><div class="section-heading"><h2>Players</h2><span>Stored match totals</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Player</th><th>K</th><th>D</th><th>A</th><th>ADR</th></tr></thead><tbody>
+  {% for player in overview.players %}<tr><td>{{ player.name }}</td><td>{{ player.kills if player.kills is not none else '—' }}</td><td>{{ player.deaths if player.deaths is not none else '—' }}</td><td>{{ player.assists if player.assists is not none else '—' }}</td><td>{{ '%.1f'|format(player.adr) if player.adr is not none else '—' }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<details class="developer-details"><summary>Developer details</summary><dl>{% for label, value in overview.developer_details.items() %}<dt>{{ label }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Copy</button></dd>{% endfor %}</dl></details>
+{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/product-ui.js') }}" defer></script>{% endblock %}

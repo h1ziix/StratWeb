@@ -1,0 +1,20 @@
+.calibration-grid { display: grid; grid-template-columns: minmax(18rem, 24rem) minmax(32rem, 1fr); gap: var(--space-5); }
+.calibration-controls, .calibration-map { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); }
+.calibration-controls { display: grid; gap: var(--space-3); align-content: start; }
+.calibration-controls label, .calibration-controls fieldset { display: grid; gap: .35rem; }
+.calibration-controls fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); }
+.calibration-controls legend { grid-column: 1 / -1; color: var(--muted); padding: 0 .35rem; }
+.calibration-controls output { display: grid; gap: .25rem; padding: var(--space-3); background: var(--surface-2); border-radius: var(--radius-md); }
+.calibration-map header { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: var(--space-3); }
+.calibration-map header div { display: grid; gap: .2rem; }
+.calibration-level { display: grid; grid-template-columns: auto minmax(12rem, 20rem); align-items: center; justify-content: end; gap: .75rem; margin-bottom: var(--space-3); color: var(--muted); }
+.calibration-stage { position: relative; aspect-ratio: 1; overflow: hidden; background: #07100f; }
+.calibration-stage img, .calibration-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.calibration-overview { opacity: 0; transition: opacity 120ms ease-out; }
+.calibration-stage[data-level-mode="upper"] .calibration-overview-upper,
+.calibration-stage[data-level-mode="lower"] .calibration-overview-lower { opacity: 1; }
+.calibration-stage[data-level-mode="both"] .calibration-overview-upper,
+.calibration-stage[data-level-mode="both"] .calibration-overview-lower { opacity: .5; }
+.calibration-stage svg circle { fill: #f7c948; stroke: #101d1b; stroke-width: 4; }
+.calibration-map table { width: 100%; margin-top: var(--space-3); }
+@media (max-width: 900px) { .calibration-grid { grid-template-columns: 1fr; } }

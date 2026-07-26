@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Diagnostics · {{ overview.match.map_name }} · StratWeb{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">Diagnostics mode</p><h1>Data health and runs</h1>
+  <p>Capabilities, warnings and raw identifiers are isolated from analysis mode.</p></div></section>
+<section class="health-grid">{% for item in overview.health %}<article class="health-card {{ item.status }}"><span>{{ item.label }}</span><strong>{{ item.status|capitalize }}</strong><small>{{ item.detail }}</small></article>{% endfor %}</section>
+<section class="diagnostic-panel"><h2>Validation and endpoints</h2><div class="button-row">
+  <a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/summary">Spatial summary JSON</a>
+  <a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/validation">Spatial validation JSON</a>
+  <a class="button secondary" href="/api/temporal/{{ overview.match.match_id }}/diagnostics">Temporal diagnostics JSON</a>
+  <a class="button secondary" href="/ui/temporal/{{ overview.match.match_id }}/diagnostics">Temporal counters</a>
+</div></section>
+<section class="diagnostic-panel"><h2>Map semantics</h2>{% if map_overview %}<dl><dt>Canonical map</dt><dd><code>{{ map_overview.canonical_name or overview.match.map_name }}</code></dd><dt>Revision</dt><dd><code>{{ map_overview.selected_revision or 'legacy_map_semantics' }}</code></dd><dt>Selection</dt><dd>{{ map_overview.revision_selection_status or 'legacy' }}</dd><dt>Evidence</dt><dd>{{ map_overview.selection_evidence|join(', ') or 'none' }}</dd><dt>Calibration</dt><dd>{{ map_overview.calibration_status or 'legacy' }}</dd><dt>Warnings</dt><dd>{{ map_overview.warnings|join(', ') or 'none' }}</dd></dl>{% else %}<p>Unsupported map or overview asset unavailable. Raw spatial evidence is preserved.</p>{% endif %}
+  <div class="button-row"><a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/map">Match map JSON</a>{% if map_developer_mode and map_overview and map_overview.canonical_name %}<form action="/ui/maps/calibration" method="get"><input type="hidden" name="map_name" value="{{ map_overview.canonical_name }}"><label>Explicit research revision<select name="revision">{% for revision in map_revisions %}<option value="{{ revision.map_revision.revision_id }}" {% if revision.map_revision.revision_id == map_overview.selected_revision %}selected{% endif %}>{{ revision.map_revision.display_name }}</option>{% endfor %}</select></label><button type="submit" class="secondary">Open non-persistent override</button></form>{% endif %}</div>
+</section>
+<details class="developer-details" open><summary>Run and schema details</summary><dl>{% for label, value in overview.developer_details.items() %}<dt>{{ label }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Copy</button></dd>{% endfor %}</dl></details>
+{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/product-ui.js') }}" defer></script>{% endblock %}

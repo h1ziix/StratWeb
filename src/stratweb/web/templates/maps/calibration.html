@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Map calibration · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/map-calibration.css') }}">{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">Developer-only · non-persistent</p>
+  <h1>Map calibration workbench</h1>
+  <p>Candidate parameters are evaluated by the backend pure transform and are never saved.</p></div>
+  <button id="exportCandidate" type="button">Export candidate JSON</button>
+</section>
+<div class="notice warning"><strong>Calibration is not accepted here.</strong> Acceptance still requires several known points and a real demo.</div>
+<section class="calibration-grid">
+  <form id="calibrationForm" class="calibration-controls">
+    <label>Map<select id="calibrationMap" name="map_name">{% for item in maps %}<option value="{{ item.canonical_name }}" {% if item.canonical_name == definition.canonical_name %}selected{% endif %}>{{ item.display_name }}</option>{% endfor %}</select></label>
+    <label>Revision<select id="calibrationRevision" name="revision">{% for item in maps %}{% if item.canonical_name == definition.canonical_name %}{% for revision in item.revisions %}<option value="{{ revision.revision.revision_id }}" {% if revision.revision.revision_id == definition.revision.revision_id %}selected{% endif %}>{{ revision.revision.display_name }} · {{ revision.validation_status }}</option>{% endfor %}{% endif %}{% endfor %}</select></label>
+    <fieldset><legend>Raw Source 2 point</legend>
+      <label>X<input id="pointX" type="number" step="any" value="{{ point.x }}"></label>
+      <label>Y<input id="pointY" type="number" step="any" value="{{ point.y }}"></label>
+      <label>Z<input id="pointZ" type="number" step="any" value="{{ point.z }}"></label>
+    </fieldset>
+    <fieldset><legend>Candidate parameters</legend>
+      <label>Origin X<input id="originX" type="number" step="any" value="{{ definition_model.world_origin_x if definition_model.world_origin_x is not none else '' }}"></label>
+      <label>Origin Y<input id="originY" type="number" step="any" value="{{ definition_model.world_origin_y if definition_model.world_origin_y is not none else '' }}"></label>
+      <label>Scale<input id="candidateScale" type="number" min="0.000001" step="any" value="{{ definition_model.scale if definition_model.scale is not none else '' }}"></label>
+      <label>Level split Z<input id="levelSplit" type="number" step="any" value="{{ definition_model.level_split_z if definition_model.level_split_z is not none else '' }}"></label>
+    </fieldset>
+    <div class="button-row"><button id="evaluatePoint" type="submit">Evaluate point</button><button id="addPoint" class="secondary" type="button">Add to comparison</button></div>
+    <output id="calibrationResult"><strong>pixel {{ '%.2f'|format(result.pixel_x) if result.pixel_x is not none else '—' }}, {{ '%.2f'|format(result.pixel_y) if result.pixel_y is not none else '—' }}</strong><span>level {{ result.level }} · {{ result.availability }}</span></output>
+  </form>
+  <div class="calibration-map">
+    <header><div><strong>{{ definition.display_name }}</strong><span>{{ definition.revision.revision_id }}</span></div><div><span>{{ definition.calibration_status }}</span><span>{{ definition.validation_status }}</span></div></header>
+    {% if overview.lower_image_url %}<label class="calibration-level">Overview level<select id="calibrationLevel"><option value="automatic">Automatic from Z</option><option value="upper">Upper</option><option value="lower">Lower</option><option value="both">Both (diagnostic overlay)</option></select></label>{% endif %}
+    <div id="calibrationStage" class="calibration-stage" data-level-mode="{{ result.level if result.level in ['upper', 'lower'] else 'upper' }}">{% if overview.image_url %}<img class="calibration-overview calibration-overview-upper" src="{{ overview.image_url }}" alt="{{ definition.display_name }} upper overview">{% if overview.lower_image_url %}<img class="calibration-overview calibration-overview-lower" src="{{ overview.lower_image_url }}" alt="{{ definition.display_name }} lower overview">{% endif %}<svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}"><g id="calibrationPoints">{% if result.pixel_x is not none and result.pixel_y is not none %}<circle cx="{{ result.pixel_x }}" cy="{{ result.pixel_y }}" r="10"></circle>{% endif %}</g></svg>{% else %}<div class="map-overview-missing">Overview unavailable for this revision</div>{% endif %}</div>
+    <table><thead><tr><th>#</th><th>Raw XYZ</th><th>Pixel</th><th>Level</th><th>Warnings</th></tr></thead><tbody id="candidatePoints"></tbody></table>
+  </div>
+</section>
+<details class="developer-details" open><summary>Immutable source definition</summary><dl><dt>Fingerprint</dt><dd><code>{{ definition.definition_fingerprint }}</code></dd><dt>Asset version</dt><dd><code>{{ definition.asset_version }}</code></dd><dt>Axis</dt><dd><code>{{ definition.axis_orientation }}</code></dd><dt>Rotation metadata</dt><dd><code>{{ definition.rotation }}</code></dd></dl></details>
+<script id="mapDefinition" type="application/json">{{ definition_json|safe }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/map-calibration.js') }}" defer></script>{% endblock %}

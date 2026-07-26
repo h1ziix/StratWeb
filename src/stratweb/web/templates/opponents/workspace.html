@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ workspace.profile.display_name }} · StratWeb{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">Opponents</a> / {{ workspace.profile.display_name }}</nav>
+<section class="page-heading">
+  <div><p class="eyebrow">User-confirmed evidence scope</p><h1>{{ workspace.profile.display_name }}</h1>
+  <p>Only explicit match-team selections are persisted. Steam ID overlap is advisory.</p></div>
+  <span class="status available">{{ workspace.selected_matches|length }} confirmed matches</span>
+</section>
+{% for warning in workspace.warnings %}<p class="notice warning">{{ warning }}</p>{% endfor %}
+
+<section>
+  <div class="section-heading"><h2>Confirmed matches</h2><span>Physical team selection</span></div>
+  {% if workspace.selected_matches %}
+  <div class="selected-match-list">
+  {% for item in workspace.selected_matches %}
+    <article class="selected-match">
+      <div><strong>{{ item.map_name }}</strong><small>{{ item.source_name }} · {{ item.round_count }} rounds</small></div>
+      <div><span class="badge good">{{ item.team_name }}</span><small>{{ item.player_names|join(', ') }}</small></div>
+      <div><strong>{{ item.identified_player_count }}</strong><small>Steam IDs</small></div>
+      <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches/{{ item.selection.match_id }}/remove"><button class="secondary" type="submit">Remove</button></form>
+    </article>
+  {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><p>Select the opponent's physical team in the first match below. Nicknames alone are never used to merge identities.</p></div>
+  {% endif %}
+</section>
+
+<section>
+  <div class="section-heading"><h2>Roster identity</h2><span>Aggregated strictly across confirmed teams</span></div>
+  {% if workspace.roster %}
+  <div class="table-wrap"><table><thead><tr><th>Player</th><th>Identity</th><th>Appearances</th><th>Role</th><th>Known names</th></tr></thead><tbody>
+  {% for player in workspace.roster %}<tr>
+    <td><strong>{{ player.current_name }}</strong>{% if player.steam_id %}<small class="block muted">{{ player.steam_id }}</small>{% endif %}</td>
+    <td>{{ 'Steam ID' if player.identity_status == 'steam_id' else 'Occurrence only' }}</td>
+    <td>{{ player.appearance_count }} / {{ player.selected_match_count }}</td>
+    <td><span class="badge {{ 'good' if player.role == 'core' else ('warn' if player.role == 'partial' else 'bad') }}">{{ player.role }}</span></td>
+    <td>{{ player.known_names|join(', ') }}</td>
+  </tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="muted">Roster appears after the first confirmed match.</p>{% endif %}
+</section>
+
+<section>
+  <div class="section-heading"><h2>Add imported matches</h2><span>Overlap never auto-confirms a team</span></div>
+  {% if workspace.candidates %}
+  <div class="candidate-list">
+  {% for match in workspace.candidates %}
+    <article class="candidate-match">
+      <header><div><strong>{{ match.map_name }}</strong><small>{{ match.source_name }} · {{ match.round_count }} rounds</small></div><a href="/ui/matches/{{ match.match_id }}">Inspect match</a></header>
+      <div class="candidate-teams">
+      {% for team in match.teams %}
+        <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches" class="candidate-team {{ team.strength }}">
+          <input type="hidden" name="match_id" value="{{ match.match_id }}">
+          <input type="hidden" name="team_id" value="{{ team.team_id }}">
+          <div><strong>{{ team.team_name }}</strong><span class="badge {{ 'good' if team.strength == 'strong' else ('warn' if team.strength == 'possible' else '') }}">{{ team.strength }}</span></div>
+          <p>{{ team.player_names|join(', ') }}</p>
+          <p class="muted">
+            {% if team.overlap_frequency is not none %}{{ team.overlap_numerator }}/{{ team.overlap_denominator }} Steam IDs overlap{% else %}Overlap unscored{% endif %}
+            {% if team.shared_player_names %} · {{ team.shared_player_names|join(', ') }}{% endif %}
+            {% if team.missing_steam_id_count %} · {{ team.missing_steam_id_count }} missing Steam ID{% endif %}
+          </p>
+          <button type="submit">Confirm this team</button>
+        </form>
+      {% endfor %}
+      </div>
+    </article>
+  {% endfor %}
+  </div>
+  {% else %}<div class="empty-state"><p>Every imported match is already assigned to this workspace.</p></div>{% endif %}
+</section>
+<details class="developer-details"><summary>Identity contract</summary><dl>
+  <dt>Schema</dt><dd><code>{{ workspace.opponent_schema_version }}</code></dd>
+  <dt>Identity rule</dt><dd><code>{{ workspace.identity_rule_version }}</code></dd>
+  <dt>Overlap rule</dt><dd><code>{{ workspace.overlap_rule_version }}</code></dd>
+</dl></details>
+{% endblock %}

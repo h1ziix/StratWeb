@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stratweb"
+version = "0.3.0"
+description = "Offline, evidence-based analysis of completed Counter-Strike 2 demos"
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+    "demoparser2==0.41.4",
+    "duckdb==1.5.4",
+    "fastapi==0.139.2",
+    "jinja2==3.1.6",
+    "polars==1.42.1",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "python-multipart==0.0.32",
+    "uvicorn==0.51.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2==2.7.0",
+    "mypy==2.3.0",
+    "pytest==9.1.1",
+    "ruff==0.15.22",
+]
+
+[project.scripts]
+stratweb = "stratweb.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stratweb"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+markers = [
+    "integration: requires a local demo path in STRATWEB_TEST_DEMO",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/stratweb/web/temporal.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
