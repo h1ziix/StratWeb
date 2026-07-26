@@ -24,6 +24,12 @@
 .zone-legend .pathway::before { color: #2f6fd1; }
 .zone-legend .chokepoint::before { color: #b58a1c; }
 .zone-legend .area::before { color: #7a5bd1; }
+.zone-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 10px 0; }
+.zone-stage svg { touch-action: none; }
+.zone-edit-rect { fill: rgba(77, 141, 255, 0.10); stroke: #4d8dff; stroke-width: 2; cursor: move; }
+.zone-edit-rect.selected { fill: rgba(77, 141, 255, 0.22); stroke: #9cc0ff; }
+.zone-edit-name { font: 600 13px system-ui, sans-serif; fill: #bcd3ff; text-anchor: middle; paint-order: stroke; stroke: rgba(10, 10, 10, 0.85); stroke-width: 3px; pointer-events: none; }
+.zone-edit-handle { fill: #ffffff; stroke: #1c2733; stroke-width: 1.5; cursor: nwse-resize; }
 </style>{% endblock %}
 {% block content %}
 <nav class="breadcrumbs"><a href="/ui">Matches</a> / Zone overlay</nav>
@@ -36,7 +42,12 @@
 {% if zone_set %}
 <div class="zone-wrap">
   <div class="zone-legend"><span class="bombsite">bombsite</span><span class="spawn">spawn</span><span class="pathway">pathway</span><span class="chokepoint">chokepoint</span><span class="area">area</span></div>
-  <label class="zone-toggle"><input type="checkbox"> Показать границы полигонов (для проверки)</label>
+  <div class="zone-controls">
+    <label class="zone-toggle"><input type="checkbox"> Показать границы полигонов</label>
+    <label class="zone-toggle"><input type="checkbox" id="zoneEditMode"> Режим редактирования (тяни зону; правый нижний угол — размер)</label>
+    <button id="zoneSaveButton" class="secondary" type="button">Сохранить разметку</button>
+    <span id="zoneSaveStatus" class="muted"></span>
+  </div>
   <div class="zone-stage">
     {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
     <svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}">
@@ -60,7 +71,9 @@
   </tr>{% endfor %}
   </tbody></table></div>
 </section>
+<script type="application/json" id="zoneEditorData">{{ editor_json|safe }}</script>
 {% else %}
 <div class="empty-state"><p>No zone set is authored for {{ map_name }} revision {{ revision_id }} yet.</p></div>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/zone-editor.js') }}" defer></script>{% endblock %}

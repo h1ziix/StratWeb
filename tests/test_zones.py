@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -201,6 +202,45 @@ def test_zone_overlay_endpoints_are_disabled_without_developer_mode(tmp_path: Pa
 
     assert page.status_code == 404
     assert data.status_code == 404
+
+
+def test_zone_proposal_endpoint_is_gated_validated_and_persisted(tmp_path: Path) -> None:
+    overviews = tmp_path / "map_overviews"
+    overviews.mkdir()
+    valid = {
+        "map_name": "de_mirage",
+        "revision_id": "cs2-1.41.7.1-d263aa1118fb",
+        "zones": [
+            {"zone_id": "jungle", "x1": -1386.8, "y1": -1461.4, "x2": -874.8, "y2": -1871.0}
+        ],
+    }
+
+    with TestClient(create_app(tmp_path / "off.duckdb", overviews)) as client:
+        blocked = client.post("/api/dev/zones/de_mirage/proposal", json=valid)
+
+    with TestClient(
+        create_app(tmp_path / "on.duckdb", overviews, map_developer_mode=True)
+    ) as client:
+        saved = client.post("/api/dev/zones/de_mirage/proposal", json=valid)
+        unknown = client.post(
+            "/api/dev/zones/de_mirage/proposal",
+            json={**valid, "zones": [{**valid["zones"][0], "zone_id": "nope"}]},
+        )
+        mismatch = client.post(
+            "/api/dev/zones/de_mirage/proposal",
+            json={**valid, "revision_id": "other-revision"},
+        )
+
+    assert blocked.status_code == 404
+    assert saved.status_code == 200
+    assert saved.json() == {"saved": True, "file": "de_mirage.json", "zone_count": 1}
+    proposal_file = tmp_path / "zone_proposals" / "de_mirage.json"
+    assert proposal_file.exists()
+    stored = json.loads(proposal_file.read_text(encoding="utf-8"))
+    assert stored["revision_id"] == "cs2-1.41.7.1-d263aa1118fb"
+    assert stored["zones"][0]["zone_id"] == "jungle"
+    assert unknown.status_code == 422
+    assert mismatch.status_code == 409
 
 
 def test_sampled_coverage_against_real_map_definition() -> None:

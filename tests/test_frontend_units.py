@@ -272,3 +272,27 @@ const yaw = window.StratWebMotion.interpolateYaw(350, 10, 0.5);
 if (Math.abs(yaw) > 0.0001) throw new Error(`wrong yaw path: ${yaw}`);
 """
     _run_node(source, STATIC_JS / "map-renderer.js")
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is optional; browser JS unit runtime unavailable")
+def test_zone_editor_math_round_trips_world_and_pixel_space() -> None:
+    source = r"""
+const fs = require("fs");
+global.window = {};
+eval(fs.readFileSync(process.argv[1], "utf8"));
+const math = global.window.StratWebZoneMath;
+const editor = { world_origin_x: -3230, world_origin_y: 1713, scale: 5 };
+const world = math.pixelToWorld(editor, 256, 512);
+if (world.x !== -1950 || world.y !== -847) {
+  throw new Error("pixelToWorld mismatch: " + JSON.stringify(world));
+}
+const pixel = math.worldToPixel(editor, world.x, world.y);
+if (Math.abs(pixel.x - 256) > 1e-9 || Math.abs(pixel.y - 512) > 1e-9) {
+  throw new Error("roundtrip mismatch");
+}
+const rect = math.normalizeRect(90, 20, 10, 80);
+if (rect.x1 !== 10 || rect.y1 !== 20 || rect.x2 !== 90 || rect.y2 !== 80) {
+  throw new Error("normalizeRect mismatch");
+}
+"""
+    _run_node(source, STATIC_JS / "zone-editor.js")

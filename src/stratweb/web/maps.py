@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBSpatialRepository
 from stratweb.maps.models import MapDefinition, MapLevel, MapSelectionEvidence
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY, MapRegistry
 from stratweb.maps.transforms import world_to_map
 from stratweb.spatial.map_overviews import MapOverviewRegistry
+from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.zones.definitions import zone_set_for
 from stratweb.zones.engine import zone_area
@@ -199,7 +202,63 @@ def map_router(
         if not developer_mode:
             raise HTTPException(status_code=404, detail="Zone overlay UI is disabled")
         payload = _zone_overlay_payload(definitions, assets, canonical_name)
+        payload["editor_json"] = _json_for_script(
+            {
+                "map_name": payload["map_name"],
+                "revision_id": payload["revision_id"],
+                "editor": payload.get("editor"),
+                "zones": [
+                    {key: zone[key] for key in ("zone_id", "zone_name", "kind", "bbox")}
+                    for zone in payload["zones"]
+                ],
+            }
+        )
         return HTMLResponse(render_template("zones/overlay.html", match_context=None, **payload))
+
+    @router.post("/api/dev/zones/{canonical_name}/proposal", tags=["map-calibration"])
+    def save_zone_proposal(
+        request: Request,
+        canonical_name: str,
+        proposal: ZoneProposal,
+    ) -> dict[str, Any]:
+        if not developer_mode:
+            raise HTTPException(status_code=404, detail="Zone overlay API is disabled")
+        require_localhost(request, "Zone proposal save")
+        canonical = definitions.canonicalize(canonical_name)
+        if canonical is None:
+            raise HTTPException(status_code=404, detail="Unknown map")
+        definition = definitions.preferred_definition(canonical)
+        if definition is None:
+            raise HTTPException(status_code=404, detail="Map revision unavailable")
+        revision_id = definition.map_revision.revision_id
+        if proposal.revision_id != revision_id:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Proposal targets revision {proposal.revision_id}, map is {revision_id}.",
+            )
+        zone_set = zone_set_for(canonical, revision_id)
+        known = {zone.zone_id for zone in zone_set.zones} if zone_set else set()
+        unknown = sorted({rect.zone_id for rect in proposal.zones} - known)
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown zone ids: {', '.join(unknown)}"
+            )
+        proposals_directory = asset_directory.parent / "zone_proposals"
+        proposals_directory.mkdir(parents=True, exist_ok=True)
+        target = proposals_directory / f"{canonical}.json"
+        target.write_text(
+            json.dumps(
+                {
+                    "map_name": canonical,
+                    "revision_id": revision_id,
+                    "saved_at": datetime.now(UTC).isoformat(),
+                    "zones": [rect.model_dump() for rect in proposal.zones],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return {"saved": True, "file": target.name, "zone_count": len(proposal.zones)}
 
     @router.get("/api/dev/zones/{canonical_name}", tags=["map-calibration"])
     def zones_overlay_data(canonical_name: str) -> dict[str, Any]:
@@ -298,6 +357,26 @@ def _json_for_script(value: Any) -> str:
     return serialized.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
+class ZoneProposalRect(BaseModel):
+    """One user-adjusted rectangle in world coordinates, corners in any order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    zone_id: str = Field(min_length=1, max_length=64)
+    x1: float = Field(allow_inf_nan=False)
+    y1: float = Field(allow_inf_nan=False)
+    x2: float = Field(allow_inf_nan=False)
+    y2: float = Field(allow_inf_nan=False)
+
+
+class ZoneProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    map_name: str = Field(min_length=1)
+    revision_id: str = Field(min_length=1)
+    zones: list[ZoneProposalRect] = Field(min_length=1, max_length=100)
+
+
 def _zone_label_layout(
     zone_name: str,
     kind: str,
@@ -370,6 +449,7 @@ def _zone_overlay_payload(
             "fingerprint": None,
             "issues": [],
             "coverage": None,
+            "editor": None,
         }
     zones: list[dict[str, Any]] = []
     for zone in zone_set.zones:
@@ -385,6 +465,16 @@ def _zone_overlay_payload(
                 pixel_points.append((projected.pixel_x, projected.pixel_y))
             if points:
                 polygons.append(" ".join(points))
+        bbox = (
+            {
+                "px_x1": round(min(point[0] for point in pixel_points), 1),
+                "px_y1": round(min(point[1] for point in pixel_points), 1),
+                "px_x2": round(max(point[0] for point in pixel_points), 1),
+                "px_y2": round(max(point[1] for point in pixel_points), 1),
+            }
+            if pixel_points
+            else None
+        )
         zones.append(
             {
                 "zone_id": zone.zone_id,
@@ -396,6 +486,7 @@ def _zone_overlay_payload(
                 "source": zone.source,
                 "area": round(zone_area(zone), 1),
                 "svg_polygons": polygons,
+                "bbox": bbox,
                 **_zone_label_layout(zone.zone_name, zone.kind.value, pixel_points),
             }
         )
@@ -409,4 +500,11 @@ def _zone_overlay_payload(
         "fingerprint": zone_set.fingerprint(),
         "issues": list(validate_zone_set(zone_set)),
         "coverage": round(sampled_coverage(zone_set, definition, samples_per_axis=48), 4),
+        "editor": {
+            "world_origin_x": definition.world_origin_x,
+            "world_origin_y": definition.world_origin_y,
+            "scale": definition.scale,
+            "image_width": definition.image_width,
+            "image_height": definition.image_height,
+        },
     }
