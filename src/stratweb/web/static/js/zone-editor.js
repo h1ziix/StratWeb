@@ -2,7 +2,11 @@
 
 (function () {
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const MIN_SIDE = 14;
+  const SIMPLIFY_EPSILON = 3.5;
+  const MIN_TRACE_STEP = 2.5;
+  const VERTEX_RADIUS = 6;
+  const DRAG_SLOP = 3.5;
+  const MAX_VERTICES = 190;
 
   function normalizeRect(x1, y1, x2, y2) {
     return {
@@ -27,7 +31,99 @@
     };
   }
 
-  window.StratWebZoneMath = { normalizeRect, pixelToWorld, worldToPixel };
+  function pointToSegmentDistance(point, a, b) {
+    const abX = b[0] - a[0];
+    const abY = b[1] - a[1];
+    const lengthSquared = abX * abX + abY * abY;
+    let t = 0;
+    if (lengthSquared > 0) {
+      t = ((point[0] - a[0]) * abX + (point[1] - a[1]) * abY) / lengthSquared;
+      t = Math.max(0, Math.min(1, t));
+    }
+    const closestX = a[0] + t * abX;
+    const closestY = a[1] + t * abY;
+    return Math.hypot(point[0] - closestX, point[1] - closestY);
+  }
+
+  function simplifyPath(points, epsilon) {
+    if (points.length <= 2) {
+      return points.slice();
+    }
+    const first = points[0];
+    const last = points[points.length - 1];
+    let maxDistance = -1;
+    let maxIndex = 0;
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const distance = pointToSegmentDistance(points[i], first, last);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        maxIndex = i;
+      }
+    }
+    if (maxDistance <= epsilon) {
+      return [first, last];
+    }
+    const left = simplifyPath(points.slice(0, maxIndex + 1), epsilon);
+    const right = simplifyPath(points.slice(maxIndex), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+
+  const TRANSLIT = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+    и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+    с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh",
+    щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  };
+
+  function slugify(name) {
+    let result = "";
+    for (const char of String(name).toLowerCase()) {
+      if (/[a-z0-9]/.test(char)) {
+        result += char;
+      } else if (Object.prototype.hasOwnProperty.call(TRANSLIT, char)) {
+        result += TRANSLIT[char];
+      } else {
+        result += "_";
+      }
+    }
+    result = result.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+    if (!result || !/^[a-z0-9]/.test(result)) {
+      result = "zone" + (result ? "_" + result : "");
+    }
+    return result.slice(0, 64);
+  }
+
+  function readableDetail(detail) {
+    if (detail == null) {
+      return "";
+    }
+    if (typeof detail === "string") {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      // FastAPI validation errors: a list of {loc, msg, type} objects.
+      return detail
+        .map((item) => {
+          if (item && typeof item === "object") {
+            const where = Array.isArray(item.loc) ? item.loc.join(".") + ": " : "";
+            return where + (item.msg || JSON.stringify(item));
+          }
+          return String(item);
+        })
+        .join("; ");
+    }
+    return JSON.stringify(detail);
+  }
+
+  window.StratWebZoneMath = {
+    normalizeRect,
+    pixelToWorld,
+    worldToPixel,
+    pointToSegmentDistance,
+    simplifyPath,
+    slugify,
+    readableDetail,
+  };
 
   if (typeof document === "undefined") {
     return;
@@ -38,9 +134,16 @@
     const stage = document.querySelector(".zone-stage");
     const svg = stage ? stage.querySelector("svg") : null;
     const editToggle = document.getElementById("zoneEditMode");
+    const drawToggle = document.getElementById("zoneDrawMode");
     const saveButton = document.getElementById("zoneSaveButton");
+    const deleteButton = document.getElementById("zoneDeleteButton");
     const statusNode = document.getElementById("zoneSaveStatus");
-    if (!dataNode || !svg || !editToggle || !saveButton || !statusNode) {
+    const namePanel = document.getElementById("zoneNamePanel");
+    const nameInput = document.getElementById("zoneNameInput");
+    const kindSelect = document.getElementById("zoneKindSelect");
+    const nameConfirm = document.getElementById("zoneNameConfirm");
+    const nameCancel = document.getElementById("zoneNameCancel");
+    if (!dataNode || !svg || !editToggle || !drawToggle || !saveButton || !statusNode) {
       return;
     }
     const data = JSON.parse(dataNode.textContent);
@@ -49,13 +152,15 @@
     }
     const viewWidth = data.editor.image_width || 1024;
     const viewHeight = data.editor.image_height || 1024;
+
     const zones = data.zones
-      .filter((zone) => zone.bbox)
+      .filter((zone) => zone.polygons_px && zone.polygons_px.length)
       .map((zone) => ({
         zone_id: zone.zone_id,
         zone_name: zone.zone_name,
         kind: zone.kind,
-        rect: normalizeRect(zone.bbox.px_x1, zone.bbox.px_y1, zone.bbox.px_x2, zone.bbox.px_y2),
+        origin: zone.origin || "authored",
+        points: zone.polygons_px[0].map((point) => [point[0], point[1]]),
       }));
 
     const layer = document.createElementNS(SVG_NS, "g");
@@ -65,18 +170,44 @@
 
     let selectedId = null;
     let drag = null;
+    let trace = null;
+    let pendingPoints = null;
     let dirty = false;
 
     function setStatus(text) {
       statusNode.textContent = text;
     }
 
+    function markDirty() {
+      dirty = true;
+      setStatus("Есть несохранённые изменения");
+    }
+
     function svgPoint(event) {
       const bounds = svg.getBoundingClientRect();
-      return {
-        x: ((event.clientX - bounds.left) / bounds.width) * viewWidth,
-        y: ((event.clientY - bounds.top) / bounds.height) * viewHeight,
-      };
+      return [
+        Math.max(0, Math.min(viewWidth, ((event.clientX - bounds.left) / bounds.width) * viewWidth)),
+        Math.max(0, Math.min(viewHeight, ((event.clientY - bounds.top) / bounds.height) * viewHeight)),
+      ];
+    }
+
+    function zoneById(zoneId) {
+      return zones.find((zone) => zone.zone_id === zoneId) || null;
+    }
+
+    const reservedIds = new Set(data.authored_ids || []);
+
+    function uniqueZoneId(baseSlug) {
+      const taken = (candidate) =>
+        reservedIds.has(candidate) || zones.some((zone) => zone.zone_id === candidate);
+      let candidate = baseSlug;
+      let suffix = 2;
+      while (taken(candidate)) {
+        const suffixText = `_${suffix}`;
+        candidate = baseSlug.slice(0, 64 - suffixText.length) + suffixText;
+        suffix += 1;
+      }
+      return candidate;
     }
 
     function render() {
@@ -84,123 +215,318 @@
         layer.removeChild(layer.firstChild);
       }
       for (const zone of zones) {
-        const rect = document.createElementNS(SVG_NS, "rect");
-        rect.setAttribute("class", "zone-edit-rect" + (zone.zone_id === selectedId ? " selected" : ""));
-        rect.setAttribute("x", zone.rect.x1);
-        rect.setAttribute("y", zone.rect.y1);
-        rect.setAttribute("width", zone.rect.x2 - zone.rect.x1);
-        rect.setAttribute("height", zone.rect.y2 - zone.rect.y1);
-        rect.dataset.zoneId = zone.zone_id;
-        rect.dataset.role = "body";
-        layer.appendChild(rect);
+        const polygon = document.createElementNS(SVG_NS, "polygon");
+        polygon.setAttribute(
+          "class",
+          "zone-edit-poly" + (zone.zone_id === selectedId ? " selected" : "")
+        );
+        polygon.setAttribute("points", zone.points.map((p) => `${p[0]},${p[1]}`).join(" "));
+        polygon.dataset.zoneId = zone.zone_id;
+        polygon.dataset.role = "body";
+        layer.appendChild(polygon);
+        const centroid = zone.points.reduce(
+          (acc, p) => [acc[0] + p[0] / zone.points.length, acc[1] + p[1] / zone.points.length],
+          [0, 0]
+        );
         const name = document.createElementNS(SVG_NS, "text");
         name.setAttribute("class", "zone-edit-name");
-        name.setAttribute("x", (zone.rect.x1 + zone.rect.x2) / 2);
-        name.setAttribute("y", zone.rect.y1 + 18);
+        name.setAttribute("x", centroid[0]);
+        name.setAttribute("y", centroid[1]);
         name.textContent = zone.zone_name;
         layer.appendChild(name);
-        const handle = document.createElementNS(SVG_NS, "rect");
-        handle.setAttribute("class", "zone-edit-handle");
-        handle.setAttribute("x", zone.rect.x2 - 7);
-        handle.setAttribute("y", zone.rect.y2 - 7);
-        handle.setAttribute("width", 14);
-        handle.setAttribute("height", 14);
-        handle.dataset.zoneId = zone.zone_id;
-        handle.dataset.role = "handle";
-        layer.appendChild(handle);
+      }
+      const selected = zoneById(selectedId);
+      if (selected) {
+        selected.points.forEach((point, index) => {
+          const vertex = document.createElementNS(SVG_NS, "circle");
+          vertex.setAttribute("class", "zone-edit-vertex");
+          vertex.setAttribute("cx", point[0]);
+          vertex.setAttribute("cy", point[1]);
+          vertex.setAttribute("r", VERTEX_RADIUS);
+          vertex.dataset.zoneId = selected.zone_id;
+          vertex.dataset.role = "vertex";
+          vertex.dataset.index = String(index);
+          layer.appendChild(vertex);
+        });
+      }
+      if (trace && trace.points.length > 1) {
+        const path = document.createElementNS(SVG_NS, "polyline");
+        path.setAttribute("class", "zone-edit-trace");
+        path.setAttribute("points", trace.points.map((p) => `${p[0]},${p[1]}`).join(" "));
+        layer.appendChild(path);
+      }
+      if (pendingPoints) {
+        // Keep the freshly drawn outline visible while the naming panel is
+        // open so the user names a shape they can still see.
+        const preview = document.createElementNS(SVG_NS, "polygon");
+        preview.setAttribute("class", "zone-edit-trace");
+        preview.setAttribute("points", pendingPoints.map((p) => `${p[0]},${p[1]}`).join(" "));
+        layer.appendChild(preview);
       }
     }
 
-    function zoneById(zoneId) {
-      return zones.find((zone) => zone.zone_id === zoneId) || null;
+    function openNamePanel() {
+      if (!namePanel || !nameInput) {
+        return;
+      }
+      namePanel.style.display = "";
+      nameInput.value = "";
+      render();
+      nameInput.focus();
+    }
+
+    function closeNamePanel() {
+      if (namePanel) {
+        namePanel.style.display = "none";
+      }
+      pendingPoints = null;
+      render();
     }
 
     svg.addEventListener("pointerdown", (event) => {
-      if (!editToggle.checked) {
+      if (!editToggle.checked || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      const point = svgPoint(event);
+      if (drawToggle.checked) {
+        trace = { points: [point] };
+        svg.setPointerCapture(event.pointerId);
+        render();
         return;
       }
       const target = event.target;
       const zoneId = target && target.dataset ? target.dataset.zoneId : null;
       if (!zoneId) {
+        selectedId = null;
+        render();
         return;
       }
       const zone = zoneById(zoneId);
       if (!zone) {
         return;
       }
-      event.preventDefault();
       selectedId = zoneId;
-      drag = {
-        zone,
-        role: target.dataset.role,
-        start: svgPoint(event),
-        rect: { ...zone.rect },
-      };
+      // Geometry stays untouched until the pointer travels past DRAG_SLOP, so
+      // a plain click selects a zone without nudging it.
+      if (target.dataset.role === "vertex") {
+        drag = {
+          zone,
+          role: "vertex",
+          index: Number(target.dataset.index),
+          start: point,
+          active: false,
+          origin: zone.points[Number(target.dataset.index)].slice(),
+        };
+      } else {
+        drag = {
+          zone,
+          role: "body",
+          start: point,
+          active: false,
+          points: zone.points.map((p) => p.slice()),
+        };
+      }
       svg.setPointerCapture(event.pointerId);
       render();
     });
 
     svg.addEventListener("pointermove", (event) => {
+      if (!editToggle.checked) {
+        return;
+      }
+      const point = svgPoint(event);
+      if (trace) {
+        const previous = trace.points[trace.points.length - 1];
+        if (Math.hypot(point[0] - previous[0], point[1] - previous[1]) >= MIN_TRACE_STEP) {
+          trace.points.push(point);
+          render();
+        }
+        return;
+      }
       if (!drag) {
         return;
       }
       event.preventDefault();
-      const point = svgPoint(event);
-      const deltaX = point.x - drag.start.x;
-      const deltaY = point.y - drag.start.y;
-      const rect = drag.rect;
-      if (drag.role === "handle") {
-        drag.zone.rect = normalizeRect(
-          rect.x1,
-          rect.y1,
-          Math.min(viewWidth, Math.max(rect.x1 + MIN_SIDE, rect.x2 + deltaX)),
-          Math.min(viewHeight, Math.max(rect.y1 + MIN_SIDE, rect.y2 + deltaY))
-        );
-      } else {
-        const width = rect.x2 - rect.x1;
-        const height = rect.y2 - rect.y1;
-        const x1 = Math.min(Math.max(rect.x1 + deltaX, 0), viewWidth - width);
-        const y1 = Math.min(Math.max(rect.y1 + deltaY, 0), viewHeight - height);
-        drag.zone.rect = { x1, y1, x2: x1 + width, y2: y1 + height };
+      if (!drag.active) {
+        if (Math.hypot(point[0] - drag.start[0], point[1] - drag.start[1]) < DRAG_SLOP) {
+          return;
+        }
+        drag.active = true;
       }
-      dirty = true;
-      setStatus("Есть несохранённые изменения");
+      const deltaX = point[0] - drag.start[0];
+      const deltaY = point[1] - drag.start[1];
+      if (drag.role === "vertex") {
+        drag.zone.points[drag.index] = [
+          Math.max(0, Math.min(viewWidth, drag.origin[0] + deltaX)),
+          Math.max(0, Math.min(viewHeight, drag.origin[1] + deltaY)),
+        ];
+      } else {
+        // Clamp the shared translation once against the polygon's bounding
+        // box so an edge collision stops the whole shape instead of
+        // squashing the vertices that hit the border first.
+        const minX = Math.min(...drag.points.map((p) => p[0]));
+        const maxX = Math.max(...drag.points.map((p) => p[0]));
+        const minY = Math.min(...drag.points.map((p) => p[1]));
+        const maxY = Math.max(...drag.points.map((p) => p[1]));
+        const clampedX = Math.max(-minX, Math.min(viewWidth - maxX, deltaX));
+        const clampedY = Math.max(-minY, Math.min(viewHeight - maxY, deltaY));
+        drag.zone.points = drag.points.map((p) => [p[0] + clampedX, p[1] + clampedY]);
+      }
+      markDirty();
       render();
     });
 
-    function endDrag(event) {
-      if (drag) {
-        drag = null;
-        if (event.pointerId != null && svg.hasPointerCapture(event.pointerId)) {
-          svg.releasePointerCapture(event.pointerId);
+    function endPointer(event) {
+      if (trace) {
+        // Re-simplify with a growing tolerance until the polygon fits the
+        // server-side vertex cap; a huge jittery outline must stay savable.
+        let epsilon = SIMPLIFY_EPSILON;
+        let simplified = simplifyPath(trace.points, epsilon);
+        while (simplified.length > MAX_VERTICES && epsilon < 80) {
+          epsilon *= 1.6;
+          simplified = simplifyPath(trace.points, epsilon);
+        }
+        trace = null;
+        if (simplified.length >= 3) {
+          pendingPoints = simplified;
+          openNamePanel();
+        } else {
+          setStatus("Обводка слишком короткая — нарисуй замкнутую область");
         }
       }
+      drag = null;
+      if (event.pointerId != null && svg.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+      render();
     }
-    svg.addEventListener("pointerup", endDrag);
-    svg.addEventListener("pointercancel", endDrag);
+    svg.addEventListener("pointerup", endPointer);
+    svg.addEventListener("pointercancel", endPointer);
+
+    svg.addEventListener("dblclick", (event) => {
+      if (!editToggle.checked || drawToggle.checked) {
+        return;
+      }
+      const target = event.target;
+      const zoneId = target && target.dataset ? target.dataset.zoneId : null;
+      const zone = zoneId ? zoneById(zoneId) : null;
+      if (!zone) {
+        return;
+      }
+      event.preventDefault();
+      if (target.dataset.role === "vertex") {
+        if (zone.points.length > 3) {
+          zone.points.splice(Number(target.dataset.index), 1);
+          markDirty();
+        }
+      } else {
+        if (zone.points.length >= 200) {
+          setStatus("У зоны уже максимум вершин");
+          return;
+        }
+        const point = svgPoint(event);
+        let bestIndex = 0;
+        let bestDistance = Infinity;
+        for (let i = 0; i < zone.points.length; i += 1) {
+          const a = zone.points[i];
+          const b = zone.points[(i + 1) % zone.points.length];
+          const distance = pointToSegmentDistance(point, a, b);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = i;
+          }
+        }
+        zone.points.splice(bestIndex + 1, 0, point);
+        markDirty();
+      }
+      render();
+    });
+
+    if (nameConfirm) {
+      nameConfirm.addEventListener("click", () => {
+        if (!pendingPoints || !nameInput) {
+          return;
+        }
+        const rawName = nameInput.value.trim();
+        if (!rawName) {
+          nameInput.focus();
+          return;
+        }
+        const zone = {
+          zone_id: uniqueZoneId(slugify(rawName)),
+          zone_name: rawName,
+          kind: kindSelect ? kindSelect.value : "area",
+          origin: "user",
+          points: pendingPoints,
+        };
+        zones.push(zone);
+        selectedId = zone.zone_id;
+        pendingPoints = null;
+        if (namePanel) {
+          namePanel.style.display = "none";
+        }
+        drawToggle.checked = false;
+        markDirty();
+        render();
+      });
+    }
+    if (nameCancel) {
+      nameCancel.addEventListener("click", closeNamePanel);
+    }
+
+    if (deleteButton) {
+      deleteButton.addEventListener("click", () => {
+        const zone = zoneById(selectedId);
+        if (!zone) {
+          setStatus("Сначала выбери зону кликом");
+          return;
+        }
+        if (!window.confirm(`Удалить зону «${zone.zone_name}»?`)) {
+          return;
+        }
+        zones.splice(zones.indexOf(zone), 1);
+        selectedId = null;
+        markDirty();
+        render();
+      });
+    }
 
     editToggle.addEventListener("change", () => {
       layer.style.display = editToggle.checked ? "" : "none";
-      if (editToggle.checked) {
+      if (!editToggle.checked) {
+        drawToggle.checked = false;
+        closeNamePanel();
+      }
+      render();
+    });
+
+    drawToggle.addEventListener("change", () => {
+      if (drawToggle.checked && !editToggle.checked) {
+        editToggle.checked = true;
+        layer.style.display = "";
         render();
       }
     });
 
     saveButton.addEventListener("click", async () => {
+      if (!zones.length) {
+        setStatus("Нет зон для сохранения — нарисуй хотя бы одну");
+        return;
+      }
       const payload = {
         map_name: data.map_name,
         revision_id: data.revision_id,
-        zones: zones.map((zone) => {
-          const topLeft = pixelToWorld(data.editor, zone.rect.x1, zone.rect.y1);
-          const bottomRight = pixelToWorld(data.editor, zone.rect.x2, zone.rect.y2);
-          return {
-            zone_id: zone.zone_id,
-            x1: topLeft.x,
-            y1: topLeft.y,
-            x2: bottomRight.x,
-            y2: bottomRight.y,
-          };
-        }),
+        zones: zones.map((zone) => ({
+          zone_id: zone.zone_id,
+          zone_name: zone.zone_name,
+          kind: zone.kind,
+          origin: zone.origin,
+          polygon: zone.points.map((point) => {
+            const world = pixelToWorld(data.editor, point[0], point[1]);
+            return [world.x, world.y];
+          }),
+        })),
       };
       setStatus("Сохраняю…");
       try {
@@ -210,12 +536,13 @@
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
-          const detail = await response.json().catch(() => ({}));
-          throw new Error(detail.detail || `HTTP ${response.status}`);
+          const body = await response.json().catch(() => ({}));
+          throw new Error(readableDetail(body.detail) || `HTTP ${response.status}`);
         }
         const result = await response.json();
         dirty = false;
-        setStatus(`Сохранено: ${result.zone_count} зон → ${result.file}`);
+        setStatus(`Сохранено: ${result.zone_count} зон. Обновляю страницу…`);
+        window.setTimeout(() => window.location.reload(), 700);
       } catch (error) {
         setStatus(`Ошибка сохранения: ${error.message}`);
       }

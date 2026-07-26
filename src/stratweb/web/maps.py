@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from math import isfinite
 from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
@@ -21,6 +22,8 @@ from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.zones.definitions import zone_set_for
 from stratweb.zones.engine import zone_area
+from stratweb.zones.models import ZoneKind
+from stratweb.zones.proposals import load_zone_proposal, proposal_zone_set
 from stratweb.zones.validation import sampled_coverage, validate_zone_set
 
 
@@ -201,14 +204,19 @@ def map_router(
     def zones_overlay_page(canonical_name: str) -> HTMLResponse:
         if not developer_mode:
             raise HTTPException(status_code=404, detail="Zone overlay UI is disabled")
-        payload = _zone_overlay_payload(definitions, assets, canonical_name)
+        proposals_directory = asset_directory.parent / "zone_proposals"
+        payload = _zone_overlay_payload(definitions, assets, proposals_directory, canonical_name)
         payload["editor_json"] = _json_for_script(
             {
                 "map_name": payload["map_name"],
                 "revision_id": payload["revision_id"],
                 "editor": payload.get("editor"),
+                "authored_ids": payload.get("authored_ids", []),
                 "zones": [
-                    {key: zone[key] for key in ("zone_id", "zone_name", "kind", "bbox")}
+                    {
+                        key: zone[key]
+                        for key in ("zone_id", "zone_name", "kind", "origin", "polygons_px")
+                    }
                     for zone in payload["zones"]
                 ],
             }
@@ -231,6 +239,11 @@ def map_router(
         if definition is None:
             raise HTTPException(status_code=404, detail="Map revision unavailable")
         revision_id = definition.map_revision.revision_id
+        if proposal.map_name != canonical:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Proposal body targets map {proposal.map_name!r}, URL is {canonical!r}.",
+            )
         if proposal.revision_id != revision_id:
             raise HTTPException(
                 status_code=409,
@@ -238,10 +251,32 @@ def map_router(
             )
         zone_set = zone_set_for(canonical, revision_id)
         known = {zone.zone_id for zone in zone_set.zones} if zone_set else set()
-        unknown = sorted({rect.zone_id for rect in proposal.zones} - known)
-        if unknown:
+        valid_kinds = {kind.value for kind in ZoneKind}
+        for zone in proposal.zones:
+            if zone.zone_id not in known and (zone.zone_name is None or not zone.zone_name.strip()):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"New zone {zone.zone_id!r} requires zone_name.",
+                )
+            if zone.kind is not None and zone.kind not in valid_kinds:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unknown zone kind {zone.kind!r} for {zone.zone_id!r}.",
+                )
+            for x, y in zone.polygon:
+                if not isfinite(x) or not isfinite(y):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Non-finite polygon coordinate in {zone.zone_id!r}.",
+                    )
+        duplicate_ids = sorted(
+            {zone.zone_id for zone in proposal.zones if
+             sum(1 for other in proposal.zones if other.zone_id == zone.zone_id) > 1}
+        )
+        if duplicate_ids:
             raise HTTPException(
-                status_code=422, detail=f"Unknown zone ids: {', '.join(unknown)}"
+                status_code=422,
+                detail=f"Duplicate zone ids: {', '.join(duplicate_ids)}.",
             )
         proposals_directory = asset_directory.parent / "zone_proposals"
         proposals_directory.mkdir(parents=True, exist_ok=True)
@@ -252,7 +287,7 @@ def map_router(
                     "map_name": canonical,
                     "revision_id": revision_id,
                     "saved_at": datetime.now(UTC).isoformat(),
-                    "zones": [rect.model_dump() for rect in proposal.zones],
+                    "zones": [zone.model_dump() for zone in proposal.zones],
                 },
                 indent=2,
             ),
@@ -264,7 +299,8 @@ def map_router(
     def zones_overlay_data(canonical_name: str) -> dict[str, Any]:
         if not developer_mode:
             raise HTTPException(status_code=404, detail="Zone overlay API is disabled")
-        payload = _zone_overlay_payload(definitions, assets, canonical_name)
+        proposals_directory = asset_directory.parent / "zone_proposals"
+        payload = _zone_overlay_payload(definitions, assets, proposals_directory, canonical_name)
         payload.pop("overview", None)
         return payload
 
@@ -357,16 +393,16 @@ def _json_for_script(value: Any) -> str:
     return serialized.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
-class ZoneProposalRect(BaseModel):
-    """One user-adjusted rectangle in world coordinates, corners in any order."""
+class ZoneProposalZone(BaseModel):
+    """One user-placed zone: hand-drawn or hand-adjusted world polygon."""
 
     model_config = ConfigDict(extra="forbid")
 
-    zone_id: str = Field(min_length=1, max_length=64)
-    x1: float = Field(allow_inf_nan=False)
-    y1: float = Field(allow_inf_nan=False)
-    x2: float = Field(allow_inf_nan=False)
-    y2: float = Field(allow_inf_nan=False)
+    zone_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_]{0,63}$")
+    zone_name: str | None = Field(default=None, min_length=1, max_length=100)
+    kind: str | None = None
+    origin: str = Field(default="authored", pattern=r"^(authored|user)$")
+    polygon: list[tuple[float, float]] = Field(min_length=3, max_length=200)
 
 
 class ZoneProposal(BaseModel):
@@ -374,7 +410,7 @@ class ZoneProposal(BaseModel):
 
     map_name: str = Field(min_length=1)
     revision_id: str = Field(min_length=1)
-    zones: list[ZoneProposalRect] = Field(min_length=1, max_length=100)
+    zones: list[ZoneProposalZone] = Field(min_length=1, max_length=100)
 
 
 def _zone_label_layout(
@@ -428,6 +464,7 @@ def _zone_label_layout(
 def _zone_overlay_payload(
     definitions: MapRegistry,
     assets: MapOverviewRegistry,
+    proposals_directory: Path,
     canonical_name: str,
 ) -> dict[str, Any]:
     canonical = definitions.canonicalize(canonical_name)
@@ -437,34 +474,80 @@ def _zone_overlay_payload(
     if definition is None:
         raise HTTPException(status_code=404, detail="Map revision unavailable")
     overview = assets.get_definition(definition).model
-    zone_set = zone_set_for(canonical, definition.map_revision.revision_id)
+    revision_id = definition.map_revision.revision_id
+    authored_set = zone_set_for(canonical, revision_id)
+    authored_ids = {zone.zone_id for zone in authored_set.zones} if authored_set else set()
+
+    zone_set = authored_set
+    proposal_active = False
+    proposal_saved_at: str | None = None
+    proposal_issues: tuple[str, ...] = ()
+    user_zone_ids: set[str] = set()
+    proposal_file = proposals_directory / f"{canonical}.json"
+    proposal_payload = load_zone_proposal(proposal_file)
+    if proposal_payload is None:
+        if proposal_file.exists():
+            proposal_issues = ("proposal_file_unreadable",)
+    else:
+        effective, proposal_issues = proposal_zone_set(
+            proposal_payload, authored_set, canonical, revision_id
+        )
+        if effective is not None:
+            zone_set = effective
+            proposal_active = True
+            saved_at = proposal_payload.get("saved_at")
+            proposal_saved_at = saved_at if isinstance(saved_at, str) else None
+            raw_zones = proposal_payload.get("zones")
+            if isinstance(raw_zones, list):
+                user_zone_ids = {
+                    entry["zone_id"]
+                    for entry in raw_zones
+                    if isinstance(entry, dict)
+                    and isinstance(entry.get("zone_id"), str)
+                    and entry.get("origin") == "user"
+                }
+
+    editor = {
+        "world_origin_x": definition.world_origin_x,
+        "world_origin_y": definition.world_origin_y,
+        "scale": definition.scale,
+        "image_width": definition.image_width,
+        "image_height": definition.image_height,
+        "kinds": [kind.value for kind in ZoneKind],
+    }
     if zone_set is None:
         return {
             "map_name": canonical,
-            "revision_id": definition.map_revision.revision_id,
+            "revision_id": revision_id,
             "display_name": definition.display_name,
             "overview": overview,
             "zone_set": None,
             "zones": [],
             "fingerprint": None,
-            "issues": [],
+            "issues": list(proposal_issues),
             "coverage": None,
-            "editor": None,
+            "editor": editor if definition.transform_available else None,
+            "proposal_active": False,
+            "proposal_saved_at": None,
         }
     zones: list[dict[str, Any]] = []
     for zone in zone_set.zones:
         polygons: list[str] = []
+        polygons_px: list[list[tuple[float, float]]] = []
         pixel_points: list[tuple[float, float]] = []
         for polygon in zone.polygons:
             points: list[str] = []
+            ring: list[tuple[float, float]] = []
             for world_x, world_y in polygon.vertices:
                 projected = world_to_map(definition, world_x, world_y, None)
                 if projected.pixel_x is None or projected.pixel_y is None:
                     continue
                 points.append(f"{projected.pixel_x:.1f},{projected.pixel_y:.1f}")
+                ring.append((round(projected.pixel_x, 1), round(projected.pixel_y, 1)))
                 pixel_points.append((projected.pixel_x, projected.pixel_y))
             if points:
                 polygons.append(" ".join(points))
+                polygons_px.append(ring)
         bbox = (
             {
                 "px_x1": round(min(point[0] for point in pixel_points), 1),
@@ -486,25 +569,28 @@ def _zone_overlay_payload(
                 "source": zone.source,
                 "area": round(zone_area(zone), 1),
                 "svg_polygons": polygons,
+                "polygons_px": polygons_px,
                 "bbox": bbox,
+                "origin": (
+                    "user"
+                    if zone.zone_id in user_zone_ids or zone.zone_id not in authored_ids
+                    else "authored"
+                ),
                 **_zone_label_layout(zone.zone_name, zone.kind.value, pixel_points),
             }
         )
     return {
         "map_name": canonical,
-        "revision_id": definition.map_revision.revision_id,
+        "revision_id": revision_id,
         "display_name": definition.display_name,
         "overview": overview,
         "zone_set": zone_set,
         "zones": zones,
         "fingerprint": zone_set.fingerprint(),
-        "issues": list(validate_zone_set(zone_set)),
+        "issues": list(validate_zone_set(zone_set)) + list(proposal_issues),
         "coverage": round(sampled_coverage(zone_set, definition, samples_per_axis=48), 4),
-        "editor": {
-            "world_origin_x": definition.world_origin_x,
-            "world_origin_y": definition.world_origin_y,
-            "scale": definition.scale,
-            "image_width": definition.image_width,
-            "image_height": definition.image_height,
-        },
+        "editor": editor if definition.transform_available else None,
+        "authored_ids": sorted(authored_ids),
+        "proposal_active": proposal_active,
+        "proposal_saved_at": proposal_saved_at,
     }

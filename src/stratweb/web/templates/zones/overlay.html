@@ -2,12 +2,14 @@
 {% block title %}{{ display_name }} zones · StratWeb{% endblock %}
 {% block head %}<style>
 .zone-wrap { max-width: 860px; }
-.zone-toggle { display: flex; gap: 8px; align-items: center; margin: 10px 0; color: var(--muted); }
+.zone-toggle { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.zone-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 10px 0; }
+.zone-name-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .zone-stage { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .zone-stage img { display: block; width: 100%; height: auto; }
-.zone-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.zone-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .zone-shape { fill-opacity: 0.04; stroke-width: 2; stroke-dasharray: 7 5; stroke-opacity: 0.55; }
-.zone-wrap:has(.zone-toggle input:checked) .zone-shape { fill-opacity: 0.16; stroke-opacity: 1; stroke-dasharray: none; }
+.zone-wrap:has(.zone-toggle input.zone-borders:checked) .zone-shape { fill-opacity: 0.16; stroke-opacity: 1; stroke-dasharray: none; }
 .zone-shape.bombsite { fill: #d1462f; stroke: #d1462f; }
 .zone-shape.spawn { fill: #2d875a; stroke: #2d875a; }
 .zone-shape.pathway { fill: #2f6fd1; stroke: #2f6fd1; }
@@ -24,12 +26,11 @@
 .zone-legend .pathway::before { color: #2f6fd1; }
 .zone-legend .chokepoint::before { color: #b58a1c; }
 .zone-legend .area::before { color: #7a5bd1; }
-.zone-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 10px 0; }
-.zone-stage svg { touch-action: none; }
-.zone-edit-rect { fill: rgba(77, 141, 255, 0.10); stroke: #4d8dff; stroke-width: 2; cursor: move; }
-.zone-edit-rect.selected { fill: rgba(77, 141, 255, 0.22); stroke: #9cc0ff; }
+.zone-edit-poly { fill: rgba(77, 141, 255, 0.10); stroke: #4d8dff; stroke-width: 2; cursor: move; }
+.zone-edit-poly.selected { fill: rgba(77, 141, 255, 0.22); stroke: #9cc0ff; }
 .zone-edit-name { font: 600 13px system-ui, sans-serif; fill: #bcd3ff; text-anchor: middle; paint-order: stroke; stroke: rgba(10, 10, 10, 0.85); stroke-width: 3px; pointer-events: none; }
-.zone-edit-handle { fill: #ffffff; stroke: #1c2733; stroke-width: 1.5; cursor: nwse-resize; }
+.zone-edit-vertex { fill: #ffffff; stroke: #1c2733; stroke-width: 1.5; cursor: grab; }
+.zone-edit-trace { fill: none; stroke: #ffd166; stroke-width: 2.5; stroke-dasharray: 4 4; pointer-events: none; }
 </style>{% endblock %}
 {% block content %}
 <nav class="breadcrumbs"><a href="/ui">Matches</a> / Zone overlay</nav>
@@ -38,15 +39,29 @@
   <p>Proposed boundaries for manual verification. Zones never guess: outside every polygon is unknown.</p></div>
   {% if coverage is not none %}<span class="status available">{{ '%.1f'|format(coverage * 100) }}% grid coverage</span>{% endif %}
 </section>
+{% if proposal_active %}<p class="notice">Показана твоя сохранённая разметка{% if proposal_saved_at %} от {{ proposal_saved_at }}{% endif %}. Она заменяет авторскую расстановку этой карты.</p>{% endif %}
 {% for issue in issues %}<p class="notice warning">{{ issue }}</p>{% endfor %}
-{% if zone_set %}
+{% if editor %}
 <div class="zone-wrap">
   <div class="zone-legend"><span class="bombsite">bombsite</span><span class="spawn">spawn</span><span class="pathway">pathway</span><span class="chokepoint">chokepoint</span><span class="area">area</span></div>
   <div class="zone-controls">
-    <label class="zone-toggle"><input type="checkbox"> Показать границы полигонов</label>
-    <label class="zone-toggle"><input type="checkbox" id="zoneEditMode"> Режим редактирования (тяни зону; правый нижний угол — размер)</label>
+    <label class="zone-toggle"><input class="zone-borders" type="checkbox"> Показать границы</label>
+    <label class="zone-toggle"><input type="checkbox" id="zoneEditMode"> Режим редактирования</label>
+    <label class="zone-toggle"><input type="checkbox" id="zoneDrawMode"> ✏ Рисовать новую зону</label>
+    <button id="zoneDeleteButton" class="secondary" type="button">Удалить выбранную</button>
     <button id="zoneSaveButton" class="secondary" type="button">Сохранить разметку</button>
     <span id="zoneSaveStatus" class="muted"></span>
+  </div>
+  <p class="muted">В режиме редактирования: тяни зону целиком; клик — выбрать; кружки — вершины (тяни; двойной клик по вершине — удалить, по контуру — добавить). С включённым карандашом обведи область мышкой и назови её.</p>
+  <div id="zoneNamePanel" class="zone-name-panel" style="display: none">
+    <label>Название новой зоны <input type="text" id="zoneNameInput" maxlength="100" placeholder="Например: Балкон"></label>
+    <label>Тип
+      <select id="zoneKindSelect">
+        {% for kind in editor.kinds %}<option value="{{ kind }}" {% if kind == 'area' %}selected{% endif %}>{{ kind }}</option>{% endfor %}
+      </select>
+    </label>
+    <button id="zoneNameConfirm" class="secondary" type="button">Добавить</button>
+    <button id="zoneNameCancel" class="secondary" type="button">Отмена</button>
   </div>
   <div class="zone-stage">
     {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
@@ -58,22 +73,26 @@
     </svg>
   </div>
 </div>
+{% if zones %}
 <section>
-  <div class="section-heading"><h2>Zones</h2><span>{{ zones|length }} zones · fingerprint {{ fingerprint[:12] }}…</span></div>
-  <div class="table-wrap"><table><thead><tr><th>Zone</th><th>Kind</th><th>Priority</th><th>Verification</th><th>Area (u²)</th><th>Source</th></tr></thead><tbody>
+  <div class="section-heading"><h2>Zones</h2><span>{{ zones|length }} zones{% if fingerprint %} · fingerprint {{ fingerprint[:12] }}…{% endif %}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Zone</th><th>Kind</th><th>Origin</th><th>Verification</th><th>Area (u²)</th><th>Source</th></tr></thead><tbody>
   {% for zone in zones %}<tr>
     <td><strong>{{ zone.zone_name }}</strong><small class="block muted">{{ zone.zone_id }}</small></td>
     <td>{{ zone.kind }}</td>
-    <td>{{ zone.priority }}</td>
+    <td>{{ 'своя' if zone.origin == 'user' else 'базовая' }}</td>
     <td><span class="badge {{ 'good' if zone.verification == 'demo_validated' else ('warn' if zone.verification == 'overlay_verified' else '') }}">{{ zone.verification }}</span></td>
     <td>{{ zone.area }}</td>
     <td><small class="muted">{{ zone.source }}</small></td>
   </tr>{% endfor %}
   </tbody></table></div>
 </section>
+{% else %}
+<div class="empty-state"><p>Для {{ map_name }} ({{ revision_id }}) зоны ещё не размечены. Включи режим редактирования и карандаш — и нарисуй первую зону.</p></div>
+{% endif %}
 <script type="application/json" id="zoneEditorData">{{ editor_json|safe }}</script>
 {% else %}
-<div class="empty-state"><p>No zone set is authored for {{ map_name }} revision {{ revision_id }} yet.</p></div>
+<div class="empty-state"><p>Для {{ map_name }} нет калиброванной трансформации — разметка зон недоступна.</p></div>
 {% endif %}
 {% endblock %}
 {% block scripts %}<script src="{{ static_asset('js/zone-editor.js') }}" defer></script>{% endblock %}

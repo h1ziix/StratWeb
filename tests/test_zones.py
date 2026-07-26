@@ -17,6 +17,7 @@ from stratweb.zones.models import (
     ZoneSetDefinition,
     ZoneVerificationStatus,
 )
+from stratweb.zones.proposals import proposal_zone_set
 from stratweb.zones.validation import sampled_coverage, validate_zone_set
 
 _SQUARE = ((0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0))
@@ -204,14 +205,30 @@ def test_zone_overlay_endpoints_are_disabled_without_developer_mode(tmp_path: Pa
     assert data.status_code == 404
 
 
+_MIRAGE_REVISION = "cs2-1.41.7.1-d263aa1118fb"
+_JUNGLE_POLYGON = [
+    [-1386.8, -1461.4],
+    [-874.8, -1461.4],
+    [-874.8, -1871.0],
+    [-1386.8, -1871.0],
+]
+
+
 def test_zone_proposal_endpoint_is_gated_validated_and_persisted(tmp_path: Path) -> None:
     overviews = tmp_path / "map_overviews"
     overviews.mkdir()
     valid = {
         "map_name": "de_mirage",
-        "revision_id": "cs2-1.41.7.1-d263aa1118fb",
+        "revision_id": _MIRAGE_REVISION,
         "zones": [
-            {"zone_id": "jungle", "x1": -1386.8, "y1": -1461.4, "x2": -874.8, "y2": -1871.0}
+            {"zone_id": "jungle", "polygon": _JUNGLE_POLYGON},
+            {
+                "zone_id": "balkon",
+                "zone_name": "Балкон",
+                "kind": "chokepoint",
+                "origin": "user",
+                "polygon": [[-2000.0, 900.0], [-1800.0, 900.0], [-1900.0, 700.0]],
+            },
         ],
     }
 
@@ -222,25 +239,209 @@ def test_zone_proposal_endpoint_is_gated_validated_and_persisted(tmp_path: Path)
         create_app(tmp_path / "on.duckdb", overviews, map_developer_mode=True)
     ) as client:
         saved = client.post("/api/dev/zones/de_mirage/proposal", json=valid)
-        unknown = client.post(
+        nameless_new = client.post(
             "/api/dev/zones/de_mirage/proposal",
-            json={**valid, "zones": [{**valid["zones"][0], "zone_id": "nope"}]},
+            json={
+                **valid,
+                "zones": [{"zone_id": "nope", "polygon": _JUNGLE_POLYGON}],
+            },
+        )
+        bad_kind = client.post(
+            "/api/dev/zones/de_mirage/proposal",
+            json={
+                **valid,
+                "zones": [
+                    {
+                        "zone_id": "custom",
+                        "zone_name": "Custom",
+                        "kind": "heatmap",
+                        "polygon": _JUNGLE_POLYGON,
+                    }
+                ],
+            },
         )
         mismatch = client.post(
             "/api/dev/zones/de_mirage/proposal",
             json={**valid, "revision_id": "other-revision"},
         )
+        overlay = client.get("/api/dev/zones/de_mirage")
 
     assert blocked.status_code == 404
     assert saved.status_code == 200
-    assert saved.json() == {"saved": True, "file": "de_mirage.json", "zone_count": 1}
+    assert saved.json() == {"saved": True, "file": "de_mirage.json", "zone_count": 2}
     proposal_file = tmp_path / "zone_proposals" / "de_mirage.json"
-    assert proposal_file.exists()
     stored = json.loads(proposal_file.read_text(encoding="utf-8"))
-    assert stored["revision_id"] == "cs2-1.41.7.1-d263aa1118fb"
-    assert stored["zones"][0]["zone_id"] == "jungle"
-    assert unknown.status_code == 422
+    assert stored["revision_id"] == _MIRAGE_REVISION
+    assert {zone["zone_id"] for zone in stored["zones"]} == {"jungle", "balkon"}
+    assert nameless_new.status_code == 422
+    assert bad_kind.status_code == 422
     assert mismatch.status_code == 409
+
+    # The saved layout replaces the authored set on the overlay endpoints.
+    body = overlay.json()
+    assert body["proposal_active"] is True
+    assert {zone["zone_id"] for zone in body["zones"]} == {"jungle", "balkon"}
+    by_id = {zone["zone_id"]: zone for zone in body["zones"]}
+    assert by_id["balkon"]["origin"] == "user"
+    assert by_id["balkon"]["zone_name"] == "Балкон"
+    assert by_id["jungle"]["origin"] == "authored"
+    assert by_id["jungle"]["verification"] == "overlay_verified"
+
+
+def test_legacy_rect_proposal_is_converted_and_preferred(tmp_path: Path) -> None:
+    overviews = tmp_path / "map_overviews"
+    overviews.mkdir()
+    proposals = tmp_path / "zone_proposals"
+    proposals.mkdir()
+    # Format written by the first editor version (two world corners).
+    (proposals / "de_mirage.json").write_text(
+        json.dumps(
+            {
+                "map_name": "de_mirage",
+                "revision_id": _MIRAGE_REVISION,
+                "saved_at": "2026-07-26T21:18:10+00:00",
+                "zones": [
+                    {"zone_id": "jungle", "x1": -1300.0, "y1": -1500.0, "x2": -900.0, "y2": -1800.0}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with TestClient(
+        create_app(tmp_path / "legacy.duckdb", overviews, map_developer_mode=True)
+    ) as client:
+        overlay = client.get("/api/dev/zones/de_mirage")
+        page = client.get("/ui/dev/zones/de_mirage")
+
+    body = overlay.json()
+    assert body["proposal_active"] is True
+    assert [zone["zone_id"] for zone in body["zones"]] == ["jungle"]
+    jungle = body["zones"][0]
+    assert jungle["verification"] == "overlay_verified"
+    assert len(jungle["polygons_px"][0]) == 4
+    assert page.status_code == 200
+    assert "zoneEditorData" in page.text
+
+    # Geometry, not just vertex count: the rect interior resolves to the zone.
+    effective, _ = proposal_zone_set(
+        json.loads((proposals / "de_mirage.json").read_text(encoding="utf-8")),
+        MIRAGE_ZONE_SET,
+        "de_mirage",
+        _MIRAGE_REVISION,
+    )
+    assert effective is not None
+    center = resolve_zone(effective, -1100.0, -1650.0, None)
+    outside = resolve_zone(effective, -2000.0, -1650.0, None)
+    assert center.zone_id == "jungle"
+    assert outside.status is ZoneResolutionStatus.UNKNOWN
+
+
+def test_unusable_proposal_files_fall_back_with_issue(tmp_path: Path) -> None:
+    overviews = tmp_path / "map_overviews"
+    overviews.mkdir()
+    proposals = tmp_path / "zone_proposals"
+    proposals.mkdir()
+    proposal_file = proposals / "de_mirage.json"
+
+    with TestClient(
+        create_app(tmp_path / "fallback.duckdb", overviews, map_developer_mode=True)
+    ) as client:
+        proposal_file.write_text("{ this is not json", encoding="utf-8")
+        corrupt = client.get("/api/dev/zones/de_mirage")
+
+        proposal_file.write_text(
+            json.dumps(
+                {
+                    "map_name": "de_mirage",
+                    "revision_id": "stale-revision",
+                    "zones": [{"zone_id": "jungle", "polygon": _JUNGLE_POLYGON}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        stale = client.get("/api/dev/zones/de_mirage")
+
+    corrupt_body = corrupt.json()
+    assert corrupt.status_code == 200
+    assert corrupt_body["proposal_active"] is False
+    assert "proposal_file_unreadable" in corrupt_body["issues"]
+    assert len(corrupt_body["zones"]) == len(MIRAGE_ZONE_SET.zones)
+
+    stale_body = stale.json()
+    assert stale.status_code == 200
+    assert stale_body["proposal_active"] is False
+    assert "proposal_map_or_revision_mismatch" in stale_body["issues"]
+    assert len(stale_body["zones"]) == len(MIRAGE_ZONE_SET.zones)
+
+
+def test_user_origin_zone_keeps_name_kind_and_priority_over_authored_id() -> None:
+    payload = {
+        "map_name": "de_mirage",
+        "revision_id": _MIRAGE_REVISION,
+        "saved_at": "2026-07-27T00:00:00+00:00",
+        "zones": [
+            {
+                "zone_id": "mid",
+                "zone_name": "Мид по-новому",
+                "kind": "chokepoint",
+                "origin": "user",
+                "polygon": _JUNGLE_POLYGON,
+            }
+        ],
+    }
+
+    effective, issues = proposal_zone_set(
+        payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION
+    )
+
+    assert effective is not None
+    assert issues == ()
+    zone = effective.zones[0]
+    assert zone.zone_id == "mid"
+    assert zone.zone_name == "Мид по-новому"
+    assert zone.kind is ZoneKind.CHOKEPOINT
+    assert zone.priority == 5
+
+
+def test_proposal_zone_set_replaces_layout_and_reports_issues() -> None:
+    payload = {
+        "map_name": "de_mirage",
+        "revision_id": _MIRAGE_REVISION,
+        "saved_at": "2026-07-27T00:00:00+00:00",
+        "zones": [
+            {"zone_id": "jungle", "polygon": _JUNGLE_POLYGON},
+            {"zone_id": "new_area", "polygon": _JUNGLE_POLYGON},
+            {
+                "zone_id": "named",
+                "zone_name": "Named",
+                "kind": "spawn",
+                "polygon": [[0.0, 0.0], [1.0, 0.0]],
+            },
+        ],
+    }
+
+    effective, issues = proposal_zone_set(
+        payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION
+    )
+
+    assert effective is not None
+    assert [zone.zone_id for zone in effective.zones] == ["jungle"]
+    jungle = effective.zones[0]
+    assert jungle.verification is ZoneVerificationStatus.OVERLAY_VERIFIED
+    assert jungle.zone_name == "Jungle"
+    assert jungle.kind is ZoneKind.AREA
+    assert "proposal_new_zone_missing_name:new_area" in issues
+    assert "proposal_invalid_polygon:named" in issues
+
+    mismatched, mismatch_issues = proposal_zone_set(
+        {**payload, "revision_id": "other"},
+        MIRAGE_ZONE_SET,
+        "de_mirage",
+        _MIRAGE_REVISION,
+    )
+    assert mismatched is None
+    assert mismatch_issues == ("proposal_map_or_revision_mismatch",)
 
 
 def test_sampled_coverage_against_real_map_definition() -> None:

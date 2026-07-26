@@ -296,3 +296,56 @@ if (rect.x1 !== 10 || rect.y1 !== 20 || rect.x2 !== 90 || rect.y2 !== 80) {
 }
 """
     _run_node(source, STATIC_JS / "zone-editor.js")
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is optional; browser JS unit runtime unavailable")
+def test_zone_editor_simplify_and_slugify() -> None:
+    source = r"""
+const fs = require("fs");
+global.window = {};
+eval(fs.readFileSync(process.argv[1], "utf8"));
+const math = global.window.StratWebZoneMath;
+const noisy = [[0, 0], [1, 0.2], [2, 0], [3, 0.1], [10, 0]];
+const simplified = math.simplifyPath(noisy, 1);
+if (simplified.length !== 2) {
+  throw new Error("collinear trace should collapse: " + JSON.stringify(simplified));
+}
+const corner = [[0, 0], [5, 0.1], [10, 0], [10, 10]];
+const kept = math.simplifyPath(corner, 1);
+if (kept.length !== 3) {
+  throw new Error("corner must survive simplify: " + JSON.stringify(kept));
+}
+if (math.slugify("Балкон") !== "balkon") {
+  throw new Error("cyrillic slug mismatch: " + math.slugify("Балкон"));
+}
+if (math.slugify("A Ramp!!") !== "a_ramp") {
+  throw new Error("latin slug mismatch: " + math.slugify("A Ramp!!"));
+}
+if (math.slugify("###") !== "zone") {
+  throw new Error("fallback slug mismatch: " + math.slugify("###"));
+}
+"""
+    _run_node(source, STATIC_JS / "zone-editor.js")
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is optional; browser JS unit runtime unavailable")
+def test_zone_editor_readable_detail_formats_validation_errors() -> None:
+    source = r"""
+const fs = require("fs");
+global.window = {};
+eval(fs.readFileSync(process.argv[1], "utf8"));
+const readable = global.window.StratWebZoneMath.readableDetail;
+if (readable("plain text") !== "plain text") {
+  throw new Error("string detail changed");
+}
+const formatted = readable([
+  { loc: ["body", "zones", 3, "polygon"], msg: "List should have at most 200 items" },
+]);
+if (!formatted.includes("zones.3.polygon") || !formatted.includes("at most 200")) {
+  throw new Error("validation array not readable: " + formatted);
+}
+if (readable(null) !== "") {
+  throw new Error("null detail should be empty");
+}
+"""
+    _run_node(source, STATIC_JS / "zone-editor.js")
