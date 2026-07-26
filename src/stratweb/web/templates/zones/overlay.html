@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ display_name }} zones · StratWeb{% endblock %}
+{% block head %}<style>
+.zone-stage { position: relative; max-width: 860px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.zone-stage img { display: block; width: 100%; height: auto; }
+.zone-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.zone-shape { fill-opacity: 0.16; stroke-width: 3; }
+.zone-shape.bombsite { fill: #d1462f; stroke: #d1462f; }
+.zone-shape.spawn { fill: #2d875a; stroke: #2d875a; }
+.zone-shape.pathway { fill: #2f6fd1; stroke: #2f6fd1; }
+.zone-shape.chokepoint { fill: #b58a1c; stroke: #b58a1c; }
+.zone-shape.area { fill: #7a5bd1; stroke: #7a5bd1; }
+.zone-label { font: 600 17px system-ui, sans-serif; fill: #ffffff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 3px; text-anchor: middle; }
+.zone-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 18px; color: var(--muted); }
+.zone-legend span::before { content: "■ "; }
+.zone-legend .bombsite::before { color: #d1462f; }
+.zone-legend .spawn::before { color: #2d875a; }
+.zone-legend .pathway::before { color: #2f6fd1; }
+.zone-legend .chokepoint::before { color: #b58a1c; }
+.zone-legend .area::before { color: #7a5bd1; }
+</style>{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui">Matches</a> / Zone overlay</nav>
+<section class="page-heading">
+  <div><p class="eyebrow">Developer zone overlay</p><h1>{{ display_name }} zones</h1>
+  <p>Proposed boundaries for manual verification. Zones never guess: outside every polygon is unknown.</p></div>
+  {% if coverage is not none %}<span class="status available">{{ '%.1f'|format(coverage * 100) }}% grid coverage</span>{% endif %}
+</section>
+{% for issue in issues %}<p class="notice warning">{{ issue }}</p>{% endfor %}
+{% if zone_set %}
+<div class="zone-legend"><span class="bombsite">bombsite</span><span class="spawn">spawn</span><span class="pathway">pathway</span><span class="chokepoint">chokepoint</span><span class="area">area</span></div>
+<div class="zone-stage">
+  {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
+  <svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}">
+    {% for zone in zones %}{% for points in zone.svg_polygons %}<polygon class="zone-shape {{ zone.kind }}" points="{{ points }}"><title>{{ zone.zone_name }} ({{ zone.kind }}, {{ zone.verification }})</title></polygon>{% endfor %}{% endfor %}
+    {% for zone in zones %}<text class="zone-label" x="{{ zone.label_x }}" y="{{ zone.label_y }}">{{ zone.zone_name }}</text>{% endfor %}
+  </svg>
+</div>
+<section>
+  <div class="section-heading"><h2>Zones</h2><span>{{ zones|length }} zones · fingerprint {{ fingerprint[:12] }}…</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Zone</th><th>Kind</th><th>Priority</th><th>Verification</th><th>Area (u²)</th><th>Source</th></tr></thead><tbody>
+  {% for zone in zones %}<tr>
+    <td><strong>{{ zone.zone_name }}</strong><small class="block muted">{{ zone.zone_id }}</small></td>
+    <td>{{ zone.kind }}</td>
+    <td>{{ zone.priority }}</td>
+    <td><span class="badge {{ 'good' if zone.verification == 'demo_validated' else ('warn' if zone.verification == 'overlay_verified' else '') }}">{{ zone.verification }}</span></td>
+    <td>{{ zone.area }}</td>
+    <td><small class="muted">{{ zone.source }}</small></td>
+  </tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% else %}
+<div class="empty-state"><p>No zone set is authored for {{ map_name }} revision {{ revision_id }} yet.</p></div>
+{% endif %}
+{% endblock %}

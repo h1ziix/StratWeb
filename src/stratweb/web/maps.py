@@ -16,6 +16,9 @@ from stratweb.maps.registry import DEFAULT_MAP_REGISTRY, MapRegistry
 from stratweb.maps.transforms import world_to_map
 from stratweb.spatial.map_overviews import MapOverviewRegistry
 from stratweb.web.rendering import render_template
+from stratweb.zones.definitions import zone_set_for
+from stratweb.zones.engine import zone_area
+from stratweb.zones.validation import sampled_coverage, validate_zone_set
 
 
 def map_router(
@@ -187,6 +190,25 @@ def map_router(
             )
         )
 
+    @router.get(
+        "/ui/dev/zones/{canonical_name}",
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def zones_overlay_page(canonical_name: str) -> HTMLResponse:
+        if not developer_mode:
+            raise HTTPException(status_code=404, detail="Zone overlay UI is disabled")
+        payload = _zone_overlay_payload(definitions, assets, canonical_name)
+        return HTMLResponse(render_template("zones/overlay.html", match_context=None, **payload))
+
+    @router.get("/api/dev/zones/{canonical_name}", tags=["map-calibration"])
+    def zones_overlay_data(canonical_name: str) -> dict[str, Any]:
+        if not developer_mode:
+            raise HTTPException(status_code=404, detail="Zone overlay API is disabled")
+        payload = _zone_overlay_payload(definitions, assets, canonical_name)
+        payload.pop("overview", None)
+        return payload
+
     @router.get("/api/dev/maps/transform-candidate", tags=["map-calibration"])
     def candidate_transform(
         map_name: str,
@@ -274,3 +296,73 @@ def _definition_response(definition: MapDefinition, assets: MapOverviewRegistry)
 def _json_for_script(value: Any) -> str:
     serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     return serialized.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+
+
+def _zone_overlay_payload(
+    definitions: MapRegistry,
+    assets: MapOverviewRegistry,
+    canonical_name: str,
+) -> dict[str, Any]:
+    canonical = definitions.canonicalize(canonical_name)
+    if canonical is None:
+        raise HTTPException(status_code=404, detail="Unknown map")
+    definition = definitions.preferred_definition(canonical)
+    if definition is None:
+        raise HTTPException(status_code=404, detail="Map revision unavailable")
+    overview = assets.get_definition(definition).model
+    zone_set = zone_set_for(canonical, definition.map_revision.revision_id)
+    if zone_set is None:
+        return {
+            "map_name": canonical,
+            "revision_id": definition.map_revision.revision_id,
+            "display_name": definition.display_name,
+            "overview": overview,
+            "zone_set": None,
+            "zones": [],
+            "fingerprint": None,
+            "issues": [],
+            "coverage": None,
+        }
+    zones: list[dict[str, Any]] = []
+    for zone in zone_set.zones:
+        polygons: list[str] = []
+        label_x = label_y = 0.0
+        vertex_count = 0
+        for polygon in zone.polygons:
+            points: list[str] = []
+            for world_x, world_y in polygon.vertices:
+                projected = world_to_map(definition, world_x, world_y, None)
+                if projected.pixel_x is None or projected.pixel_y is None:
+                    continue
+                points.append(f"{projected.pixel_x:.1f},{projected.pixel_y:.1f}")
+                label_x += projected.pixel_x
+                label_y += projected.pixel_y
+                vertex_count += 1
+            if points:
+                polygons.append(" ".join(points))
+        zones.append(
+            {
+                "zone_id": zone.zone_id,
+                "zone_name": zone.zone_name,
+                "kind": zone.kind.value,
+                "level": zone.level.value,
+                "priority": zone.priority,
+                "verification": zone.verification.value,
+                "source": zone.source,
+                "area": round(zone_area(zone), 1),
+                "svg_polygons": polygons,
+                "label_x": round(label_x / vertex_count, 1) if vertex_count else 0.0,
+                "label_y": round(label_y / vertex_count, 1) if vertex_count else 0.0,
+            }
+        )
+    return {
+        "map_name": canonical,
+        "revision_id": definition.map_revision.revision_id,
+        "display_name": definition.display_name,
+        "overview": overview,
+        "zone_set": zone_set,
+        "zones": zones,
+        "fingerprint": zone_set.fingerprint(),
+        "issues": list(validate_zone_set(zone_set)),
+        "coverage": round(sampled_coverage(zone_set, definition, samples_per_axis=48), 4),
+    }

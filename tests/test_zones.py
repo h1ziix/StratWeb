@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from stratweb.main import create_app
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY
+from stratweb.zones.definitions import MIRAGE_ZONE_SET, zone_set_for
 from stratweb.zones.engine import point_in_polygon, polygon_area, resolve_zone
 from stratweb.zones.models import (
     ZoneDefinition,
@@ -160,6 +166,41 @@ def test_polygon_area_shoelace() -> None:
     assert polygon_area(_SQUARE) == 10000.0
     triangle = ((0.0, 0.0), (10.0, 0.0), (0.0, 10.0))
     assert polygon_area(triangle) == 50.0
+
+
+def test_mirage_zone_set_is_structurally_valid_and_registered() -> None:
+    assert validate_zone_set(MIRAGE_ZONE_SET) == ()
+    assert len(MIRAGE_ZONE_SET.fingerprint()) == 64
+    assert zone_set_for("de_mirage", "cs2-1.41.7.1-d263aa1118fb") is MIRAGE_ZONE_SET
+    assert zone_set_for("de_mirage", "other-revision") is None
+    assert zone_set_for("de_dust2", "cs2-1.41.7.1-d263aa1118fb") is None
+
+
+def test_mirage_zones_resolve_known_evidence_points() -> None:
+    # Freeze-end side centroids of match e0f188cf round 1 (see
+    # tests/test_maps_ground_truth.py) and Valve bombA/bombB overview anchors
+    # converted to world through the pinned calibration (-3230/1713, scale 5).
+    t_spawn = resolve_zone(MIRAGE_ZONE_SET, 1184.0, -171.4, None)
+    ct_spawn = resolve_zone(MIRAGE_ZONE_SET, -1716.8, -1889.6, None)
+    site_a = resolve_zone(MIRAGE_ZONE_SET, -465.2, -2178.2, None)
+    site_b = resolve_zone(MIRAGE_ZONE_SET, -2052.4, 279.4, None)
+    far_outside = resolve_zone(MIRAGE_ZONE_SET, 20_000.0, 20_000.0, None)
+
+    assert t_spawn.zone_id == "t_spawn"
+    assert ct_spawn.zone_id == "ct_spawn"
+    assert site_a.zone_id == "bombsite_a"
+    assert site_a.kind is ZoneKind.BOMBSITE
+    assert site_b.zone_id == "bombsite_b"
+    assert far_outside.status is ZoneResolutionStatus.UNKNOWN
+
+
+def test_zone_overlay_endpoints_are_disabled_without_developer_mode(tmp_path: Path) -> None:
+    with TestClient(create_app(tmp_path / "zones.duckdb")) as client:
+        page = client.get("/ui/dev/zones/de_mirage")
+        data = client.get("/api/dev/zones/de_mirage")
+
+    assert page.status_code == 404
+    assert data.status_code == 404
 
 
 def test_sampled_coverage_against_real_map_definition() -> None:

@@ -49,7 +49,14 @@ Schema `1.0.0`, resolution rule `point_in_polygon_v1`.
 
 ## Статус авторинга
 
-Пакет содержит только контракты и движок. Полигоны конкретных карт добавляются
-отдельно: сначала `proposed` (по overview-ассету и Valve-якорям), затем
-`overlay_verified` через ручной developer overlay, затем `demo_validated` по
-реальным демкам. Наборы зон для реальных карт ещё не добавлены.
+Полигоны карт добавляются поэтапно: сначала `proposed` (по overview-ассету и
+Valve-якорям), затем `overlay_verified` через ручной developer overlay
+(`/ui/dev/zones/{map}` при `STRATWEB_MAP_DEVELOPER_MODE=true`), затем
+`demo_validated` по реальным демкам.
+
+Авторские наборы (`src/stratweb/zones/definitions/`):
+
+- `de_mirage` @ `cs2-1.41.7.1-d263aa1118fb` — 12 зон. Bombsites и spawns
+  заякорены официальными Valve-иконками overview и freeze-end центроидами
+  матча `e0f188cf`; mid/connector/palace/a_ramp/b_apartments/underpass/
+  market/jungle размечены по ассету и ждут overlay-проверки.
