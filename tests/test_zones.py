@@ -7,7 +7,17 @@ from fastapi.testclient import TestClient
 
 from stratweb.main import create_app
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY
-from stratweb.zones.definitions import ANCIENT_ZONE_SET, MIRAGE_ZONE_SET, zone_set_for
+from stratweb.zones.definitions import (
+    ALL_ZONE_SETS,
+    ANCIENT_ZONE_SET,
+    ANUBIS_ZONE_SET,
+    DUST2_ZONE_SET,
+    INFERNO_ZONE_SET,
+    MIRAGE_ZONE_SET,
+    NUKE_ZONE_SET,
+    OVERPASS_ZONE_SET,
+    zone_set_for,
+)
 from stratweb.zones.engine import point_in_polygon, polygon_area, resolve_zone
 from stratweb.zones.models import (
     ZoneDefinition,
@@ -175,7 +185,7 @@ def test_mirage_zone_set_is_structurally_valid_and_registered() -> None:
     assert len(MIRAGE_ZONE_SET.fingerprint()) == 64
     assert zone_set_for("de_mirage", "cs2-1.41.7.1-d263aa1118fb") is MIRAGE_ZONE_SET
     assert zone_set_for("de_mirage", "other-revision") is None
-    assert zone_set_for("de_dust2", "cs2-1.41.7.1-d263aa1118fb") is None
+    assert zone_set_for("de_cache", "cs2-1.41.7.1-d263aa1118fb") is None
 
 
 def test_mirage_zones_resolve_known_evidence_points() -> None:
@@ -214,6 +224,53 @@ def test_ancient_zone_set_is_valid_and_resolves_evidence_points() -> None:
     assert site_a.zone_id == "bombsite_a"
     assert site_b.zone_id == "bombsite_b"
     assert far_outside.status is ZoneResolutionStatus.UNKNOWN
+
+
+def test_all_authored_zone_sets_are_structurally_valid() -> None:
+    for zone_set in ALL_ZONE_SETS:
+        assert validate_zone_set(zone_set) == (), zone_set.map_name
+        assert zone_set_for(zone_set.map_name, zone_set.map_revision) is zone_set
+
+
+def test_dust2_zones_resolve_demo_and_anchor_evidence() -> None:
+    # Freeze-end centroids of match 28492216 round 1 and Valve site anchors
+    # through the rotation-baked dust2 calibration (-2476/3239, scale 4.4).
+    assert resolve_zone(DUST2_ZONE_SET, -704.0, -796.0, None).zone_id == "t_spawn"
+    assert resolve_zone(DUST2_ZONE_SET, 257.0, 2415.0, None).zone_id == "ct_spawn"
+    assert resolve_zone(DUST2_ZONE_SET, 1128.5, 2518.1, None).zone_id == "bombsite_a"
+    assert resolve_zone(DUST2_ZONE_SET, -1529.8, 2698.3, None).zone_id == "bombsite_b"
+
+
+def test_overpass_zones_resolve_demo_and_anchor_evidence() -> None:
+    # Freeze-end centroids of match dba336bb round 1 and Valve site anchors.
+    assert resolve_zone(OVERPASS_ZONE_SET, -2256.0, 793.2, None).zone_id == "ct_spawn"
+    assert resolve_zone(OVERPASS_ZONE_SET, -1430.8, -3137.1, None).zone_id == "t_spawn"
+    assert resolve_zone(OVERPASS_ZONE_SET, -1902.4, 556.4, None).zone_id == "bombsite_a"
+    assert resolve_zone(OVERPASS_ZONE_SET, -1103.6, 130.3, None).zone_id == "bombsite_b"
+
+
+def test_inferno_and_anubis_zones_resolve_valve_anchors() -> None:
+    # No local demos yet: Valve overview anchors only.
+    assert resolve_zone(INFERNO_ZONE_SET, 2428.8, 2113.9, None).zone_id == "ct_spawn"
+    assert resolve_zone(INFERNO_ZONE_SET, -1585.2, 508.2, None).zone_id == "t_spawn"
+    assert resolve_zone(INFERNO_ZONE_SET, 1977.3, 407.9, None).zone_id == "bombsite_a"
+    assert resolve_zone(INFERNO_ZONE_SET, 371.6, 2766.1, None).zone_id == "bombsite_b"
+    assert resolve_zone(ANUBIS_ZONE_SET, 464.6, 2152.0, None).zone_id == "ct_spawn"
+    assert resolve_zone(ANUBIS_ZONE_SET, 304.3, -1643.1, None).zone_id == "t_spawn"
+
+
+def test_nuke_zones_split_levels_by_proven_altitude() -> None:
+    # Valve anchors; A and B sit at overlapping x/y on different levels, so
+    # the resolution must depend on a proven z against the -495 split.
+    assert resolve_zone(NUKE_ZONE_SET, 2424.8, -338.6, None).zone_id == "ct_spawn"
+    assert resolve_zone(NUKE_ZONE_SET, -2091.1, -983.7, None).zone_id == "t_spawn"
+    site_xy = (703.0, -697.0)  # inside both site footprints
+    upper = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], 0.0)
+    lower = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], -700.0)
+    unproven = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], None)
+    assert upper.zone_id == "bombsite_a"
+    assert lower.zone_id == "bombsite_b"
+    assert unproven.status is ZoneResolutionStatus.UNKNOWN
 
 
 def test_zone_overlay_endpoints_are_disabled_without_developer_mode(tmp_path: Path) -> None:
