@@ -1,17 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ display_name }} zones · StratWeb{% endblock %}
 {% block head %}<style>
-.zone-stage { position: relative; max-width: 860px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.zone-wrap { max-width: 860px; }
+.zone-toggle { display: flex; gap: 8px; align-items: center; margin: 10px 0; color: var(--muted); }
+.zone-stage { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .zone-stage img { display: block; width: 100%; height: auto; }
 .zone-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.zone-shape { fill-opacity: 0.16; stroke-width: 3; }
+.zone-shape { fill-opacity: 0.04; stroke-width: 2; stroke-dasharray: 7 5; stroke-opacity: 0.55; }
+.zone-wrap:has(.zone-toggle input:checked) .zone-shape { fill-opacity: 0.16; stroke-opacity: 1; stroke-dasharray: none; }
 .zone-shape.bombsite { fill: #d1462f; stroke: #d1462f; }
 .zone-shape.spawn { fill: #2d875a; stroke: #2d875a; }
 .zone-shape.pathway { fill: #2f6fd1; stroke: #2f6fd1; }
 .zone-shape.chokepoint { fill: #b58a1c; stroke: #b58a1c; }
 .zone-shape.area { fill: #7a5bd1; stroke: #7a5bd1; }
-.zone-label { font: 600 17px system-ui, sans-serif; fill: #ffffff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 3px; text-anchor: middle; }
-.zone-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 18px; color: var(--muted); }
+.zone-label { font: 700 15px/1 system-ui, sans-serif; letter-spacing: 0.06em; fill: #ffffff; paint-order: stroke; stroke: rgba(10, 10, 10, 0.85); stroke-width: 3.5px; text-anchor: middle; }
+.zone-label.site { font-size: 34px; fill: #f5c518; stroke-width: 5px; }
+.zone-label.spawn { fill: #8ff0b4; }
+.zone-leader { stroke: #ffffff; stroke-width: 2; marker-end: url(#zone-arrow); filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9)); }
+.zone-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; color: var(--muted); }
 .zone-legend span::before { content: "■ "; }
 .zone-legend .bombsite::before { color: #d1462f; }
 .zone-legend .spawn::before { color: #2d875a; }
@@ -28,13 +34,18 @@
 </section>
 {% for issue in issues %}<p class="notice warning">{{ issue }}</p>{% endfor %}
 {% if zone_set %}
-<div class="zone-legend"><span class="bombsite">bombsite</span><span class="spawn">spawn</span><span class="pathway">pathway</span><span class="chokepoint">chokepoint</span><span class="area">area</span></div>
-<div class="zone-stage">
-  {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
-  <svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}">
-    {% for zone in zones %}{% for points in zone.svg_polygons %}<polygon class="zone-shape {{ zone.kind }}" points="{{ points }}"><title>{{ zone.zone_name }} ({{ zone.kind }}, {{ zone.verification }})</title></polygon>{% endfor %}{% endfor %}
-    {% for zone in zones %}<text class="zone-label" x="{{ zone.label_x }}" y="{{ zone.label_y }}">{{ zone.zone_name }}</text>{% endfor %}
-  </svg>
+<div class="zone-wrap">
+  <div class="zone-legend"><span class="bombsite">bombsite</span><span class="spawn">spawn</span><span class="pathway">pathway</span><span class="chokepoint">chokepoint</span><span class="area">area</span></div>
+  <label class="zone-toggle"><input type="checkbox"> Показать границы полигонов (для проверки)</label>
+  <div class="zone-stage">
+    {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
+    <svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}">
+      <defs><marker id="zone-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff"></path></marker></defs>
+      {% for zone in zones %}{% for points in zone.svg_polygons %}<polygon class="zone-shape {{ zone.kind }}" points="{{ points }}"><title>{{ zone.zone_name }} ({{ zone.kind }}, {{ zone.verification }})</title></polygon>{% endfor %}{% endfor %}
+      {% for zone in zones %}{% if zone.label_mode == 'leader' %}<line class="zone-leader" x1="{{ zone.leader_x1 }}" y1="{{ zone.leader_y1 }}" x2="{{ zone.leader_x2 }}" y2="{{ zone.leader_y2 }}"></line>{% endif %}{% endfor %}
+      {% for zone in zones %}<text class="zone-label {{ 'site' if zone.short_label else ('spawn' if zone.kind == 'spawn' else '') }}" x="{{ zone.label_x }}" y="{{ zone.label_y }}">{{ zone.short_label if zone.short_label else zone.zone_name|upper }}</text>{% endfor %}
+    </svg>
+  </div>
 </div>
 <section>
   <div class="section-heading"><h2>Zones</h2><span>{{ zones|length }} zones · fingerprint {{ fingerprint[:12] }}…</span></div>

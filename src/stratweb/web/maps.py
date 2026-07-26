@@ -298,6 +298,54 @@ def _json_for_script(value: Any) -> str:
     return serialized.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
+def _zone_label_layout(
+    zone_name: str,
+    kind: str,
+    pixel_points: list[tuple[float, float]],
+) -> dict[str, Any]:
+    """Callout-style label placement: inline when it fits, leader arrow when not.
+
+    Mirrors the official callout maps: bombsites render as a single large
+    letter, and a name wider than its zone is lifted above the boundary with
+    an arrow down to the zone instead of overflowing it.
+    """
+
+    if not pixel_points:
+        return {"label_mode": "inline", "short_label": None, "label_x": 0.0, "label_y": 0.0}
+    center_x = sum(point[0] for point in pixel_points) / len(pixel_points)
+    center_y = sum(point[1] for point in pixel_points) / len(pixel_points)
+    if kind == "bombsite":
+        return {
+            "label_mode": "inline",
+            "short_label": zone_name.split()[-1][:1].upper(),
+            "label_x": round(center_x, 1),
+            "label_y": round(center_y, 1),
+        }
+    box_width = max(point[0] for point in pixel_points) - min(point[0] for point in pixel_points)
+    box_top = min(point[1] for point in pixel_points)
+    box_bottom = max(point[1] for point in pixel_points)
+    estimated_width = 9.0 * len(zone_name)
+    if estimated_width <= box_width * 1.1:
+        return {
+            "label_mode": "inline",
+            "short_label": None,
+            "label_x": round(center_x, 1),
+            "label_y": round(center_y, 1),
+        }
+    label_y = box_top - 20.0 if box_top >= 70.0 else box_bottom + 26.0
+    label_x = min(max(center_x, 60.0), 964.0)
+    return {
+        "label_mode": "leader",
+        "short_label": None,
+        "label_x": round(label_x, 1),
+        "label_y": round(label_y, 1),
+        "leader_x1": round(label_x, 1),
+        "leader_y1": round(label_y + (6.0 if label_y < center_y else -14.0), 1),
+        "leader_x2": round(center_x, 1),
+        "leader_y2": round(center_y, 1),
+    }
+
+
 def _zone_overlay_payload(
     definitions: MapRegistry,
     assets: MapOverviewRegistry,
@@ -326,8 +374,7 @@ def _zone_overlay_payload(
     zones: list[dict[str, Any]] = []
     for zone in zone_set.zones:
         polygons: list[str] = []
-        label_x = label_y = 0.0
-        vertex_count = 0
+        pixel_points: list[tuple[float, float]] = []
         for polygon in zone.polygons:
             points: list[str] = []
             for world_x, world_y in polygon.vertices:
@@ -335,9 +382,7 @@ def _zone_overlay_payload(
                 if projected.pixel_x is None or projected.pixel_y is None:
                     continue
                 points.append(f"{projected.pixel_x:.1f},{projected.pixel_y:.1f}")
-                label_x += projected.pixel_x
-                label_y += projected.pixel_y
-                vertex_count += 1
+                pixel_points.append((projected.pixel_x, projected.pixel_y))
             if points:
                 polygons.append(" ".join(points))
         zones.append(
@@ -351,8 +396,7 @@ def _zone_overlay_payload(
                 "source": zone.source,
                 "area": round(zone_area(zone), 1),
                 "svg_polygons": polygons,
-                "label_x": round(label_x / vertex_count, 1) if vertex_count else 0.0,
-                "label_y": round(label_y / vertex_count, 1) if vertex_count else 0.0,
+                **_zone_label_layout(zone.zone_name, zone.kind.value, pixel_points),
             }
         )
     return {
