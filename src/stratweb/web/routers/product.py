@@ -24,6 +24,7 @@ from stratweb.exceptions import (
 )
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY, MapRegistry
 from stratweb.spatial.map_overviews import MapOverviewRegistry
+from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models import MatchLibraryItemView, MatchOverviewView
 
@@ -249,9 +250,7 @@ def _safe_original_name(value: str | None) -> str:
 
 
 def _require_localhost(request: Request) -> None:
-    host = request.client.host if request.client else ""
-    if host not in {"127.0.0.1", "::1", "testclient"}:
-        raise HTTPException(status_code=403, detail="Demo import is localhost-only.")
+    require_localhost(request, "Demo import")
 
 
 def _map_overview(

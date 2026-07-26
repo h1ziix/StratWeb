@@ -25,6 +25,7 @@ from stratweb.application.import_job_models import (
     stage_progress,
 )
 from stratweb.application.persistence import ImportCanonicalMatchService
+from stratweb.application.persistence_models import ImportStatus
 from stratweb.application.spatial import ComputeSpatialStateService
 from stratweb.application.temporal import ComputeTemporalStateService
 from stratweb.exceptions import ImportJobNotFoundError, ImportJobNotRetryableError
@@ -121,7 +122,7 @@ class LocalImportJobManager:
                 dataset,
                 source_original_name=original_name,
             )
-            if result.status.value == "failed":
+            if result.status is ImportStatus.FAILED:
                 raise RuntimeError(result.warnings[-1] if result.warnings else "Import failed")
             analytics = DuckDBAnalyticsRepository(self._database_path)
             self._update(job_id, ImportJobStage.ANALYTICS, "Computing deterministic analytics")
@@ -156,13 +157,18 @@ class LocalImportJobManager:
             )
         except Exception as exc:  # boundary converts parser/database failures to a job status
             error_code = getattr(exc, "error_code", "import_job_failed")
-            self._update(
-                job_id,
-                ImportJobStage.FAILED,
-                str(exc)[:400] or "Import failed",
-                error_code=str(error_code),
-                recoverable=demo_path.is_file(),
-            )
+            try:
+                self._update(
+                    job_id,
+                    ImportJobStage.FAILED,
+                    str(exc)[:400] or "Import failed",
+                    error_code=str(error_code),
+                    recoverable=demo_path.is_file(),
+                )
+            except ImportJobNotFoundError:
+                # The job row was removed concurrently; do not let the lookup
+                # failure replace the original pipeline error in this thread.
+                pass
 
     def _update(
         self,

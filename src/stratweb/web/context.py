@@ -3,10 +3,32 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
+
+from fastapi import HTTPException, Request
 
 from stratweb.application.canonical_models import CanonicalRound, CanonicalTeam
 from stratweb.application.persistence_models import StoredMatch
+
+# "testclient" is the synthetic client host set by the ASGI test transport;
+# the app is a localhost-only tool with no auth, so real remote hosts stay out.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "testclient"})
+_LOOPBACK_ORIGIN_HOSTNAMES = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def require_localhost(request: Request, action: str) -> None:
+    """Reject mutations from non-loopback clients and cross-site browser origins."""
+
+    host = request.client.host if request.client else ""
+    if host not in _LOOPBACK_HOSTS:
+        raise HTTPException(status_code=403, detail=f"{action} is localhost-only.")
+    origin = request.headers.get("origin")
+    if origin and urlparse(origin).hostname not in _LOOPBACK_ORIGIN_HOSTNAMES:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cross-origin {action.lower()} is not allowed.",
+        )
 
 
 def build_match_context(

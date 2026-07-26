@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
-    host: str = "0.0.0.0"
+    # Loopback by default: the API has no authentication. Docker/LAN deployments
+    # must opt in explicitly via STRATWEB_HOST.
+    host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     data_dir: Path = Path("data")
     duckdb_path: Path = Path("data/stratweb.duckdb")

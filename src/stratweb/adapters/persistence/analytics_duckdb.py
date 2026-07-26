@@ -12,6 +12,7 @@ import duckdb
 import polars as pl
 from pydantic import BaseModel
 
+from stratweb.adapters.persistence._connections import read_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.analytics.models import (
     AnalyticsAvailability,
@@ -155,7 +156,7 @@ class DuckDBAnalyticsRepository:
 
     def get_summary(self, match_id: UUID) -> AnalyticsRunSummary | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "analytics") as connection:
             row = _fetch_one(
                 connection,
                 """
@@ -429,7 +430,7 @@ class DuckDBAnalyticsRepository:
         if round_number is not None:
             where += " AND round_number = ?"
             parameters.append(round_number)
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "analytics") as connection:
             rows = _fetch_all(
                 connection,
                 f'SELECT * EXCLUDE (analytics_fingerprint) FROM "{table}" '
@@ -442,7 +443,7 @@ class DuckDBAnalyticsRepository:
 
     def _latest_fingerprint(self, match_id: UUID) -> str | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "analytics") as connection:
             row = connection.execute(
                 """
                 SELECT analytics_fingerprint FROM analytics_runs WHERE match_id = ?

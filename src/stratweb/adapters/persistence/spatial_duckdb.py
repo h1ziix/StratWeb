@@ -9,6 +9,7 @@ from uuid import UUID
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, SpatialIntegrityError
@@ -160,7 +161,7 @@ class DuckDBSpatialRepository:
 
     def get_summary_for_run(self, match_id: UUID, spatial_run_id: UUID) -> SpatialRunSummary | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             cursor = connection.execute(
                 """
                 SELECT * FROM spatial_runs
@@ -178,7 +179,7 @@ class DuckDBSpatialRepository:
         self.initialize()
         latest = self._latest_run(match_id)
         latest_id = UUID(str(latest["spatial_run_id"])) if latest else None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 """
                 SELECT spatial_run_id, spatial_fingerprint, match_id, temporal_run_id,
@@ -230,7 +231,7 @@ class DuckDBSpatialRepository:
             where.append("participant_id = ?")
             params.append(participant_id)
         params.extend([limit, offset])
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 "SELECT payload FROM spatial_snapshots WHERE "
                 + " AND ".join(where)
@@ -251,7 +252,7 @@ class DuckDBSpatialRepository:
             sql += " AND round_number = ?"
             params.append(round_number)
         sql += " ORDER BY round_number, tick, snapshot_id"
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(sql, params).fetchall()
         return tuple(BombPositionSnapshot.model_validate(_json(row[0])) for row in rows)
 
@@ -265,7 +266,7 @@ class DuckDBSpatialRepository:
         run_id = spatial_run_id or self._latest_run_id(match_id)
         if run_id is None:
             return ()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 """
                 SELECT DISTINCT tick FROM spatial_snapshots
@@ -375,7 +376,7 @@ class DuckDBSpatialRepository:
         run_id = spatial_run_id or self._latest_run_id(match_id)
         if run_id is None:
             return None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             row = connection.execute(
                 """
                 SELECT payload FROM bomb_position_query_rows
@@ -398,7 +399,7 @@ class DuckDBSpatialRepository:
             return ()
         keys = [_tick_lookup_key(spatial_run_id, round_number, tick) for tick in ticks]
         placeholders = ",".join("?" for _ in keys)
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 f"""
                 SELECT payload FROM spatial_snapshot_query_rows
@@ -422,7 +423,7 @@ class DuckDBSpatialRepository:
             return ()
         keys = [_tick_lookup_key(spatial_run_id, round_number, tick) for tick in ticks]
         placeholders = ",".join("?" for _ in keys)
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 f"""
                 SELECT payload FROM bomb_position_query_rows
@@ -441,7 +442,7 @@ class DuckDBSpatialRepository:
         *,
         spatial_run_id: UUID,
     ) -> tuple[SpatialProjectile, ...]:
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 """
                 SELECT payload FROM spatial_projectiles
@@ -461,7 +462,7 @@ class DuckDBSpatialRepository:
         *,
         spatial_run_id: UUID,
     ) -> tuple[ProjectileSnapshot, ...]:
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 """
                 SELECT payload FROM spatial_projectile_snapshots
@@ -482,7 +483,7 @@ class DuckDBSpatialRepository:
         *,
         spatial_run_id: UUID,
     ) -> tuple[UtilityEffect, ...]:
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 """
                 SELECT payload FROM spatial_utility_effects
@@ -498,7 +499,7 @@ class DuckDBSpatialRepository:
         run_id = self._latest_run_id(match_id)
         if run_id is None:
             return ()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(
                 "SELECT payload FROM spatial_validation_issues WHERE spatial_run_id = ? "
                 "ORDER BY issue_index",
@@ -539,7 +540,7 @@ class DuckDBSpatialRepository:
                 + " AND ".join(where)
                 + f" ORDER BY {order_by}"
             )
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             rows = connection.execute(sql, params).fetchall()
         return tuple(SpatialSnapshot.model_validate(_json(row[0])) for row in rows)
 
@@ -842,7 +843,7 @@ class DuckDBSpatialRepository:
 
     def _latest_run(self, match_id: UUID) -> dict[str, Any] | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             cursor = connection.execute(
                 """
                 SELECT * FROM spatial_runs WHERE match_id = ?
@@ -864,7 +865,7 @@ class DuckDBSpatialRepository:
         return UUID(str(row["spatial_run_id"])) if row else None
 
     def _counts(self, run_id: UUID) -> dict[str, int]:
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "spatial") as connection:
             return self._counts_in_connection(connection, run_id)
 
     @staticmethod

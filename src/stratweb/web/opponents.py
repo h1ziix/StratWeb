@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -19,6 +18,7 @@ from stratweb.exceptions import (
     OpponentNotFoundError,
     OpponentSelectionError,
 )
+from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 
 
@@ -138,18 +138,7 @@ def _workspace(
 
 
 def _require_localhost(request: Request) -> None:
-    host = request.client.host if request.client else ""
-    if host not in {"127.0.0.1", "::1", "testclient"}:
-        raise HTTPException(
-            status_code=403,
-            detail="Opponent workspace changes are localhost-only.",
-        )
-    origin = request.headers.get("origin")
-    if origin and urlparse(origin).hostname not in {"127.0.0.1", "::1", "localhost"}:
-        raise HTTPException(
-            status_code=403,
-            detail="Cross-origin opponent workspace changes are not allowed.",
-        )
+    require_localhost(request, "Opponent workspace change")
 
 
 __all__ = ["opponent_router"]

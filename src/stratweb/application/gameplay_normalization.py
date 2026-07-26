@@ -257,9 +257,7 @@ class GameplayEventNormalizer:
                         entity_id=optional_non_negative_int(
                             value(row.data, "entityid", "entity_id")
                         ),
-                        x=optional_non_negative_float(value(row.data, "x"))
-                        if optional_non_negative_float(value(row.data, "x")) is not None
-                        else _coordinate(value(row.data, "x")),
+                        x=_coordinate(value(row.data, "x")),
                         y=_coordinate(value(row.data, "y")),
                         z=_coordinate(value(row.data, "z")),
                         warnings=common_warnings,

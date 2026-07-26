@@ -10,6 +10,7 @@ from uuid import UUID
 import duckdb
 from pydantic import BaseModel
 
+from stratweb.adapters.persistence._connections import read_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, TemporalIntegrityError
@@ -139,7 +140,7 @@ class DuckDBTemporalRepository:
         self.initialize()
         default = self._latest_run(match_id)
         default_id = UUID(str(default["temporal_run_id"])) if default is not None else None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             cursor = connection.execute(
                 """
                 SELECT temporal_run_id, temporal_fingerprint, match_id,
@@ -215,7 +216,7 @@ class DuckDBTemporalRepository:
         run = self._run(match_id, temporal_run_id)
         if run is None or not _is_compatible_run(run):
             return None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             row = connection.execute(
                 """
                 SELECT payload FROM round_timelines
@@ -255,7 +256,7 @@ class DuckDBTemporalRepository:
         parameters: list[object] = [fingerprint]
         if round_number is not None:
             parameters.append(round_number)
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             rows = connection.execute(
                 f"""
                 SELECT child.payload FROM temporal_simultaneous_groups child
@@ -273,7 +274,7 @@ class DuckDBTemporalRepository:
         fingerprint = self._latest_fingerprint(match_id)
         if fingerprint is None:
             return None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             row = connection.execute(
                 """
                 SELECT child.payload FROM temporal_simultaneous_groups child
@@ -318,7 +319,7 @@ class DuckDBTemporalRepository:
         run = self._run(match_id, temporal_run_id)
         if run is None or not _is_compatible_run(run):
             return None
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             row = connection.execute(
                 """
                 SELECT round_number, payload FROM temporal_events
@@ -559,7 +560,7 @@ class DuckDBTemporalRepository:
         fingerprint = self._latest_fingerprint(match_id)
         if fingerprint is None:
             return ()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             rows = connection.execute(
                 f"""
                 SELECT child.payload FROM "{table}" child
@@ -573,7 +574,7 @@ class DuckDBTemporalRepository:
 
     def _latest_run(self, match_id: UUID) -> dict[str, Any] | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             cursor = connection.execute(
                 """
                 SELECT * FROM temporal_runs
@@ -603,7 +604,7 @@ class DuckDBTemporalRepository:
 
     def _run(self, match_id: UUID, temporal_run_id: UUID) -> dict[str, Any] | None:
         self.initialize()
-        with duckdb.connect(str(self._database_path), read_only=False) as connection:
+        with read_connection(self._database_path, "temporal") as connection:
             cursor = connection.execute(
                 "SELECT * FROM temporal_runs WHERE match_id = ? AND temporal_run_id = ?",
                 [match_id, temporal_run_id],
