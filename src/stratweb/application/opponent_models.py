@@ -73,6 +73,14 @@ class OpponentRosterMember(OpponentModel):
     role: RosterRole
 
 
+class AlternateTeamOption(OpponentModel):
+    """Another physical team of an already-confirmed match, for one-step reassign."""
+
+    team_id: UUID
+    team_name: str
+    player_names: tuple[str, ...]
+
+
 class SelectedOpponentMatch(OpponentModel):
     selection: OpponentMatchSelection
     map_name: str
@@ -82,6 +90,7 @@ class SelectedOpponentMatch(OpponentModel):
     player_names: tuple[str, ...]
     identified_player_count: int = Field(ge=0)
     unresolved_player_count: int = Field(ge=0)
+    alternate_teams: tuple[AlternateTeamOption, ...] = ()
 
 
 class CandidateTeam(OpponentModel):

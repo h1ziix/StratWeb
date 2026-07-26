@@ -104,6 +104,51 @@ def opponent_router(database_path: Path) -> APIRouter:
         return JSONResponse(status_code=200, content=selection.model_dump(mode="json"))
 
     @router.post(
+        "/api/opponents/{profile_id}/rename",
+        status_code=200,
+        tags=["opponents"],
+        response_model=None,
+    )
+    def rename_opponent(
+        request: Request,
+        profile_id: UUID,
+        display_name: Annotated[str, Form(min_length=1, max_length=100)],
+    ) -> Response:
+        _require_localhost(request)
+        try:
+            profile = service.rename_profile(profile_id, display_name)
+        except OpponentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except OpponentConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except OpponentSelectionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/opponents/{profile_id}", status_code=303)
+        return JSONResponse(status_code=200, content=profile.model_dump(mode="json"))
+
+    @router.post(
+        "/api/opponents/{profile_id}/delete",
+        status_code=200,
+        tags=["opponents"],
+        response_model=None,
+    )
+    def delete_opponent(request: Request, profile_id: UUID) -> Response:
+        _require_localhost(request)
+        try:
+            service.delete_profile(profile_id)
+        except OpponentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except OpponentConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse("/ui/opponents", status_code=303)
+        return JSONResponse(
+            status_code=200,
+            content={"profile_id": str(profile_id), "deleted": True},
+        )
+
+    @router.post(
         "/api/opponents/{profile_id}/matches/{match_id}/remove",
         status_code=200,
         tags=["opponents"],

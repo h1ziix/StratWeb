@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 from stratweb.application.canonical_models import CanonicalPlayer, CanonicalTeam
 from stratweb.application.opponent_models import (
+    AlternateTeamOption,
     CandidateMatch,
     CandidateTeam,
     OpponentMatchSelection,
@@ -49,11 +50,7 @@ class OpponentWorkspaceService:
         self._matches = matches
 
     def create_profile(self, display_name: str) -> OpponentProfile:
-        normalized = " ".join(display_name.split())
-        if not normalized:
-            raise OpponentSelectionError("Opponent name cannot be empty.")
-        if len(normalized) > 100:
-            raise OpponentSelectionError("Opponent name cannot exceed 100 characters.")
+        normalized = _normalized_profile_name(display_name)
         if any(
             profile.display_name.casefold() == normalized.casefold()
             for profile in self._opponents.list_profiles()
@@ -165,6 +162,27 @@ class OpponentWorkspaceService:
         self._require_profile(profile_id)
         return self._opponents.remove_selection(profile_id, match_id)
 
+    def rename_profile(self, profile_id: UUID, display_name: str) -> OpponentProfile:
+        profile = self._require_profile(profile_id)
+        normalized = _normalized_profile_name(display_name)
+        if any(
+            other.display_name.casefold() == normalized.casefold()
+            and other.profile_id != profile_id
+            for other in self._opponents.list_profiles()
+        ):
+            raise OpponentConflictError(f"Opponent profile {normalized!r} already exists.")
+        updated_at = datetime.now(UTC)
+        self._opponents.rename_profile(profile_id, normalized, updated_at)
+        return profile.model_copy(update={"display_name": normalized, "updated_at": updated_at})
+
+    def delete_profile(self, profile_id: UUID) -> None:
+        self._require_profile(profile_id)
+        if self._opponents.list_selections(profile_id):
+            raise OpponentConflictError(
+                "Profile still has confirmed matches. Remove them before deleting the workspace."
+            )
+        self._opponents.delete_profile(profile_id)
+
     def _require_profile(self, profile_id: UUID) -> OpponentProfile:
         profile = self._opponents.get_profile(profile_id)
         if profile is None:
@@ -245,7 +263,20 @@ class OpponentWorkspaceService:
             raise MatchNotFoundError(f"Match not found: {selection.match_id}")
         team = self._team(selection.match_id, selection.team_id)
         players = self._team_players(selection.match_id, selection.team_id)
+        alternates = tuple(
+            AlternateTeamOption(
+                team_id=other.team_id,
+                team_name=_team_name(other),
+                player_names=tuple(
+                    player.current_name
+                    for player in self._team_players(selection.match_id, other.team_id)
+                ),
+            )
+            for other in self._matches.get_teams(selection.match_id)
+            if other.team_id != selection.team_id
+        )
         return SelectedOpponentMatch(
+            alternate_teams=alternates,
             selection=selection,
             map_name=stored.map_name or "Unknown map",
             source_name=stored.source_original_name or stored.server_name or "Completed demo",
@@ -335,6 +366,15 @@ class OpponentWorkspaceService:
 
 def _team_name(team: CanonicalTeam) -> str:
     return team.display_name or team.internal_name
+
+
+def _normalized_profile_name(display_name: str) -> str:
+    normalized = " ".join(display_name.split())
+    if not normalized:
+        raise OpponentSelectionError("Opponent name cannot be empty.")
+    if len(normalized) > 100:
+        raise OpponentSelectionError("Opponent name cannot exceed 100 characters.")
+    return normalized
 
 
 __all__ = ["OpponentWorkspaceService"]

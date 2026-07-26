@@ -259,6 +259,69 @@ def test_opponent_ui_create_confirm_and_remove_flow(
     assert removed.json()["removed"] is True
 
 
+def test_opponent_rename_reassign_and_delete_flow(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    database = tmp_path / "opponent-polish.duckdb"
+    dataset = canonical_dataset_factory("opponent-polish")
+    DuckDBMatchRepository(database).save_match(dataset, source_original_name="faceit.dem")
+    match_id = str(dataset.match.match_id)
+    first_team = str(dataset.teams[0].team_id)
+    second_team = str(dataset.teams[1].team_id)
+    json_accept = {"Accept": "application/json"}
+
+    with TestClient(create_app(database)) as client:
+        created = client.post(
+            "/api/opponents", data={"display_name": "Old Name"}, headers=json_accept
+        )
+        profile_id = created.json()["profile_id"]
+        client.post("/api/opponents", data={"display_name": "Taken Name"}, headers=json_accept)
+
+        renamed = client.post(
+            f"/api/opponents/{profile_id}/rename",
+            data={"display_name": "  New   Name "},
+            headers=json_accept,
+        )
+        rename_conflict = client.post(
+            f"/api/opponents/{profile_id}/rename",
+            data={"display_name": "taken name"},
+            headers=json_accept,
+        )
+
+        client.post(
+            f"/api/opponents/{profile_id}/matches",
+            data={"match_id": match_id, "team_id": first_team},
+            headers=json_accept,
+        )
+        workspace = client.get(f"/api/opponents/{profile_id}")
+        reassigned = client.post(
+            f"/api/opponents/{profile_id}/matches",
+            data={"match_id": match_id, "team_id": second_team},
+            headers=json_accept,
+        )
+        after_reassign = client.get(f"/api/opponents/{profile_id}")
+
+        delete_blocked = client.post(f"/api/opponents/{profile_id}/delete", headers=json_accept)
+        client.post(
+            f"/api/opponents/{profile_id}/matches/{match_id}/remove", headers=json_accept
+        )
+        deleted = client.post(f"/api/opponents/{profile_id}/delete", headers=json_accept)
+        gone = client.get(f"/api/opponents/{profile_id}")
+
+    assert renamed.status_code == 200
+    assert renamed.json()["display_name"] == "New Name"
+    assert rename_conflict.status_code == 409
+    selected = workspace.json()["selected_matches"][0]
+    assert [team["team_id"] for team in selected["alternate_teams"]] == [second_team]
+    assert reassigned.status_code == 200
+    assert after_reassign.json()["selected_matches"][0]["selection"]["team_id"] == second_team
+    assert delete_blocked.status_code == 409
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+    assert gone.status_code == 404
+
+
 def test_opponent_mutations_reject_cross_site_origin(tmp_path: Path) -> None:
     with TestClient(create_app(tmp_path / "origin.duckdb")) as client:
         response = client.post(

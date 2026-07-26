@@ -76,6 +76,50 @@ class DuckDBOpponentRepository:
             raise PersistenceError("Could not list opponent profiles.") from exc
         return tuple(_profile(row) for row in rows)
 
+    def rename_profile(self, profile_id: UUID, display_name: str, updated_at: datetime) -> None:
+        self.initialize()
+        try:
+            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                connection.execute(
+                    "UPDATE opponent_profiles SET display_name = ?, updated_at = ? "
+                    "WHERE profile_id = ?",
+                    [display_name, _utc_naive(updated_at), profile_id],
+                )
+        except duckdb.ConstraintException as exc:
+            raise OpponentConflictError(
+                f"An opponent profile named {display_name!r} already exists."
+            ) from exc
+        except duckdb.Error as exc:
+            raise PersistenceError(f"Could not rename opponent profile {profile_id}.") from exc
+
+    def delete_profile(self, profile_id: UUID) -> bool:
+        self.initialize()
+        try:
+            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                existing = connection.execute(
+                    "SELECT 1 FROM opponent_profiles WHERE profile_id = ?",
+                    [profile_id],
+                ).fetchone()
+                if existing is None:
+                    return False
+                connection.execute("BEGIN TRANSACTION")
+                try:
+                    connection.execute(
+                        "DELETE FROM opponent_match_selections WHERE profile_id = ?",
+                        [profile_id],
+                    )
+                    connection.execute(
+                        "DELETE FROM opponent_profiles WHERE profile_id = ?",
+                        [profile_id],
+                    )
+                    connection.execute("COMMIT")
+                except Exception:
+                    connection.execute("ROLLBACK")
+                    raise
+                return True
+        except duckdb.Error as exc:
+            raise PersistenceError(f"Could not delete opponent profile {profile_id}.") from exc
+
     def save_selection(self, selection: OpponentMatchSelection) -> None:
         self.initialize()
         try:

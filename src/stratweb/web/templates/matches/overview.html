@@ -2,7 +2,7 @@
 {% block title %}{{ overview.match.map_name }} · StratWeb{% endblock %}
 {% block content %}
 <section class="page-heading match-heading"><div><p class="eyebrow">Match overview</p>
-  <h1>{{ overview.match.map_name }}</h1><p>{{ overview.match.source_name }} · {{ overview.match.round_count }} rounds</p></div>
+  <h1>{{ overview.match.map_name }}</h1><p>{{ overview.match.source_name }} · {{ overview.match.round_count }} rounds · <a href="/ui/opponents">Opponent workspaces</a></p></div>
   <div class="headline-score">{% if overview.match.score_available %}{% for team in overview.match.teams %}<span>{{ team.name }} <strong>{{ team.score }}</strong></span>{% endfor %}{% else %}<span>Score unavailable</span>{% endif %}</div>
 </section>
 <section class="health-grid" aria-label="Data health">

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Protocol, runtime_checkable
 from uuid import UUID
@@ -232,6 +233,10 @@ class OpponentRepository(Protocol):
     def get_profile(self, profile_id: UUID) -> OpponentProfile | None: ...
 
     def list_profiles(self) -> tuple[OpponentProfile, ...]: ...
+
+    def rename_profile(self, profile_id: UUID, display_name: str, updated_at: datetime) -> None: ...
+
+    def delete_profile(self, profile_id: UUID) -> bool: ...
 
     def save_selection(self, selection: OpponentMatchSelection) -> None: ...
 

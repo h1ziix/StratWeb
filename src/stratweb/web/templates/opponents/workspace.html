@@ -7,6 +7,12 @@
   <p>Only explicit match-team selections are persisted. Steam ID overlap is advisory.</p></div>
   <span class="status available">{{ workspace.selected_matches|length }} confirmed matches</span>
 </section>
+<form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/rename" class="opponent-create">
+  <label>Rename workspace
+    <input type="text" name="display_name" value="{{ workspace.profile.display_name }}" minlength="1" maxlength="100" required>
+  </label>
+  <button class="secondary" type="submit">Rename</button>
+</form>
 {% for warning in workspace.warnings %}<p class="notice warning">{{ warning }}</p>{% endfor %}
 
 <section>
@@ -18,7 +24,16 @@
       <div><strong>{{ item.map_name }}</strong><small>{{ item.source_name }} · {{ item.round_count }} rounds</small></div>
       <div><span class="badge good">{{ item.team_name }}</span><small>{{ item.player_names|join(', ') }}</small></div>
       <div><strong>{{ item.identified_player_count }}</strong><small>Steam IDs</small></div>
-      <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches/{{ item.selection.match_id }}/remove"><button class="secondary" type="submit">Remove</button></form>
+      <div class="selected-match-actions">
+      {% for alternate in item.alternate_teams %}
+        <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches" title="{{ alternate.player_names|join(', ') }}">
+          <input type="hidden" name="match_id" value="{{ item.selection.match_id }}">
+          <input type="hidden" name="team_id" value="{{ alternate.team_id }}">
+          <button class="secondary" type="submit">Reassign to {{ alternate.team_name }}</button>
+        </form>
+      {% endfor %}
+        <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches/{{ item.selection.match_id }}/remove"><button class="secondary" type="submit">Remove</button></form>
+      </div>
     </article>
   {% endfor %}
   </div>
@@ -70,6 +85,15 @@
   </div>
   {% else %}<div class="empty-state"><p>Every imported match is already assigned to this workspace.</p></div>{% endif %}
 </section>
+{% if not workspace.selected_matches %}
+<section>
+  <div class="section-heading"><h2>Delete workspace</h2><span>Only an empty workspace can be deleted</span></div>
+  <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/delete" class="opponent-create">
+    <label><input type="checkbox" required> I confirm deleting the empty workspace “{{ workspace.profile.display_name }}”</label>
+    <button class="secondary" type="submit">Delete workspace</button>
+  </form>
+</section>
+{% endif %}
 <details class="developer-details"><summary>Identity contract</summary><dl>
   <dt>Schema</dt><dd><code>{{ workspace.opponent_schema_version }}</code></dd>
   <dt>Identity rule</dt><dd><code>{{ workspace.identity_rule_version }}</code></dd>
