@@ -328,6 +328,68 @@ def test_delete_removes_match_and_all_children(
     assert all(count == 0 for count in repository.get_table_counts(dataset.match.match_id).values())
 
 
+def test_delete_purges_every_match_scoped_table(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    dataset = canonical_dataset_factory()
+    database_path = tmp_path / "matches.duckdb"
+    repository = DuckDBMatchRepository(database_path)
+    ImportCanonicalMatchService(repository).import_dataset(dataset)
+
+    match_id = dataset.match.match_id
+    run_id = uuid4()
+    temporal_run_id = uuid4()
+    round_id = dataset.rounds[0].round_id
+    connection = duckdb.connect(str(database_path))
+    try:
+        connection.execute(
+            "INSERT INTO spatial_projectiles "
+            "VALUES (?, ?, ?, ?, ?, 1, 100, 200, 'smoke', NULL, '{}')",
+            [run_id, uuid4(), match_id, temporal_run_id, round_id],
+        )
+        connection.execute(
+            "INSERT INTO spatial_projectile_snapshots "
+            "VALUES (?, ?, ?, ?, ?, ?, 1, 150, 'AIRBORNE', '{}')",
+            [run_id, uuid4(), uuid4(), match_id, temporal_run_id, round_id],
+        )
+        connection.execute(
+            "INSERT INTO spatial_utility_effects "
+            "VALUES (?, ?, NULL, ?, ?, ?, 1, 150, 250, 'smoke', '{}')",
+            [run_id, uuid4(), match_id, temporal_run_id, round_id],
+        )
+    finally:
+        connection.close()
+
+    assert repository.delete_match(match_id) is True
+
+    connection = duckdb.connect(str(database_path))
+    try:
+        tables = [
+            str(row[0])
+            for row in connection.execute(
+                "SELECT DISTINCT table_name FROM information_schema.columns "
+                "WHERE table_schema = 'main' AND column_name = 'match_id' "
+                "AND table_name != 'import_jobs' ORDER BY table_name"
+            ).fetchall()
+        ]
+        assert "spatial_projectiles" in tables
+        assert "spatial_projectile_snapshots" in tables
+        assert "spatial_utility_effects" in tables
+        leftovers = {
+            table: connection.execute(
+                f'SELECT count(*) FROM "{table}" WHERE match_id = ?', [match_id]
+            ).fetchone()
+            for table in tables
+        }
+    finally:
+        connection.close()
+
+    assert {table: row[0] if row else None for table, row in leftovers.items()} == {
+        table: 0 for table in tables
+    }
+
+
 def test_delete_failure_rolls_back_and_preserves_match(
     tmp_path: Path,
     canonical_dataset_factory: Any,

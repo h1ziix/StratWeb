@@ -69,6 +69,9 @@ _DELETE_ORDER: tuple[str, ...] = (
     "bomb_position_query_rows",
     "spatial_snapshot_query_rows",
     "spatial_validation_issues",
+    "spatial_utility_effects",
+    "spatial_projectile_snapshots",
+    "spatial_projectiles",
     "bomb_position_snapshots",
     "spatial_snapshots",
     "spatial_runs",
@@ -104,6 +107,20 @@ _DELETE_ORDER: tuple[str, ...] = (
     "teams",
     "matches",
 )
+
+# match_id-bearing tables that intentionally survive match deletion:
+# import_jobs keeps durable job history across deletes and re-imports.
+_MATCH_DELETE_EXEMPT: frozenset[str] = frozenset({"import_jobs"})
+
+
+def _match_scoped_tables(connection: duckdb.DuckDBPyConnection) -> tuple[str, ...]:
+    rows = connection.execute(
+        "SELECT DISTINCT table_name FROM information_schema.columns "
+        "WHERE table_schema = 'main' AND column_name = 'match_id' "
+        "ORDER BY table_name"
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows if str(row[0]) not in _MATCH_DELETE_EXEMPT)
+
 
 _INITIALIZATION_LOCK = threading.Lock()
 _INITIALIZED_DATABASES: dict[
@@ -857,9 +874,17 @@ class DuckDBMatchRepository:
             connection.execute(f'DELETE FROM "{table}" WHERE match_id = ?', [match_id])
 
     def _verify_match_absent(self, connection: duckdb.DuckDBPyConnection, match_id: UUID) -> None:
-        counts = self._table_counts(connection, match_id)
-        if any(counts.values()):
-            raise DatasetIntegrityError(f"Rows remain after deleting match {match_id}.")
+        remaining: list[str] = []
+        for table in _match_scoped_tables(connection):
+            row = connection.execute(
+                f'SELECT count(*) FROM "{table}" WHERE match_id = ?', [match_id]
+            ).fetchone()
+            if row and int(row[0]):
+                remaining.append(table)
+        if remaining:
+            raise DatasetIntegrityError(
+                f"Rows remain after deleting match {match_id}: {', '.join(remaining)}."
+            )
 
 
 def _expected_counts(dataset: CanonicalMatchDataset) -> dict[str, int]:
