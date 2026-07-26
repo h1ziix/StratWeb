@@ -751,6 +751,13 @@ gameplay patterns, findings, recommendations, reports or LLM integration.
 проверенная только синтетическим round-trip) и для одной `DEMO_VALIDATED`
 карты. Без него зоны наследуют непроверенную трансформацию координат.
 
+- [x] Gate выполнен 2026-07-27: `tests/test_maps_ground_truth.py` сверяет
+  freeze-end центроиды спавнов из реальных FACEIT демок (dust2, mirage,
+  overpass, ancient) с независимыми Valve-якорями `CTSpawn`/`TSpawn` из VPK
+  overview `.txt` той же ревизии; отклонения ≤0.08 при допуске 0.15, ошибка
+  ориентации дала бы ≥0.3. Отдельный тест доказывает различающую силу якорей
+  против axis-swap. Rotation dust2 подтверждён запечённым в PNG.
+
 Реализовать:
 
 - версионированный `ZoneDefinition`;
