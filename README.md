@@ -5,18 +5,17 @@ StratWeb — локальное backend-приложение для доказа
 командные и индивидуальные паттерны, но каждый вывод обязан ссылаться на конкретные
 демки, матчи и раунды.
 
-Этап 5 добавляет parser-independent `Gameplay Analytics Engine V1` поверх
-`CanonicalMatchDataset 1.1.0` и `MatchRepository`. Он детерминированно считает
-player/team, opening, direct trade, KAST, multikill, alive-advantage и базовые bomb
-метрики. Production adapter остаётся `demoparser2==0.41.4`; analytics не видит parser
-payload, не вызывает `parse_ticks` и не делает тактических выводов.
-
-Этапы 6–6.5 добавляют parser-independent `Temporal Round State Engine 1.1.0`. Он строит
-immutable timeline каждого раунда, phase/participant/life/bomb transitions и
-воспроизводимые snapshots, а read-only web UI визуализирует tick-группы без выдуманного
-порядка событий. Tick — authoritative единица; seconds остаются `null`,
-пока canonical contract не предоставляет доказанный tickrate. Полная нормативная
-семантика находится в [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md).
+Реализованы этапы 1–8.1: inspection и canonical dataset (`demoparser2==0.41.4`
+за портом), DuckDB persistence (миграции 001–016), `Gameplay Analytics Engine V1`
+(opening/trade/KAST/multikill/advantage/bomb метрики), `Temporal Round State
+Engine 1.1.0` (immutable timeline, snapshots — [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)),
+Spatial Engine с playback viewer ([SPATIAL_MODEL.md](SPATIAL_MODEL.md),
+[PLAYBACK_MODEL.md](PLAYBACK_MODEL.md)), карты с версионированными overview
+([MAP_MODEL.md](MAP_MODEL.md)), локальный upload `.dem` с durable import jobs
+и Opponent Workspace ([OPPONENT_MODEL.md](OPPONENT_MODEL.md)). Все движки
+parser-independent и детерминированы; tick — authoritative единица времени.
+Дальнейшие этапы (zones, economy, features, patterns, findings, отчёты) — в
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Безопасная область продукта
 
@@ -40,21 +39,28 @@ immutable timeline каждого раунда, phase/participant/life/bomb tran
 
 ```text
 src/stratweb/
-├── adapters/          # adapters demoparser2 и DuckDB persistence
+├── adapters/          # adapters demoparser2 и DuckDB persistence (+ migrations)
 ├── analytics/         # pure Gameplay Analytics Engine V1 и validation
 ├── temporal/          # pure Temporal Round State Engine и snapshots
-├── application/       # inspection, normalization, import/query/analytics use cases
+├── spatial/           # pure Spatial Engine, projectiles и map overview queries
+├── maps/              # версионированные map definitions, transforms и registry
+├── application/       # inspection, normalization, import/query, playback,
+│                      # opponents и import jobs use cases
+├── web/               # FastAPI routers, Jinja templates, static JS/CSS viewer
 ├── domain/            # parser-independent модели и enum
 ├── reporting/         # будущие renderer-ы отчётов
-├── config.py          # настройки окружения
+├── config.py          # настройки окружения (.env, префикс STRATWEB_)
 ├── contracts.py       # DTO между портами
 ├── exceptions.py      # typed inspection/import/persistence errors
-├── cli.py             # inspect/normalize/import/query/analytics commands
-├── main.py            # минимальное FastAPI-приложение
+├── cli.py             # inspect/normalize/db/import/matches/rounds/analytics/
+│                      # temporal/spatial commands
+├── main.py            # FastAPI-приложение и composition root
 └── ports.py           # интерфейсы модулей
-tests/
-└── test_smoke.py
+tests/                 # 36 модулей: unit, integration, UI и frontend tests
 ```
+
+Запуск локального сервера описан в [SERVER_GUIDE.md](SERVER_GUIDE.md)
+(`scripts/start_server.ps1`).
 
 ## Локальная установка
 
@@ -391,16 +397,17 @@ Git. Отдельный сервер БД не нужен: DuckDB являетс
 
 ## Текущие ограничения
 
-После этапа 7.1 нет endpoint загрузки, фонового worker-а, LLM или генератора тактических
-отчётов. Реализованы локальные read-only Temporal и Spatial UI; полноценный frontend и
-write API отсутствуют. Не реализованы economy, equipment value, clutch, heatmaps,
-zones, path clustering, spacing, execute/default/tactical pattern detection и
-counter-strategy generation.
+Реализованы локальный upload `.dem` с durable import jobs (Stage 7.2/8.0),
+playback viewer и Opponent Workspace (Stage 8.1); write-действия ограничены
+loopback. Нет LLM и генератора тактических отчётов. Не реализованы economy,
+equipment value, clutch, heatmaps, zones, path clustering, spacing,
+execute/default/tactical pattern detection и counter-strategy generation —
+это Stage 8.2+ по [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 `parse_ticks` вызывается только Spatial extractor-ом для заранее выбранных Temporal ticks.
-DuckDB workflow рассчитан
-на одного локального writer process. FACEIT fixture проверена; полноценные
-Valve/HLTV/POV fixtures остаются ограничением corpus. Stage 8 не начат и требует
-отдельного подтверждения.
+DuckDB workflow рассчитан на одного локального writer process. FACEIT fixture
+проверена; полноценные Valve/HLTV/POV fixtures остаются ограничением corpus.
+Тактическая аналитика (Stage 8.2+) не начата и требует отдельного
+подтверждения.
 
 ### Spatial Engine Foundation
 

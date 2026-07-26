@@ -304,7 +304,10 @@ storage, upload catalog/status, API endpoints, serialized writes и security tes
 каждый event имеет match/round/tick и actor context настолько полно, насколько это
 подтверждено source data.
 
-## Отложено — AnalysisDataset и analysis provenance (не начат)
+## Отложено — AnalysisDataset и analysis provenance (заменено Stage 8.6)
+
+> Раздел сохранён как история. Актуальная детализация — в
+> [Stage 8.6 — Analysis Run, Finding and Evidence Persistence](#stage-86--analysis-run-finding-and-evidence-persistence-не-начат).
 
 1. Спроектировать immutable `AnalysisDataset` snapshot поверх сохранённых canonical
    rows, явно исключая warmup/incomplete/unassigned data.
@@ -317,7 +320,11 @@ storage, upload catalog/status, API endpoints, serialized writes и security tes
 Критерий выхода: snapshot объясняет exclusions и повторяется для одинаковых
 canonical fingerprints/config; этот этап не начат в рамках текущего задания.
 
-## Отложено после Stage 7 — детерминированные tactical rules (не начато)
+## Отложено после Stage 7 — детерминированные tactical rules (заменено Stage 8.2–8.7)
+
+> Раздел сохранён как история. Актуальная детализация — в Stage 8.2 (zones),
+> 8.3 (economy), 8.4 (per-round features), 8.5 (cross-match patterns) и
+> 8.7 (counter-strategy rules) ниже.
 
 Начать с простых проверяемых patterns, а не «распознавания тактик»:
 
@@ -345,7 +352,10 @@ Finding ID и evidence IDs строить детерминированно. Rule
 Критерий выхода: повторный запуск на том же fingerprint/config даёт одинаковые
 content fields и evidence; малые выборки явно предупреждаются.
 
-## Отложено после Stage 7 — отчёт и API анализа (не начато)
+## Отложено после Stage 7 — отчёт и API анализа (заменено Stage 8.8–8.9)
+
+> Раздел сохранён как история. Актуальная детализация — в Stage 8.8 (Scouting
+> Report UI) и Stage 8.9 (Report Export) ниже.
 
 1. Реализовать JSON и Markdown renderer-ы.
 2. В отчёте группировать findings по map/side/category, сохраняя отдельные sections
@@ -359,7 +369,11 @@ content fields и evidence; малые выборки явно предупре�
 Критерий выхода: любой читатель может перейти от фразы отчёта к исходным раундам и
 повторить вычисление.
 
-## Этап 9 — hardening MVP
+## Этап 9 — hardening MVP (перенесён в Stage 10)
+
+> Раздел сохранён как история. Актуальная детализация — в
+> [Stage 10 — Corpus and Production Hardening](#stage-10--corpus-and-production-hardening-не-начат).
+> Номер «Stage 9» теперь закреплён за Optional LLM Rephrasing.
 
 1. Fuzz/negative tests для malformed demos и upload streams.
 2. Resource limits: timeout, memory/disk budgets, cancellation/cleanup.
@@ -696,3 +710,384 @@ explicitly reviewed Stage 8 sections.
 
 Stage 8.1 produces evidence scope only. It does not implement zones, cross-match
 gameplay patterns, findings, recommendations, reports or LLM integration.
+
+## Stage 8.1.1 — Manual Acceptance и Workspace Polish (не начат)
+
+Перед новой аналитикой проверить реальный пользовательский сценарий:
+
+- [ ] создать профиль соперника;
+- [ ] добавить первую демку;
+- [ ] выбрать команду по игрокам;
+- [ ] добавить вторую демку;
+- [ ] проверить overlap;
+- [ ] переназначить ошибочно выбранную команду;
+- [ ] удалить матч из профиля;
+- [ ] проверить игроков `core`, `partial`, `unresolved_identity`;
+- [ ] проверить профиль после перезапуска сервера.
+
+Допустимые небольшие улучшения (по результатам приёмки):
+
+- переименование профиля;
+- удаление пустого профиля с подтверждением;
+- ссылка из match overview в Opponent Workspace;
+- фильтр кандидатов по карте;
+- более понятное визуальное разделение двух команд.
+
+Технические долги аудита 2026-07-27, закрываемые в этом этапе:
+
+- [ ] дефолт `host` в `config.py` → `127.0.0.1` (Docker задаёт `0.0.0.0` явно);
+- [ ] единый `_require_localhost` c проверкой Origin для product и opponents
+  маршрутов;
+- [ ] освежить README (вводная, дерево структуры, «Текущие ограничения»).
+
+Не начинать тактическую аналитику, пока сценарий не принят.
+
+## Stage 8.2 — Map Zone Engine (не начат)
+
+Цель: преобразовать координаты в доказанные именованные области карты.
+
+Входное условие (gate): ground-truth тест «известная точка мира → известный
+пиксель» хотя бы для `de_dust2` (единственная карта с `rotation=90`,
+проверенная только синтетическим round-trip) и для одной `DEMO_VALIDATED`
+карты. Без него зоны наследуют непроверенную трансформацию координат.
+
+Реализовать:
+
+- версионированный `ZoneDefinition`;
+- полигоны областей;
+- `zone_id`, `zone_name`, `map_name`, `map_revision`;
+- верхний/нижний уровень для Nuke;
+- bombsites, spawns, основные проходы и chokepoints;
+- точное попадание координаты в полигон;
+- результат `unknown`, если зона не доказана;
+- ручной developer overlay для проверки границ;
+- zone provenance и checksum;
+- zone coverage diagnostics;
+- unit tests для границ и этажей;
+- проверку на реальных Mirage, Ancient, Overpass и Dust II;
+- (желательно) определения `de_train` и `de_vertigo` в maps registry — обе
+  карты в текущем Active Duty, сейчас демки на них дают `UNSUPPORTED`.
+
+Не реализовывать: автоматическое распознавание тактик; heatmap; ближайшую
+«предполагаемую» зону; рекомендации; LLM.
+
+Acceptance:
+
+- клик по игроку показывает доказанную зону;
+- неизвестная координата остаётся `unknown`;
+- версия зон закреплена в spatial/analysis run;
+- смена map revision не изменяет старые результаты.
+
+## Stage 8.3 — Economy and Equipment Context (не начат)
+
+Цель: не сравнивать pistol, eco, force и full-buy как одинаковые раунды.
+Сначала провести аудит реальных полей `demoparser2==0.41.4` (по образцу
+[PROJECTILE_PARSER_AUDIT.md](PROJECTILE_PARSER_AUDIT.md)).
+
+Реализовать:
+
+- equipment snapshots на freeze end;
+- player/team equipment value;
+- оружие, броню, defuse kits и utility;
+- классификацию: pistol; eco; force; partial buy; full buy; unknown;
+- сторону и физическую команду;
+- score context;
+- overtime context;
+- availability и источник каждого значения;
+- правила исключения раундов;
+- версионированный Economy run.
+
+Не придумывать цены или поля parser API. Любая таблица цен должна быть
+версионированной.
+
+Acceptance:
+
+- каждый раунд получает доказанную buy-классификацию либо `unknown`;
+- analytics может фильтровать раунды по buy type;
+- отсутствие equipment не превращается в eco.
+
+## Stage 8.4 — Per-Round Tactical Feature Engine (не начат)
+
+Цель: извлечь факты одного раунда без межматчевых выводов.
+
+Входные условия: решена семантика man-advantage (сейчас «первое преимущество»
+засчитывается и за суицид/тимкилл соперника — решение зафиксировать в
+[ANALYTICS_DEFINITIONS.md](ANALYTICS_DEFINITIONS.md)); резолвер участников не
+копируется в третий раз (analytics и temporal уже содержат по независимой
+реализации — выделить общую до расширения).
+
+Примеры features:
+
+- начальное распределение игроков по зонам;
+- первый контакт: tick, зона и игроки;
+- opening duel;
+- первая utility: тип, зона и игрок;
+- раннее присутствие в ключевых зонах;
+- направление движения бомбы;
+- bombsite;
+- время plant;
+- post-plant состав;
+- первая CT rotation;
+- потеря численного преимущества;
+- непротрейженная смерть;
+- retake attempt;
+- save/exit, только если доказуемо;
+- распределение игроков по зонам на заданных checkpoints.
+
+Каждый feature должен содержать: `match_id`; `round_number`; `team_id`;
+`side`; tick или tick range; zone; availability; rule version; evidence
+event/snapshot IDs; limitations.
+
+Не делать вывод «это execute/default». Пока только факты.
+
+## Stage 8.5 — Cross-Match Pattern Engine (не начат)
+
+Цель: находить повторения внутри подтверждённого Opponent Workspace.
+
+Группировать строго по: opponent profile; map; T/CT side; buy type;
+полному/допустимому раунду; версии feature rules.
+
+Первые паттерны:
+
+- site preference;
+- early zone occupation;
+- recurring opening player;
+- recurring opening death;
+- first-contact zones;
+- first utility;
+- bomb routing;
+- CT starting positions;
+- early rotations;
+- opening-kill conversion;
+- recovery after opening death;
+- lost man advantage;
+- untraded deaths;
+- plant timing;
+- retake/save frequency.
+
+Для каждого паттерна: numerator; denominator; frequency; sample size;
+minimum sample size; confidence; confidence method; small-sample warning;
+included и excluded rounds; limitations.
+
+Использовать детерминированный confidence method (например, Wilson interval).
+Не выдавать correlation за causation.
+
+## Stage 8.6 — Analysis Run, Finding and Evidence Persistence (не начат)
+
+Цель: превратить агрегаты в воспроизводимые `AnalysisFinding`.
+
+Реализовать:
+
+- immutable `AnalysisRun`;
+- configuration hash;
+- dataset/profile fingerprint;
+- selected match IDs;
+- pinned input run versions;
+- `AnalysisFinding`;
+- `EvidenceReference`;
+- atomic/idempotent persistence;
+- несколько исторических runs;
+- выбор последнего совместимого run;
+- запрет смешивания runs;
+- evidence API;
+- переход finding → матч → раунд → tick → карта/timeline.
+
+Обязательные поля finding: observation; tactical implication; recommended
+response; avoid; numerator/denominator/frequency; confidence; evidence;
+limitations; small-sample warning.
+
+На этом этапе рекомендации можно оставить пустыми typed-unavailable, если
+Stage 8.7 ещё не выполнен.
+
+## Stage 8.7 — Deterministic Counter-Strategy Rules (не начат)
+
+Цель: формировать рекомендации только из подтверждённых findings.
+
+Разделять:
+
+1. Observation — что регулярно происходило.
+2. Tactical implication — почему это может быть важно.
+3. Recommended response — что можно проверить против соперника.
+4. Avoid — чего лучше не делать.
+5. Limitations — почему рекомендация может не сработать.
+
+Примеры rule families:
+
+- повторяющийся ранний контроль зоны;
+- слабая защита после opening death;
+- низкая конверсия преимущества;
+- часто непротрейженные entry;
+- поздняя utility;
+- повторяющиеся CT anchors;
+- предсказуемое направление бомбы;
+- слабый retake;
+- частый save.
+
+Запрещено: заявлять причинность; рекомендовать действие на одном раунде;
+скрывать denominator; использовать LLM для расчёта; выдавать recommendation
+без evidence.
+
+## Stage 8.8 — Scouting Report UI (не начат)
+
+Цель: показать тренеру готовый предматчевый отчёт.
+
+Разделы: Overview; Data quality; T-side tendencies; CT-side tendencies;
+Individual tendencies; Recurring mistakes; Recommended responses; What to
+avoid; Evidence appendix.
+
+Фильтры: карта; сторона; buy type; временной диапазон; матчи; confidence;
+минимальная выборка.
+
+Каждая карточка должна открывать evidence:
+
+```text
+Finding
+  → matches
+  → rounds
+  → ticks
+  → map/timeline
+  → calculation details
+```
+
+Добавить JSON export. PDF — отдельным подэтапом после принятия HTML.
+
+Новые страницы строить только на современном стеке (Jinja templates +
+autoescape + typed view models), не расширяя legacy f-string рендеринг
+`web/temporal.py` / `web/spatial.py`.
+
+## Stage 8.9 — Report Export (не начат)
+
+Реализовать:
+
+- стабильный JSON contract;
+- printable HTML;
+- PDF export;
+- дату и scope анализа;
+- версии всех rules;
+- список демок;
+- SHA-256;
+- ограничения выборки;
+- evidence appendix.
+
+PDF не должен содержать выводов, отсутствующих в сохранённом Analysis run.
+
+## Stage 9 — Optional LLM Rephrasing (не начат)
+
+Только после принятия детерминированного отчёта.
+
+LLM разрешено: сокращать текст; менять стиль; переводить; формировать
+короткое executive summary.
+
+LLM запрещено: считать статистику; менять numerator/denominator; создавать
+findings; добавлять рекомендации без deterministic rule; удалять limitations;
+выбирать evidence; повышать confidence.
+
+Оригинальный deterministic finding всегда должен сохраняться рядом с
+LLM-текстом.
+
+## Stage 10 — Corpus and Production Hardening (не начат)
+
+- реальные FACEIT fixtures разных карт;
+- Valve demos;
+- HLTV/GOTV demos;
+- POV demos, если формат поддерживается;
+- повреждённые и неполные demos;
+- overtime;
+- substitutions;
+- отсутствующие Steam IDs;
+- parser-version compatibility matrix;
+- migration backup/restore;
+- disk cleanup policy;
+- import cancellation;
+- crash/restart tests;
+- performance benchmark на больших наборах;
+- security review localhost API;
+- fuzz/negative tests, resource limits, structured logs, CI и support matrix
+  из бывшего «Этапа 9 — hardening MVP».
+
+## Рекомендуемый порядок после Stage 8.1
+
+```text
+8.1.1 Manual acceptance + polish
+        ↓
+8.2 Zone Engine (gate: ground-truth координаты dust2)
+        ↓
+8.3 Economy Context
+        ↓
+8.4 Per-Round Features (gate: семантика man-advantage)
+        ↓
+8.5 Cross-Match Patterns
+        ↓
+8.6 Findings + Evidence Persistence
+        ↓
+8.7 Counter-Strategy Rules
+        ↓
+8.8 Report UI
+        ↓
+8.9 Export
+        ↓
+9 Optional LLM
+        ↓
+10 Hardening
+```
+
+## Готовый prompt для Cloud-агента (Stage 8.2)
+
+```text
+Продолжай проект StratWeb.
+
+Текущее состояние:
+- Stage 1–7.6 завершены.
+- Stage 8.0 завершён.
+- Stage 8.1 Opponent Workspace завершён.
+- DuckDB migration version: 016.
+- Opponent schema: 1.0.0.
+- Identity rule: steam_id_else_match_occurrence_v1.
+- Overlap rule: candidate_known_steam_ids_v1.
+- 230 tests collected: 224 passed, 6 skipped.
+- demoparser2 pinned to 0.41.4.
+- Проект под git (ветка main); коммить логическими шагами.
+- Runtime-данные вне репозитория: пути задаёт .env (не коммитить и не менять).
+
+Сначала прочитай:
+- README.md
+- ARCHITECTURE.md
+- IMPLEMENTATION_PLAN.md
+- OPPONENT_MODEL.md
+- SPATIAL_MODEL.md
+- MAP_MODEL.md
+- MAP_ASSETS.md
+- MAP_CALIBRATION.md
+
+Выполняй только следующий этап: Stage 8.2 Map Zone Engine.
+
+Главные ограничения:
+- только офлайн завершённые .dem;
+- не придумывать API parser-а;
+- никакой live-функциональности;
+- никакого LLM;
+- не распознавать тактики;
+- не делать heatmap;
+- координата вне доказанного полигона должна давать unknown;
+- зоны и map revision должны быть версионированы;
+- старые runs нельзя молча переинтерпретировать;
+- каждый результат должен сохранять provenance;
+- сначала выполни входной gate: ground-truth тест координат de_dust2;
+- не переходить к Stage 8.3 без явного подтверждения.
+
+Перед изменениями:
+1. Осмотри репозиторий и git status.
+2. Проверь текущие migrations и тесты.
+3. Составь краткий план.
+4. Не удаляй пользовательские файлы.
+
+После реализации:
+1. Запусти targeted tests.
+2. Запусти полный pytest.
+3. Запусти Ruff и Mypy.
+4. Проверь UI на реальных сохранённых матчах.
+5. Проведи critical review.
+6. Исправь серьёзные недостатки.
+7. Обнови документацию.
+8. Покажи версии, ограничения и acceptance evidence.
+```
