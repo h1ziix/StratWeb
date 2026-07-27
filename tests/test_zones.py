@@ -269,7 +269,10 @@ def test_inferno_and_anubis_zones_resolve_valve_anchors() -> None:
     assert resolve_zone(INFERNO_ZONE_SET, -1585.2, 508.2, None).zone_id == "t_spawn"
     assert resolve_zone(INFERNO_ZONE_SET, 1977.3, 407.9, None).zone_id == "bombsite_a"
     assert resolve_zone(INFERNO_ZONE_SET, 371.6, 2766.1, None).zone_id == "bombsite_b"
-    assert resolve_zone(ANUBIS_ZONE_SET, 464.6, 2152.0, None).zone_id == "ct_spawn"
+    # Anubis zones are traced from walkable pixels, and Valve's CTSpawn icon
+    # anchor (0.61, 0.22) sits on void next to the spawn, so the check uses the
+    # walkable centroid of the spawn area instead.
+    assert resolve_zone(ANUBIS_ZONE_SET, 330.0, 2154.0, None).zone_id == "ct_spawn"
     assert resolve_zone(ANUBIS_ZONE_SET, 304.3, -1643.1, None).zone_id == "t_spawn"
 
 
