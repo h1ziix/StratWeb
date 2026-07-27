@@ -6,6 +6,7 @@
 .zone-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 10px 0; }
 .zone-name-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .zone-stage { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.zone-stage + .zone-stage-title, .zone-stage-title { margin: 14px 0 6px; }
 .zone-stage img { display: block; width: 100%; height: auto; }
 .zone-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .zone-shape { fill-opacity: 0.04; stroke-width: 2; stroke-dasharray: 7 5; stroke-opacity: 0.55; }
@@ -63,15 +64,28 @@
     <button id="zoneNameConfirm" class="secondary" type="button">Добавить</button>
     <button id="zoneNameCancel" class="secondary" type="button">Отмена</button>
   </div>
-  <div class="zone-stage">
-    {% if overview.image_url %}<img src="{{ overview.image_url }}" alt="{{ display_name }} overview">{% endif %}
+  {% if overview.lower_image_url %}
+    {% set stage_defs = [
+      ('upper', overview.image_url, 'Верхний уровень — сайт A'),
+      ('lower', overview.lower_image_url, 'Нижний уровень — сайт B'),
+    ] %}
+  {% else %}
+    {% set stage_defs = [('default', overview.image_url, none)] %}
+  {% endif %}
+  {% for stage_level, stage_image, stage_title in stage_defs %}
+  {% if stage_title %}<h3 class="zone-stage-title">{{ stage_title }}</h3>{% endif %}
+  <div class="zone-stage" data-editor-stage="{{ stage_level }}">
+    {% if stage_image %}<img src="{{ stage_image }}" alt="{{ display_name }} overview">{% endif %}
     <svg viewBox="0 0 {{ overview.width or 1024 }} {{ overview.height or 1024 }}">
-      <defs><marker id="zone-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff"></path></marker></defs>
-      {% for zone in zones %}{% for points in zone.svg_polygons %}<polygon class="zone-shape {{ zone.kind }}" points="{{ points }}"><title>{{ zone.zone_name }} ({{ zone.kind }}, {{ zone.verification }})</title></polygon>{% endfor %}{% endfor %}
-      {% for zone in zones %}{% if zone.label_mode == 'leader' %}<line class="zone-leader" x1="{{ zone.leader_x1 }}" y1="{{ zone.leader_y1 }}" x2="{{ zone.leader_x2 }}" y2="{{ zone.leader_y2 }}"></line>{% endif %}{% endfor %}
-      {% for zone in zones %}<text class="zone-label {{ 'site' if zone.short_label else ('spawn' if zone.kind == 'spawn' else '') }}" x="{{ zone.label_x }}" y="{{ zone.label_y }}">{{ zone.short_label if zone.short_label else zone.zone_name|upper }}</text>{% endfor %}
+      <defs><marker id="zone-arrow-{{ stage_level }}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff"></path></marker></defs>
+      {% for zone in zones %}{% if stage_level == 'default' or (stage_level == 'lower' and zone.level != 'upper') or (stage_level == 'upper' and zone.level != 'lower') %}
+        {% for points in zone.svg_polygons %}<polygon class="zone-shape {{ zone.kind }}" points="{{ points }}"><title>{{ zone.zone_name }} ({{ zone.kind }}, {{ zone.verification }})</title></polygon>{% endfor %}
+        {% if zone.label_mode == 'leader' %}<line class="zone-leader" style="marker-end: url(#zone-arrow-{{ stage_level }})" x1="{{ zone.leader_x1 }}" y1="{{ zone.leader_y1 }}" x2="{{ zone.leader_x2 }}" y2="{{ zone.leader_y2 }}"></line>{% endif %}
+        <text class="zone-label {{ 'site' if zone.short_label else ('spawn' if zone.kind == 'spawn' else '') }}" x="{{ zone.label_x }}" y="{{ zone.label_y }}">{{ zone.short_label if zone.short_label else zone.zone_name|upper }}</text>
+      {% endif %}{% endfor %}
     </svg>
   </div>
+  {% endfor %}
 </div>
 {% if zones %}
 <section>

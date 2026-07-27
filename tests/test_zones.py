@@ -273,6 +273,40 @@ def test_nuke_zones_split_levels_by_proven_altitude() -> None:
     assert unproven.status is ZoneResolutionStatus.UNKNOWN
 
 
+def test_nuke_proposal_preserves_altitude_semantics() -> None:
+    from stratweb.maps.models import MapLevel
+
+    square = [[500.0, -500.0], [900.0, -500.0], [900.0, -900.0], [500.0, -900.0]]
+    payload = {
+        "map_name": "de_nuke",
+        "revision_id": _MIRAGE_REVISION,
+        "saved_at": "2026-07-27T00:00:00+00:00",
+        "zones": [
+            {"zone_id": "bombsite_a", "polygon": square},
+            {
+                "zone_id": "kennels",
+                "zone_name": "KENNELS",
+                "kind": "area",
+                "origin": "user",
+                "level": "lower",
+                "max_z": -495.0,
+                "polygon": square,
+            },
+        ],
+    }
+
+    effective, issues = proposal_zone_set(payload, NUKE_ZONE_SET, "de_nuke", _MIRAGE_REVISION)
+
+    assert effective is not None
+    assert issues == ()
+    site_a = next(zone for zone in effective.zones if zone.zone_id == "bombsite_a")
+    assert site_a.level is MapLevel.UPPER
+    assert site_a.polygons[0].min_z == -495.0
+    user_zone = next(zone for zone in effective.zones if zone.zone_id == "kennels")
+    assert user_zone.level is MapLevel.LOWER
+    assert user_zone.polygons[0].max_z == -495.0
+
+
 def test_zone_overlay_endpoints_are_disabled_without_developer_mode(tmp_path: Path) -> None:
     with TestClient(create_app(tmp_path / "zones.duckdb")) as client:
         page = client.get("/ui/dev/zones/de_mirage")

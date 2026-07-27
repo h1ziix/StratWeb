@@ -215,7 +215,16 @@ def map_router(
                 "zones": [
                     {
                         key: zone[key]
-                        for key in ("zone_id", "zone_name", "kind", "origin", "polygons_px")
+                        for key in (
+                            "zone_id",
+                            "zone_name",
+                            "kind",
+                            "origin",
+                            "level",
+                            "min_z",
+                            "max_z",
+                            "polygons_px",
+                        )
                     }
                     for zone in payload["zones"]
                 ],
@@ -402,6 +411,9 @@ class ZoneProposalZone(BaseModel):
     zone_name: str | None = Field(default=None, min_length=1, max_length=100)
     kind: str | None = None
     origin: str = Field(default="authored", pattern=r"^(authored|user)$")
+    level: str | None = Field(default=None, pattern=r"^(default|upper|lower)$")
+    min_z: float | None = Field(default=None, allow_inf_nan=False)
+    max_z: float | None = Field(default=None, allow_inf_nan=False)
     polygon: list[tuple[float, float]] = Field(min_length=3, max_length=200)
 
 
@@ -514,6 +526,9 @@ def _zone_overlay_payload(
         "image_width": definition.image_width,
         "image_height": definition.image_height,
         "kinds": [kind.value for kind in ZoneKind],
+        "upper_min_z": definition.level_policy.upper_min_z,
+        "lower_max_z": definition.level_policy.lower_max_z,
+        "has_lower": bool(getattr(overview, "lower_image_url", None)),
     }
     if zone_set is None:
         return {
@@ -564,6 +579,8 @@ def _zone_overlay_payload(
                 "zone_name": zone.zone_name,
                 "kind": zone.kind.value,
                 "level": zone.level.value,
+                "min_z": zone.polygons[0].min_z if zone.polygons else None,
+                "max_z": zone.polygons[0].max_z if zone.polygons else None,
                 "priority": zone.priority,
                 "verification": zone.verification.value,
                 "source": zone.source,

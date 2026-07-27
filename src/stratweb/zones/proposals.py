@@ -14,6 +14,7 @@ from math import isfinite
 from pathlib import Path
 from typing import Any
 
+from stratweb.maps.models import MapLevel
 from stratweb.zones.models import (
     ZoneDefinition,
     ZoneKind,
@@ -88,6 +89,11 @@ def proposal_zone_set(
             kind = authored.kind
             priority = authored.priority
             level = authored.level
+            # The proposal replaces the footprint, never the altitude
+            # semantics: level-constrained zones (Nuke floors) keep their
+            # authored z bounds.
+            min_z = authored.polygons[0].min_z
+            max_z = authored.polygons[0].max_z
         else:
             raw_name = entry.get("zone_name")
             if not isinstance(raw_name, str) or not raw_name.strip():
@@ -96,7 +102,9 @@ def proposal_zone_set(
             zone_name = " ".join(raw_name.split())[:100]
             kind = _parse_kind(entry.get("kind"))
             priority = _DEFAULT_PRIORITY.get(kind, 0)
-            level = ZoneDefinition.model_fields["level"].default
+            level = _parse_level(entry.get("level"))
+            min_z = _optional_float(entry.get("min_z"))
+            max_z = _optional_float(entry.get("max_z"))
         try:
             zones.append(
                 ZoneDefinition(
@@ -107,7 +115,7 @@ def proposal_zone_set(
                     map_revision=map_revision,
                     level=level,
                     priority=priority,
-                    polygons=(ZonePolygon(vertices=vertices),),
+                    polygons=(ZonePolygon(vertices=vertices, min_z=min_z, max_z=max_z),),
                     verification=ZoneVerificationStatus.OVERLAY_VERIFIED,
                     source=_zone_source(payload, use_authored),
                 )
@@ -170,6 +178,21 @@ def _parse_kind(value: Any) -> ZoneKind:
         except ValueError:
             return ZoneKind.AREA
     return ZoneKind.AREA
+
+
+def _parse_level(value: Any) -> MapLevel:
+    if isinstance(value, str):
+        try:
+            return MapLevel(value)
+        except ValueError:
+            return MapLevel.DEFAULT
+    return MapLevel.DEFAULT
+
+
+def _optional_float(value: Any) -> float | None:
+    if isinstance(value, int | float) and isfinite(float(value)):
+        return float(value)
+    return None
 
 
 def _zone_source(payload: dict[str, Any], known: bool) -> str:

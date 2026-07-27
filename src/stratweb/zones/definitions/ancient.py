@@ -1,12 +1,9 @@
-"""Proposed zone set for de_ancient, revision cs2-1.41.7.1-d263aa1118fb.
+"""Zone set for de_ancient, revision cs2-1.41.7.1-d263aa1118fb.
 
-Callout names and relative placement follow the official callout reference
-supplied by the user on 2026-07-27; boundaries were fitted to the pinned
-overview asset through a four-anchor linear mapping (both spawn boxes and
-both site markers are visible on the reference and the asset; y-fit residual
-<= 0.005, x-fit <= 0.03). Evidence: freeze-end side centroids of match
-24708cef and the Valve bombA/bombB anchors resolve to their zones. Status
-PROPOSED pending the user's overlay check."""
+Authored from the official callout reference supplied by the user, then
+reviewed and adjusted by the user in the overlay editor (layout saved
+2026-07-26T23:35:46.956259+00:00), which is the overlay verification step of the zone authoring
+pipeline."""
 
 from __future__ import annotations
 
@@ -20,23 +17,15 @@ from stratweb.zones.models import (
 
 _MAP_NAME = "de_ancient"
 _MAP_REVISION = "cs2-1.41.7.1-d263aa1118fb"
-_SOURCE = (
-    "official callout reference supplied by the user (2026-07-27), fitted to the "
-    "pinned overview asset via spawn/site anchors; pending overlay check"
-)
+_SOURCE = "user-reviewed layout from the overlay editor, saved 2026-07-26T23:35:46.956259+00:00"
 
 
-def _rect(
+def _zone(
     zone_id: str,
     zone_name: str,
     kind: ZoneKind,
     priority: int,
-    corners: tuple[
-        tuple[float, float],
-        tuple[float, float],
-        tuple[float, float],
-        tuple[float, float],
-    ],
+    vertices: tuple[tuple[float, float], ...],
 ) -> ZoneDefinition:
     return ZoneDefinition(
         zone_id=zone_id,
@@ -45,8 +34,8 @@ def _rect(
         map_name=_MAP_NAME,
         map_revision=_MAP_REVISION,
         priority=priority,
-        polygons=(ZonePolygon(vertices=corners),),
-        verification=ZoneVerificationStatus.PROPOSED,
+        polygons=(ZonePolygon(vertices=vertices),),
+        verification=ZoneVerificationStatus.OVERLAY_VERIFIED,
         source=_SOURCE,
     )
 
@@ -56,201 +45,341 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
     map_revision=_MAP_REVISION,
     source=_SOURCE,
     zones=(
-        _rect(
+        _zone(
             'ct_spawn',
             'CT SPAWN',
             ZoneKind.SPAWN,
             10,
-            ((-674.6, 1780.0), (-60.2, 1780.0), (-60.2, 1012.0), (-674.6, 1012.0)),
+            (
+                (-674.5, 1780.0),
+                (-60.0, 1780.0),
+                (-60.0, 1012.0),
+                (-674.5, 1012.0),
+            ),
         ),
-        _rect(
+        _zone(
             't_spawn',
             'T SPAWN',
             ZoneKind.SPAWN,
             10,
-            ((-725.8, -1957.6), (-265.0, -1957.6), (-265.0, -2520.8), (-725.8, -2520.8)),
+            (
+                (-726.0, -1957.5),
+                (-265.0, -1957.5),
+                (-265.0, -2521.0),
+                (-726.0, -2521.0),
+            ),
         ),
-        _rect(
+        _zone(
             'bombsite_a',
             'Bombsite A',
             ZoneKind.BOMBSITE,
             10,
-            ((-1621.8, 960.8), (-1186.6, 960.8), (-1186.6, 653.6), (-1621.8, 653.6)),
+            (
+                (-1622.0, 961.0),
+                (-1186.5, 961.0),
+                (-1186.5, 653.5),
+                (-1622.0, 653.5),
+            ),
         ),
-        _rect(
+        _zone(
             'bombsite_b',
             'Bombsite B',
             ZoneKind.BOMBSITE,
             10,
-            ((605.4, 218.4), (1168.6, 218.4), (1168.6, -140.0), (605.4, -140.0)),
+            (
+                (605.5, 218.5),
+                (1168.5, 218.5),
+                (1168.5, -140.0),
+                (605.5, -140.0),
+            ),
         ),
-        _rect(
+        _zone(
             'temple',
             'TEMPLE',
             ZoneKind.AREA,
             0,
-            ((-1519.4, 1575.2), (-725.8, 1575.2), (-725.8, 1216.8), (-1519.4, 1216.8)),
+            (
+                (-1519.5, 1575.0),
+                (-726.0, 1575.0),
+                (-726.0, 1217.0),
+                (-1519.5, 1217.0),
+            ),
         ),
-        _rect(
+        _zone(
             'ct',
             'CT',
             ZoneKind.AREA,
             0,
-            ((-1237.8, 1216.8), (-905.0, 1216.8), (-905.0, 960.8), (-1237.8, 960.8)),
+            (
+                (-1238.0, 1217.0),
+                (-905.0, 1217.0),
+                (-905.0, 961.0),
+                (-1238.0, 961.0),
+            ),
         ),
-        _rect(
+        _zone(
             'plat',
             'PLAT',
             ZoneKind.AREA,
             0,
-            ((-2210.6, 1319.2), (-1749.8, 1319.2), (-1749.8, 832.8), (-2210.6, 832.8)),
+            (
+                (-2210.5, 1319.0),
+                (-1750.0, 1319.0),
+                (-1750.0, 833.0),
+                (-2210.5, 833.0),
+            ),
         ),
-        _rect(
+        _zone(
             'big_box',
             'BIG BOX',
             ZoneKind.AREA,
             0,
-            ((-2057.0, 1140.0), (-1621.8, 1140.0), (-1621.8, 756.0), (-2057.0, 756.0)),
+            (
+                (-2057.0, 1140.0),
+                (-1622.0, 1140.0),
+                (-1622.0, 756.0),
+                (-2057.0, 756.0),
+            ),
         ),
-        _rect(
+        _zone(
             'triple',
             'TRIPLE',
             ZoneKind.AREA,
             0,
-            ((-1186.6, 1012.0), (-853.8, 1012.0), (-853.8, 679.2), (-1186.6, 679.2)),
+            (
+                (-1186.5, 1012.0),
+                (-854.0, 1012.0),
+                (-854.0, 679.0),
+                (-1186.5, 679.0),
+            ),
         ),
-        _rect(
+        _zone(
             'sniper_nest',
             'SNIPER NEST',
             ZoneKind.AREA,
             0,
-            ((-725.8, 1012.0), (-239.4, 1012.0), (-239.4, 602.4), (-725.8, 602.4)),
+            (
+                (-726.0, 1012.0),
+                (-239.5, 1012.0),
+                (-239.5, 602.5),
+                (-726.0, 602.5),
+            ),
         ),
-        _rect(
+        _zone(
             'alley',
             'ALLEY',
             ZoneKind.AREA,
             0,
-            ((-60.2, 1063.2), (784.6, 1063.2), (784.6, 756.0), (-60.2, 756.0)),
+            (
+                (-60.0, 1063.0),
+                (784.5, 1063.0),
+                (784.5, 756.0),
+                (-60.0, 756.0),
+            ),
         ),
-        _rect(
+        _zone(
             'back_alley',
             'BACK ALLEY',
             ZoneKind.AREA,
             0,
-            ((835.8, 1114.4), (1655.0, 1114.4), (1655.0, 781.6), (835.8, 781.6)),
+            (
+                (836.0, 1114.5),
+                (1655.0, 1114.5),
+                (1655.0, 781.5),
+                (836.0, 781.5),
+            ),
         ),
-        _rect(
+        _zone(
             'short_b',
             'SHORT',
             ZoneKind.AREA,
             0,
-            ((631.0, 730.4), (1143.0, 730.4), (1143.0, 397.6), (631.0, 397.6)),
+            (
+                (631.0, 730.5),
+                (1143.0, 730.5),
+                (1143.0, 397.5),
+                (631.0, 397.5),
+            ),
         ),
-        _rect(
+        _zone(
             'long',
             'LONG',
             ZoneKind.AREA,
             0,
-            ((1322.2, 807.2), (1757.4, 807.2), (1757.4, 320.8), (1322.2, 320.8)),
+            (
+                (1322.0, 807.0),
+                (1757.5, 807.0),
+                (1757.5, 321.0),
+                (1322.0, 321.0),
+            ),
         ),
-        _rect(
+        _zone(
             'red',
             'RED',
             ZoneKind.AREA,
             0,
-            ((-623.4, 576.8), (-265.0, 576.8), (-265.0, 269.6), (-623.4, 269.6)),
+            (
+                (-623.5, 577.0),
+                (-265.0, 577.0),
+                (-265.0, 269.5),
+                (-623.5, 269.5),
+            ),
         ),
-        _rect(
+        _zone(
             'tree',
             'TREE',
             ZoneKind.AREA,
             0,
-            ((-2031.4, 628.0), (-1621.8, 628.0), (-1621.8, 295.2), (-2031.4, 295.2)),
+            (
+                (-2031.5, 628.0),
+                (-1622.0, 628.0),
+                (-1622.0, 295.0),
+                (-2031.5, 295.0),
+            ),
         ),
-        _rect(
+        _zone(
             'a_main',
             'A MAIN',
             ZoneKind.AREA,
             0,
-            ((-2364.2, 397.6), (-1903.4, 397.6), (-1903.4, -140.0), (-2364.2, -140.0)),
+            (
+                (-2364.0, 397.5),
+                (-1903.5, 397.5),
+                (-1903.5, -140.0),
+                (-2364.0, -140.0),
+            ),
         ),
-        _rect(
+        _zone(
             'short_a',
             'SHORT',
             ZoneKind.AREA,
             0,
-            ((-1545.0, 628.0), (-1186.6, 628.0), (-1186.6, 13.6), (-1545.0, 13.6)),
+            (
+                (-1545.0, 628.0),
+                (-1186.5, 628.0),
+                (-1186.5, 13.5),
+                (-1545.0, 13.5),
+            ),
         ),
-        _rect(
+        _zone(
             'top_mid',
             'TOP MID',
             ZoneKind.AREA,
             0,
-            ((-700.2, 244.0), (-239.4, 244.0), (-239.4, -140.0), (-700.2, -140.0)),
+            (
+                (-700.0, 244.0),
+                (-239.5, 244.0),
+                (-239.5, -140.0),
+                (-700.0, -140.0),
+            ),
         ),
-        _rect(
+        _zone(
             'cave',
             'CAVE',
             ZoneKind.AREA,
             0,
-            ((349.4, 320.8), (682.2, 320.8), (682.2, -140.0), (349.4, -140.0)),
+            (
+                (349.5, 321.0),
+                (682.0, 321.0),
+                (682.0, -140.0),
+                (349.5, -140.0),
+            ),
         ),
-        _rect(
+        _zone(
             'donut',
             'DONUT',
             ZoneKind.AREA,
             0,
-            ((-1673.0, 13.6), (-1084.2, 13.6), (-1084.2, -421.6), (-1673.0, -421.6)),
+            (
+                (-1673.0, 13.5),
+                (-1084.0, 13.5),
+                (-1084.0, -421.5),
+                (-1673.0, -421.5),
+            ),
         ),
-        _rect(
+        _zone(
             'wood',
             'WOOD',
             ZoneKind.AREA,
             0,
-            ((656.6, -140.0), (1143.0, -140.0), (1143.0, -524.0), (656.6, -524.0)),
+            (
+                (656.5, -140.0),
+                (1143.0, -140.0),
+                (1143.0, -524.0),
+                (656.5, -524.0),
+            ),
         ),
-        _rect(
+        _zone(
             'pit',
             'PIT',
             ZoneKind.AREA,
             0,
-            ((-341.8, -37.6), (42.2, -37.6), (42.2, -370.4), (-341.8, -370.4)),
+            (
+                (-342.0, -37.5),
+                (42.0, -37.5),
+                (42.0, -370.5),
+                (-342.0, -370.5),
+            ),
         ),
-        _rect(
+        _zone(
             'mid',
             'MID',
             ZoneKind.AREA,
             0,
-            ((-751.4, -165.6), (-137.0, -165.6), (-137.0, -728.8), (-751.4, -728.8)),
+            (
+                (-751.5, -165.5),
+                (-137.0, -165.5),
+                (-137.0, -729.0),
+                (-751.5, -729.0),
+            ),
         ),
-        _rect(
+        _zone(
             'cat_room',
             'CAT ROOM',
             ZoneKind.AREA,
             0,
-            ((42.2, -268.0), (528.6, -268.0), (528.6, -626.4), (42.2, -626.4)),
+            (
+                (42.0, -268.0),
+                (528.5, -268.0),
+                (528.5, -626.5),
+                (42.0, -626.5),
+            ),
         ),
-        _rect(
+        _zone(
             'ramp',
             'RAMP',
             ZoneKind.AREA,
             0,
-            ((1091.8, -268.0), (1655.0, -268.0), (1655.0, -908.0), (1091.8, -908.0)),
+            (
+                (1092.0, -268.0),
+                (1655.0, -268.0),
+                (1655.0, -908.0),
+                (1092.0, -908.0),
+            ),
         ),
-        _rect(
+        _zone(
             'lower_mid',
             'LOWER MID',
             ZoneKind.AREA,
             0,
-            ((-1186.6, -524.0), (-649.0, -524.0), (-649.0, -908.0), (-1186.6, -908.0)),
+            (
+                (-1186.5, -524.0),
+                (-649.0, -524.0),
+                (-649.0, -908.0),
+                (-1186.5, -908.0),
+            ),
         ),
-        _rect(
+        _zone(
             'cat',
             'CAT',
             ZoneKind.AREA,
             0,
-            ((-290.6, -626.4), (119.0, -626.4), (119.0, -959.2), (-290.6, -959.2)),
+            (
+                (-290.5, -626.5),
+                (119.0, -626.5),
+                (119.0, -959.0),
+                (-290.5, -959.0),
+            ),
         ),
     ),
 )
