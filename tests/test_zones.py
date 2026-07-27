@@ -260,17 +260,16 @@ def test_inferno_and_anubis_zones_resolve_valve_anchors() -> None:
 
 
 def test_nuke_zones_split_levels_by_proven_altitude() -> None:
-    # Valve anchors; A and B sit at overlapping x/y on different levels, so
-    # the resolution must depend on a proven z against the -495 split.
-    assert resolve_zone(NUKE_ZONE_SET, 2424.8, -338.6, None).zone_id == "ct_spawn"
-    assert resolve_zone(NUKE_ZONE_SET, -2091.1, -983.7, None).zone_id == "t_spawn"
-    site_xy = (703.0, -697.0)  # inside both site footprints
-    upper = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], 0.0)
-    lower = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], -700.0)
-    unproven = resolve_zone(NUKE_ZONE_SET, site_xy[0], site_xy[1], None)
-    assert upper.zone_id == "bombsite_a"
-    assert lower.zone_id == "bombsite_b"
-    assert unproven.status is ZoneResolutionStatus.UNKNOWN
+    # The user placed one CT Spawn box per floor and the sites on their own
+    # levels, so altitude is what separates them.
+    assert resolve_zone(NUKE_ZONE_SET, -2018.4, -1058.2, None).zone_id == "t_spawn"
+    assert resolve_zone(NUKE_ZONE_SET, 2356.2, -489.1, 0.0).zone_id == "ct_spawn_upper"
+    assert resolve_zone(NUKE_ZONE_SET, 2362.0, -479.4, -700.0).zone_id == "ct_spawn_lower"
+    assert resolve_zone(NUKE_ZONE_SET, 686.8, -731.0, 0.0).zone_id == "bombsite_a"
+    assert resolve_zone(NUKE_ZONE_SET, 630.3, -1043.8, -700.0).zone_id == "bombsite_b"
+    # A floor-bound zone never matches without a proven altitude.
+    assert resolve_zone(NUKE_ZONE_SET, 630.3, -1043.8, None).status is ZoneResolutionStatus.UNKNOWN
+    assert resolve_zone(NUKE_ZONE_SET, 630.3, -1043.8, 0.0).status is ZoneResolutionStatus.UNKNOWN
 
 
 def test_nuke_proposal_preserves_altitude_semantics() -> None:

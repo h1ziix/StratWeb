@@ -1,14 +1,10 @@
-"""Proposed zone set for de_nuke, revision cs2-1.41.7.1-d263aa1118fb.
+"""Zone set for de_nuke, revision cs2-1.41.7.1-d263aa1118fb.
 
-Two official callout references supplied by the user on 2026-07-27 (A side
-= upper level, B side = lower level). Upper zones carry min_z=-495 and
-lower zones max_z=-495 per the calibrated level split; Ramp, Secret access
-and both spawns span levels where the callout does. A-side coordinates come
-from a three-anchor fit of the reference (T/CT spawn boxes + site A marker,
-residuals <= 0.015); B-side rooms follow the reference's relative layout
-under the same central building. No local demo exists for nuke yet, so the
-evidence check uses the Valve anchors with level-appropriate altitudes.
-Status PROPOSED pending the user's overlay check.
+Two-level layout placed by the user in the split-level overlay editor
+(saved 2026-07-27T00:48:28.301595+00:00): the upper stage carries the A-site floor (min_z -495)
+and the lower stage the B-site floor (max_z -495), matching the calibrated
+altitude split, while Ramp and T Spawn span both levels. Editor id suffixes
+were normalized on fold; the two CT Spawn boxes keep one id per level.
 """
 
 from __future__ import annotations
@@ -25,25 +21,20 @@ from stratweb.zones.models import (
 _MAP_NAME = "de_nuke"
 _MAP_REVISION = "cs2-1.41.7.1-d263aa1118fb"
 _SOURCE = (
-    "official callout reference supplied by the user (2026-07-27), fitted to the "
-    "pinned overview asset via spawn/site anchors; pending overlay check"
+    "user-placed two-level layout from the overlay editor, "
+    "saved 2026-07-27T00:48:28.301595+00:00"
 )
 
 
-def _rect(
+def _zone(
     zone_id: str,
     zone_name: str,
     kind: ZoneKind,
     priority: int,
-    corners: tuple[
-        tuple[float, float],
-        tuple[float, float],
-        tuple[float, float],
-        tuple[float, float],
-    ],
-    level: MapLevel = MapLevel.DEFAULT,
-    min_z: float | None = None,
-    max_z: float | None = None,
+    level: MapLevel,
+    min_z: float | None,
+    max_z: float | None,
+    vertices: tuple[tuple[float, float], ...],
 ) -> ZoneDefinition:
     return ZoneDefinition(
         zone_id=zone_id,
@@ -53,10 +44,10 @@ def _rect(
         map_revision=_MAP_REVISION,
         level=level,
         priority=priority,
-        polygons=(ZonePolygon(vertices=corners, min_z=min_z, max_z=max_z),),
-        verification=ZoneVerificationStatus.PROPOSED,
+        polygons=(ZonePolygon(vertices=vertices, min_z=min_z, max_z=max_z),),
+        verification=ZoneVerificationStatus.OVERLAY_VERIFIED,
         source=_SOURCE,
-)
+    )
 
 
 NUKE_ZONE_SET = ZoneSetDefinition(
@@ -64,233 +55,434 @@ NUKE_ZONE_SET = ZoneSetDefinition(
     map_revision=_MAP_REVISION,
     source=_SOURCE,
     zones=(
-        _rect(
+        _zone(
             'ramp',
             'RAMP',
             ZoneKind.AREA,
             0,
-            ((245.7, 2385.2), (919.5, 2385.2), (919.5, 1525.1), (245.7, 1525.1)),
+            MapLevel.DEFAULT,
+            None,
+            None,
+            (
+                (312.3, 721.9),
+                (985.7, 721.9),
+                (990.5, -15.5),
+                (291.7, -13.9),
+            ),
         ),
-        _rect(
+        _zone(
             'boost',
             'BOOST',
             ZoneKind.AREA,
             0,
-            ((245.7, 1345.9), (718.8, 1345.9), (718.8, 915.8), (245.7, 915.8)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (326.3, -36.9),
+                (458.6, -104.1),
+                (558.7, -239.9),
+                (306.0, -246.9),
+            ),
         ),
-        _rect(
+        _zone(
             'radio',
             'RADIO',
             ZoneKind.AREA,
             0,
-            ((-471.1, 1023.3), (73.7, 1023.3), (73.7, 521.6), (-471.1, 521.6)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (-284.1, -279.1),
+                (260.5, -279.1),
+                (254.2, -667.6),
+                (-284.1, -667.6),
+            ),
         ),
-        _rect(
+        _zone(
             'heaven',
             'HEAVEN',
             ZoneKind.AREA,
             0,
-            ((754.6, 1023.3), (1299.4, 1023.3), (1299.4, 593.2), (754.6, 593.2)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (1015.1, -299.4),
+                (1393.1, -292.4),
+                (1393.1, -589.2),
+                (1028.4, -575.9),
+            ),
         ),
-        _rect(
-            'ct_spawn',
-            'CT-SPAWN',
-            ZoneKind.SPAWN,
-            10,
-            ((1908.7, -87.7), (2926.5, -87.7), (2926.5, -804.5), (1908.7, -804.5)),
-        ),
-        _rect(
+        _zone(
             'bombsite_a',
             'Bombsite A',
             ZoneKind.BOMBSITE,
             10,
-            ((381.9, -123.6), (1055.7, -123.6), (1055.7, -840.4), (381.9, -840.4)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (508.3, -517.8),
+                (868.8, -524.8),
+                (861.8, -940.6),
+                (508.3, -940.6),
+            ),
         ),
-        _rect(
+        _zone(
             'locker',
             'LOCKER',
             ZoneKind.AREA,
             0,
-            ((955.3, -231.1), (1428.4, -231.1), (1428.4, -732.8), (955.3, -732.8)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (1022.1, -591.3),
+                (1401.5, -598.3),
+                (1407.8, -799.2),
+                (1022.1, -799.2),
+            ),
         ),
-        _rect(
+        _zone(
             'ct_box',
             'CT BOX',
             ZoneKind.AREA,
             0,
-            ((1808.3, -446.1), (2209.7, -446.1), (2209.7, -876.2), (1808.3, -876.2)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (1647.9, -540.2),
+                (1969.2, -540.2),
+                (1962.9, -909.8),
+                (1647.9, -909.8),
+            ),
         ),
-        _rect(
+        _zone(
             't_spawn',
             'T-SPAWN',
             ZoneKind.SPAWN,
             10,
-            ((-2607.2, -661.2), (-1589.3, -661.2), (-1589.3, -1234.6), (-2607.2, -1234.6)),
+            MapLevel.DEFAULT,
+            None,
+            None,
+            (
+                (-2360.3, -855.2),
+                (-1676.4, -861.5),
+                (-1683.4, -1254.9),
+                (-2353.3, -1261.2),
+            ),
         ),
-        _rect(
-            'lobby',
-            'LOBBY',
-            ZoneKind.AREA,
-            0,
-            ((-471.1, -697.0), (73.7, -697.0), (73.7, -1270.4), (-471.1, -1270.4)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
-        ),
-        _rect(
-            'hut',
-            'HUT',
-            ZoneKind.AREA,
-            0,
-            ((145.3, -804.5), (546.7, -804.5), (546.7, -1234.6), (145.3, -1234.6)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
-        ),
-        _rect(
+        _zone(
             'blue_box',
             'BLUE BOX',
             ZoneKind.AREA,
             0,
-            ((919.5, -840.4), (1464.2, -840.4), (1464.2, -1270.4), (919.5, -1270.4)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (1039.6, -1087.6),
+                (1538.0, -1081.3),
+                (1524.7, -1397.0),
+                (1045.9, -1410.3),
+            ),
         ),
-        _rect(
-            'squeaky',
-            'SQUEAKY',
-            ZoneKind.AREA,
-            0,
-            ((-263.2, -1198.8), (281.5, -1198.8), (281.5, -1557.2), (-263.2, -1557.2)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
-        ),
-        _rect(
-            'silo',
-            'SILO',
-            ZoneKind.AREA,
-            0,
-            ((-334.9, -1485.5), (281.5, -1485.5), (281.5, -2058.9), (-334.9, -2058.9)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
-        ),
-        _rect(
+        _zone(
             'main',
             'MAIN',
             ZoneKind.AREA,
             0,
-            ((310.2, -1557.2), (855.0, -1557.2), (855.0, -1987.2), (310.2, -1987.2)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (477.5, -1550.3),
+                (854.8, -1557.3),
+                (854.8, -1779.9),
+                (483.8, -1793.2),
+            ),
         ),
-        _rect(
+        _zone(
             'garage',
             'GARAGE',
             ZoneKind.AREA,
             0,
-            ((1392.6, -1557.2), (2009.0, -1557.2), (2009.0, -2130.6), (1392.6, -2130.6)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (1505.8, -1623.8),
+                (2122.5, -1623.8),
+                (2129.5, -2357.4),
+                (1526.1, -2357.4),
+            ),
         ),
-        _rect(
+        _zone(
             'outside',
             'OUTSIDE',
             ZoneKind.AREA,
             0,
-            ((374.7, -1808.0), (1263.5, -1808.0), (1263.5, -2381.5), (374.7, -2381.5)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (374.6, -1787.6),
+                (1263.6, -1787.6),
+                (1243.3, -2187.3),
+                (374.6, -2181.0),
+            ),
         ),
-        _rect(
+        _zone(
             'red',
             'RED',
             ZoneKind.AREA,
             0,
-            ((245.7, -2202.3), (718.8, -2202.3), (718.8, -2632.4), (245.7, -2632.4)),
-            level=MapLevel.UPPER,
-            min_z=-495.0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (366.2, -2188.7),
+                (779.2, -2188.7),
+                (772.2, -2479.2),
+                (392.8, -2372.1),
+            ),
         ),
-        _rect(
+        _zone(
             'bombsite_b',
             'Bombsite B',
             ZoneKind.BOMBSITE,
             10,
-            ((310.2, -338.6), (1027.0, -338.6), (1027.0, -1055.4), (310.2, -1055.4)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (410.3, -696.0),
+                (893.4, -839.7),
+                (864.6, -1327.0),
+                (352.9, -1312.7),
+            ),
         ),
-        _rect(
+        _zone(
             'dark',
             'DARK',
             ZoneKind.AREA,
             0,
-            ((238.5, -51.9), (668.6, -51.9), (668.6, -482.0), (238.5, -482.0)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (815.9, -275.7),
+                (1026.3, -271.0),
+                (1012.0, -610.9),
+                (811.1, -601.3),
+            ),
         ),
-        _rect(
+        _zone(
             'control',
             'CONTROL',
             ZoneKind.AREA,
             0,
-            ((776.1, -51.9), (1349.6, -51.9), (1349.6, -482.0), (776.1, -482.0)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (1043.8, -366.6),
+                (1435.8, -370.8),
+                (1435.8, -663.4),
+                (1043.8, -663.4),
+            ),
         ),
-        _rect(
+        _zone(
             'double',
             'DOUBLE',
             ZoneKind.AREA,
             0,
-            ((883.6, -482.0), (1385.4, -482.0), (1385.4, -912.0), (883.6, -912.0)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (1036.1, -877.6),
+                (1461.7, -873.4),
+                (1471.5, -1040.7),
+                (1036.1, -1054.7),
+            ),
         ),
-        _rect(
+        _zone(
             'single',
             'SINGLE',
             ZoneKind.AREA,
             0,
-            ((-84.0, -840.4), (346.0, -840.4), (346.0, -1198.8), (-84.0, -1198.8)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (82.7, -1288.5),
+                (317.2, -1284.3),
+                (307.4, -1523.0),
+                (78.5, -1518.1),
+            ),
         ),
-        _rect(
+        _zone(
             'vents',
             'VENTS',
             ZoneKind.AREA,
             0,
-            ((346.0, -876.2), (847.8, -876.2), (847.8, -1234.6), (346.0, -1234.6)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (417.3, -1376.7),
+                (800.2, -1362.7),
+                (790.4, -1458.6),
+                (427.1, -1468.4),
+            ),
         ),
-        _rect(
+        _zone(
             'back_vents',
             'BACK VENTS',
             ZoneKind.AREA,
             0,
-            ((381.9, -1162.9), (955.3, -1162.9), (955.3, -1521.3), (381.9, -1521.3)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (357.8, -1534.9),
+                (1060.6, -1539.8),
+                (1045.9, -1693.1),
+                (362.7, -1688.2),
+            ),
         ),
-        _rect(
+        _zone(
             'secret',
             'SECRET',
             ZoneKind.AREA,
             0,
-            ((883.6, -804.5), (1600.4, -804.5), (1600.4, -1378.0), (883.6, -1378.0)),
-            level=MapLevel.LOWER,
-            max_z=-495.0,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (1059.9, -1782.7),
+                (1657.7, -1786.9),
+                (1662.6, -2017.2),
+                (1055.0, -2022.1),
+            ),
+        ),
+        _zone(
+            'silo',
+            'SILO',
+            ZoneKind.AREA,
+            0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (221.3, -1484.5),
+                (-6.2, -1457.9),
+                (-112.6, -1538.4),
+                (-153.2, -1691.7),
+                (-112.6, -1798.8),
+                (14.1, -1892.6),
+                (240.9, -1812.1),
+                (294.8, -1625.2),
+                (174.4, -1464.9),
+                (47.7, -1457.9),
+            ),
+        ),
+        _zone(
+            'lobby',
+            'LOBBY',
+            ZoneKind.AREA,
+            0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (-493.4, -796.4),
+                (-293.2, -783.1),
+                (-272.9, -916.8),
+                (-259.6, -696.3),
+                (240.9, -696.3),
+                (240.9, -1157.6),
+                (-487.1, -1144.3),
+                (-487.1, -809.7),
+            ),
+        ),
+        _zone(
+            'hut',
+            'HUT',
+            ZoneKind.AREA,
+            0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (461.4, -916.8),
+                (261.2, -916.8),
+                (240.9, -1131.0),
+                (321.4, -1131.0),
+                (328.4, -1197.5),
+                (461.4, -1197.5),
+                (461.4, -916.8),
+            ),
+        ),
+        _zone(
+            'squeakly',
+            'SQUEAKLY',
+            ZoneKind.AREA,
+            0,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (-272.9, -1177.2),
+                (-253.3, -1371.1),
+                (240.9, -1384.4),
+                (247.9, -1170.9),
+                (-266.6, -1177.2),
+            ),
+        ),
+        _zone(
+            'ct_spawn_upper',
+            'CT SPAWN',
+            ZoneKind.SPAWN,
+            10,
+            MapLevel.UPPER,
+            -495.0,
+            None,
+            (
+                (2029.4, -289.6),
+                (2792.4, -289.6),
+                (2782.6, -614.4),
+                (2692.3, -633.3),
+                (2501.2, -528.3),
+                (2253.4, -514.3),
+                (2100.8, -571.0),
+                (2024.5, -662.0),
+                (2029.4, -299.4),
+            ),
+        ),
+        _zone(
+            'ct_spawn_lower',
+            'CT SPAWN',
+            ZoneKind.SPAWN,
+            10,
+            MapLevel.LOWER,
+            None,
+            -495.0,
+            (
+                (2019.6, -279.1),
+                (2009.8, -660.6),
+                (2172.2, -550.7),
+                (2329.7, -512.9),
+                (2463.4, -512.9),
+                (2639.8, -608.1),
+                (2792.4, -617.9),
+                (2811.3, -293.1),
+                (2019.6, -279.1),
+            ),
         ),
     ),
 )
