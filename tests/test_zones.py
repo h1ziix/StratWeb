@@ -241,12 +241,26 @@ def test_dust2_zones_resolve_demo_and_anchor_evidence() -> None:
     assert resolve_zone(DUST2_ZONE_SET, -1529.8, 2698.3, None).zone_id == "bombsite_b"
 
 
-def test_overpass_zones_resolve_demo_and_anchor_evidence() -> None:
-    # Freeze-end centroids of match dba336bb round 1 and Valve site anchors.
-    assert resolve_zone(OVERPASS_ZONE_SET, -2256.0, 793.2, None).zone_id == "ct_spawn"
+def test_overpass_zones_resolve_demo_evidence() -> None:
+    # Sites are checked against where match dba336bb actually left the bomb:
+    # rounds 2/8/23 cluster on A, rounds 1/7/9/13/14/18/21 on B. Spawns use the
+    # freeze-end positions of round 1.
+    assert resolve_zone(OVERPASS_ZONE_SET, -2549.0, 645.0, None).zone_id == "bombsite_a"
+    assert resolve_zone(OVERPASS_ZONE_SET, -1166.0, -67.0, None).zone_id == "bombsite_b"
     assert resolve_zone(OVERPASS_ZONE_SET, -1430.8, -3137.1, None).zone_id == "t_spawn"
-    assert resolve_zone(OVERPASS_ZONE_SET, -1902.4, 556.4, None).zone_id == "bombsite_a"
-    assert resolve_zone(OVERPASS_ZONE_SET, -1103.6, 130.3, None).zone_id == "bombsite_b"
+    # Every CT starts inside the spawn box even though it overlaps the A-site
+    # outline on this radar; the smaller same-priority zone wins deterministically.
+    for spawn_x, spawn_y in ((-2343.0, 797.0), (-2273.0, 770.0), (-2199.0, 740.0)):
+        assert resolve_zone(OVERPASS_ZONE_SET, spawn_x, spawn_y, None).zone_id == "ct_spawn"
+
+
+def test_overpass_zones_cover_only_walkable_space() -> None:
+    # The boundaries are traced from the radar's walkable pixels, so points in
+    # the void around the map resolve to unknown rather than to a nearby zone.
+    for void_x, void_y in ((-4700.0, 1700.0), (300.0, -3000.0), (-4700.0, -3000.0)):
+        assert resolve_zone(OVERPASS_ZONE_SET, void_x, void_y, None).status is (
+            ZoneResolutionStatus.UNKNOWN
+        )
 
 
 def test_inferno_and_anubis_zones_resolve_valve_anchors() -> None:
