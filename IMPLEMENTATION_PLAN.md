@@ -1287,14 +1287,20 @@ PDF не содержит выводов, отсутствующих в сохр
 
 Полный scope: [STAGE_9_0.md](STAGE_9_0.md).
 
-## Stage 9.1 — Golden Corpus (не начат)
+## Stage 9.1 — Golden Corpus (tooling завершён; набор данных заблокирован)
 
-- минимум 20 явно подтверждённых матчей одного соперника;
-- реальные FACEIT fixtures разных карт;
-- Valve, HLTV/GOTV и поддерживаемые POV demos;
-- overtime, substitutions, missing Steam IDs, damaged/incomplete demos;
-- analyst-labelled expected findings и parser-version compatibility matrix;
-- precision/recall/false-positive evaluation без LLM.
+- [x] версионированный manifest и внешний SHA-256 storage contract без `.dem` в Git;
+- [x] candidate/confirmed/rejected lifecycle без автоматического угадывания соперника;
+- [x] readiness gate для одного соперника, карт, источников и edge cases;
+- [x] analyst-labelled findings, evidence и parser-version compatibility matrix;
+- [x] deterministic precision/recall/false-positive evaluation без LLM;
+- [x] пять реально импортированных FACEIT матчей зарегистрированы как candidates;
+- [ ] минимум 20 явно подтверждённых матчей одного соперника;
+- [ ] подтверждённые Valve, HLTV/GOTV и поддерживаемые POV demos;
+- [ ] overtime, substitutions, missing Steam IDs, damaged/incomplete demos;
+- [ ] analyst ground truth для positive/negative finding labels.
+
+Полный scope и честные blockers: [STAGE_9_1.md](STAGE_9_1.md).
 
 ## Stage 9.2 — Storage Engine V2 (не начат)
 

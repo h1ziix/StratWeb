@@ -1412,3 +1412,21 @@ Network security remains deliberately local-first. Uvicorn listens on container 
 only inside the container; Compose publishes it on host loopback. Loopback mutation guards
 are defense in depth, not authentication, and the current service must not be placed behind
 a public proxy or tunnel. See [SECURITY.md](SECURITY.md).
+
+## Stage 9.1 architectural decision — Golden Corpus is reviewed evidence, not sample data
+
+The repository stores a strict manifest, never raw demo bytes. A case is addressed by its
+SHA-256 and resolves only to an external `<sha256>.dem` file. Original upload names,
+credentials, DuckDB databases and analyst-private notes remain outside Git.
+
+Parser success does not confirm opponent identity. Candidate, confirmed and rejected are
+explicit review states; only confirmed cases whose opponent ID exactly matches the manifest
+target count toward the 20-match threshold. Unknown expected facts remain null. Source,
+map, edge-case and parser-version coverage are independent readiness dimensions so a large
+but homogeneous FACEIT sample cannot masquerade as parser compatibility coverage.
+
+Finding ground truth is analyst-labelled and stores evidence references. Positive, negative
+and indeterminate are distinct states. Evaluation is deterministic and excludes
+indeterminate, missing and unavailable values instead of coercing them to false. Precision,
+recall, false-positive rate and F1 are null when their denominator is zero. See
+[STAGE_9_1.md](STAGE_9_1.md) and [corpus/README.md](corpus/README.md).

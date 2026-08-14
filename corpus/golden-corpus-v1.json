@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_id": "stratweb-golden-v1",
+  "corpus_version": "0.1.0-candidate",
+  "target_opponent_id": null,
+  "created_at": "2026-08-14T00:00:00+05:00",
+  "updated_at": "2026-08-14T00:00:00+05:00",
+  "policy": {
+    "minimum_confirmed_opponent_matches": 20,
+    "minimum_distinct_opponent_maps": 3,
+    "minimum_determinate_finding_labels": 2,
+    "minimum_positive_finding_labels": 1,
+    "minimum_negative_finding_labels": 1,
+    "required_sources": ["faceit", "valve", "gotv_hltv", "pov"],
+    "required_edge_cases": [
+      "overtime",
+      "substitution",
+      "missing_steam_id",
+      "damaged_demo",
+      "incomplete_demo"
+    ],
+    "required_parsers": [
+      {"parser_name": "demoparser2", "parser_version": "0.41.4"}
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "faceit-dust2-001",
+      "demo_sha256": "9d783bb41789489c3fbb5bd912a61784ab115285f17fed7cffc054585df7099d",
+      "source": "faceit",
+      "review_status": "candidate",
+      "expected_parse_status": "success",
+      "opponent_id": null,
+      "opponent_confirmed": false,
+      "expected": {
+        "match_id": "848aa1c3-932b-56e8-83a6-76e4691ad062",
+        "dataset_fingerprint": "caf86bc5bbfbae979119834fdcb3d453c1031816c77c68bd0caaa3d1905086a6",
+        "map_name": "de_dust2",
+        "round_count": 21,
+        "complete_round_count": 21,
+        "incomplete_round_count": 0,
+        "canonical_schema_version": "1.1.0",
+        "normalization_rule_version": "1.1.0"
+      },
+      "edge_cases": ["side_switch"],
+      "reviewed_at": null,
+      "reviewed_by_role": null,
+      "limitations": ["Opponent identity and analyst ground truth are not confirmed."]
+    },
+    {
+      "case_id": "faceit-dust2-002",
+      "demo_sha256": "5e4833e7212a9ed27ec8b238db4318b2655acb0e79214893df7440fd8ee401b5",
+      "source": "faceit",
+      "review_status": "candidate",
+      "expected_parse_status": "success",
+      "opponent_id": null,
+      "opponent_confirmed": false,
+      "expected": {
+        "match_id": "28492216-9fb4-510e-b2c0-75a16c5343e3",
+        "dataset_fingerprint": "67dbc7ee5f9911ce8381ce668480fecbd29abaccb6bf5fae4957f7526b149e4c",
+        "map_name": "de_dust2",
+        "round_count": 17,
+        "complete_round_count": 17,
+        "incomplete_round_count": 0,
+        "canonical_schema_version": "1.1.0",
+        "normalization_rule_version": "1.1.0"
+      },
+      "edge_cases": ["side_switch"],
+      "reviewed_at": null,
+      "reviewed_by_role": null,
+      "limitations": ["Opponent identity and analyst ground truth are not confirmed."]
+    },
+    {
+      "case_id": "faceit-mirage-001",
+      "demo_sha256": "a34cf57dd6ff797af581dcaa12121f90a76770e06670e2729f69d857e51f2bf0",
+      "source": "faceit",
+      "review_status": "candidate",
+      "expected_parse_status": "success",
+      "opponent_id": null,
+      "opponent_confirmed": false,
+      "expected": {
+        "match_id": "e0f188cf-a99c-5253-831e-9fb652811a9a",
+        "dataset_fingerprint": "9da3740c48d6d0830736cb8c314b8a62b43600aff53ea5f6ff82bc002b112e6b",
+        "map_name": "de_mirage",
+        "round_count": 21,
+        "complete_round_count": 21,
+        "incomplete_round_count": 0,
+        "canonical_schema_version": "1.1.0",
+        "normalization_rule_version": "1.1.0"
+      },
+      "edge_cases": ["side_switch"],
+      "reviewed_at": null,
+      "reviewed_by_role": null,
+      "limitations": ["Opponent identity and analyst ground truth are not confirmed."]
+    },
+    {
+      "case_id": "faceit-overpass-001",
+      "demo_sha256": "1d62bcbc0f4bc5d8ae1c4f4a28c71d1742cddbdde6074cfe929e06c8d43bb050",
+      "source": "faceit",
+      "review_status": "candidate",
+      "expected_parse_status": "success",
+      "opponent_id": null,
+      "opponent_confirmed": false,
+      "expected": {
+        "match_id": "dba336bb-dc00-5974-bebe-3525d39a6ef4",
+        "dataset_fingerprint": "c3b2fb8634f178fa63bf21c0664bb32c032abb6fa451d4ac5d45f8f8790bdca6",
+        "map_name": "de_overpass",
+        "round_count": 30,
+        "complete_round_count": 30,
+        "incomplete_round_count": 0,
+        "canonical_schema_version": "1.1.0",
+        "normalization_rule_version": "1.1.0"
+      },
+      "edge_cases": ["side_switch", "simultaneous_deaths", "victimless_death"],
+      "reviewed_at": null,
+      "reviewed_by_role": null,
+      "limitations": ["Opponent identity and analyst finding labels are not confirmed."]
+    },
+    {
+      "case_id": "faceit-ancient-001",
+      "demo_sha256": "3957844f5eb46645b342718422775674c69c73957014068792caf43e9f0d56d0",
+      "source": "faceit",
+      "review_status": "candidate",
+      "expected_parse_status": "success",
+      "opponent_id": null,
+      "opponent_confirmed": false,
+      "expected": {
+        "match_id": "24708cef-d95e-53f6-9f96-d6deb6a85e7e",
+        "dataset_fingerprint": "bd913f7c9fb5fe4bcad956fd747dae4b6945f95fbb15a784db1a14a38b8d6586",
+        "map_name": "de_ancient",
+        "round_count": 17,
+        "complete_round_count": 17,
+        "incomplete_round_count": 0,
+        "canonical_schema_version": "1.1.0",
+        "normalization_rule_version": "1.1.0"
+      },
+      "edge_cases": ["side_switch"],
+      "reviewed_at": null,
+      "reviewed_by_role": null,
+      "limitations": ["Opponent identity and analyst ground truth are not confirmed."]
+    }
+  ],
+  "finding_labels": [],
+  "parser_compatibility": [
+    {
+      "case_id": "faceit-dust2-001",
+      "parser_name": "demoparser2",
+      "parser_version": "0.41.4",
+      "status": "supported",
+      "checked_at": "2026-08-14T00:00:00+05:00",
+      "observed_dataset_fingerprint": "caf86bc5bbfbae979119834fdcb3d453c1031816c77c68bd0caaa3d1905086a6",
+      "limitations": []
+    },
+    {
+      "case_id": "faceit-dust2-002",
+      "parser_name": "demoparser2",
+      "parser_version": "0.41.4",
+      "status": "supported",
+      "checked_at": "2026-08-14T00:00:00+05:00",
+      "observed_dataset_fingerprint": "67dbc7ee5f9911ce8381ce668480fecbd29abaccb6bf5fae4957f7526b149e4c",
+      "limitations": []
+    },
+    {
+      "case_id": "faceit-mirage-001",
+      "parser_name": "demoparser2",
+      "parser_version": "0.41.4",
+      "status": "supported",
+      "checked_at": "2026-08-14T00:00:00+05:00",
+      "observed_dataset_fingerprint": "9da3740c48d6d0830736cb8c314b8a62b43600aff53ea5f6ff82bc002b112e6b",
+      "limitations": []
+    },
+    {
+      "case_id": "faceit-overpass-001",
+      "parser_name": "demoparser2",
+      "parser_version": "0.41.4",
+      "status": "supported",
+      "checked_at": "2026-08-14T00:00:00+05:00",
+      "observed_dataset_fingerprint": "c3b2fb8634f178fa63bf21c0664bb32c032abb6fa451d4ac5d45f8f8790bdca6",
+      "limitations": []
+    },
+    {
+      "case_id": "faceit-ancient-001",
+      "parser_name": "demoparser2",
+      "parser_version": "0.41.4",
+      "status": "supported",
+      "checked_at": "2026-08-14T00:00:00+05:00",
+      "observed_dataset_fingerprint": "bd913f7c9fb5fe4bcad956fd747dae4b6945f95fbb15a784db1a14a38b8d6586",
+      "limitations": []
+    }
+  ],
+  "limitations": [
+    "Only five previously imported FACEIT matches are registered as candidates.",
+    "No candidate is counted until opponent identity and analyst review are explicit.",
+    "Valve, GOTV/HLTV, POV and required failure fixtures are not available locally.",
+    "Raw demo files are intentionally stored outside Git."
+  ]
+}

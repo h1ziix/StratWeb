@@ -96,6 +96,14 @@ from stratweb.features.models import (
     RoundFeatureType,
 )
 from stratweb.findings.models import FindingCategory, FindingConfig
+from stratweb.golden_corpus.evaluation import GoldenFindingEvaluator
+from stratweb.golden_corpus.manifest import (
+    GoldenCorpusError,
+    GoldenCorpusValidator,
+    load_manifest,
+    load_predictions,
+)
+from stratweb.golden_corpus.runner import GoldenCorpusRunner
 from stratweb.patterns.models import PatternAvailability, PatternConfig, PatternType
 from stratweb.readiness.models import FindingReadinessConfig
 from stratweb.spatial.models import SpatialConfig
@@ -111,6 +119,7 @@ _EXIT_OUTPUT = 7
 _EXIT_FATAL_VALIDATION = 8
 _EXIT_PERSISTENCE = 9
 _EXIT_CANONICAL_IMPORT = 10
+_EXIT_CORPUS = 11
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -135,6 +144,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     _add_finding_commands(subparsers)
     _add_readiness_commands(subparsers)
     _add_counter_strategy_commands(subparsers)
+    _add_golden_corpus_commands(subparsers)
     return parser
 
 
@@ -172,7 +182,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_readiness_command(args)
         if args.command == "strategies":
             return _run_counter_strategy_command(args)
+        if args.command == "corpus":
+            return _run_golden_corpus_command(args)
         raise AssertionError(f"Unhandled CLI command: {args.command}")
+    except GoldenCorpusError as exc:
+        print(f"error [golden_corpus]: {exc}", file=sys.stderr)
+        if debug:
+            traceback.print_exc(file=sys.stderr)
+        return _EXIT_CORPUS
     except DemoInspectionError as exc:
         print(f"error [{exc.error_code}]: {exc}", file=sys.stderr)
         if debug:
@@ -720,6 +737,73 @@ def _add_counter_strategy_commands(subparsers: Any) -> None:
     delete.add_argument("profile_id", type=UUID)
     delete.add_argument("--yes", action="store_true")
     _add_database_options(delete)
+
+
+def _add_golden_corpus_commands(subparsers: Any) -> None:
+    corpus = subparsers.add_parser(
+        "corpus",
+        help="validate the versioned Stage 9.1 Golden Corpus",
+    )
+    actions = corpus.add_subparsers(dest="corpus_action", required=True)
+
+    validate = actions.add_parser(
+        "validate",
+        help="validate manifest coverage and optionally verify external demo files",
+    )
+    validate.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+    )
+    validate.add_argument(
+        "--demo-root",
+        type=Path,
+        help="external directory containing demos named <sha256>.dem",
+    )
+    validate.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="return exit code 11 when corpus readiness is blocked",
+    )
+    validate.add_argument("--pretty", action="store_true")
+    validate.add_argument("--debug", action="store_true")
+
+    evaluate = actions.add_parser(
+        "evaluate",
+        help="measure finding precision/recall against analyst labels",
+    )
+    evaluate.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+    )
+    evaluate.add_argument("--predictions", type=Path, required=True)
+    evaluate.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="return exit code 11 when some determinate labels cannot be evaluated",
+    )
+    evaluate.add_argument("--pretty", action="store_true")
+    evaluate.add_argument("--debug", action="store_true")
+
+    run = actions.add_parser(
+        "run",
+        help="parse external corpus demos and compare reviewed canonical facts",
+    )
+    run.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+    )
+    run.add_argument("--demo-root", type=Path, required=True)
+    run.add_argument("--include-candidates", action="store_true")
+    run.add_argument(
+        "--require-pass",
+        action="store_true",
+        help="return exit code 11 unless every selected case passes",
+    )
+    run.add_argument("--pretty", action="store_true")
+    run.add_argument("--debug", action="store_true")
 
 
 def _add_output_options(command: argparse.ArgumentParser) -> None:
@@ -1367,6 +1451,33 @@ def _run_counter_strategy_command(args: argparse.Namespace) -> int:
         raise AssertionError(f"Unhandled strategies command: {args.strategies_command}")
     _print_value(value, pretty=args.pretty)
     return 0
+
+
+def _run_golden_corpus_command(args: argparse.Namespace) -> int:
+    manifest = load_manifest(args.manifest)
+    if args.corpus_action == "validate":
+        audit = GoldenCorpusValidator().validate(manifest, demo_root=args.demo_root)
+        _print_model(audit, pretty=args.pretty)
+        return _EXIT_CORPUS if args.require_ready and audit.status.value != "ready" else 0
+    if args.corpus_action == "evaluate":
+        predictions = load_predictions(args.predictions)
+        evaluation_report = GoldenFindingEvaluator().evaluate(manifest, predictions)
+        _print_model(evaluation_report, pretty=args.pretty)
+        return _EXIT_CORPUS if args.require_complete and not evaluation_report.complete else 0
+    if args.corpus_action == "run":
+        adapter = Demoparser2Adapter()
+        run_report = GoldenCorpusRunner(
+            CanonicalizationService(adapter),
+            parser_name=adapter.identity.name,
+            parser_version=adapter.identity.version,
+        ).run(
+            manifest,
+            args.demo_root,
+            include_candidates=bool(args.include_candidates),
+        )
+        _print_model(run_report, pretty=args.pretty)
+        return _EXIT_CORPUS if args.require_pass and not run_report.passed else 0
+    raise AssertionError(f"Unhandled corpus command: {args.corpus_action}")
 
 
 def _build_service() -> DemoInspectionService:

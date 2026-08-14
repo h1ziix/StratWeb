@@ -17,7 +17,9 @@ uv lock --check
 ```
 
 The gate validates frozen dependencies, formatting, lint, strict typing, non-integration
-tests, application import, wheel creation and Docker Compose syntax.
+tests, application import, the Golden Corpus manifest contract, wheel creation and Docker
+Compose syntax. Golden Corpus data readiness is a separate strict gate because private demos
+and analyst labels are intentionally unavailable in ordinary source CI.
 
 ## Release identity
 

@@ -5,7 +5,7 @@ StratWeb — локальное backend-приложение для доказа
 командные и индивидуальные паттерны, но каждый вывод обязан ссылаться на конкретные
 демки, матчи и раунды.
 
-Реализованы этапы 1–8.9 и release baseline Stage 9.0: inspection и canonical dataset (`demoparser2==0.41.4`
+Реализованы этапы 1–8.9, release baseline Stage 9.0 и Golden Corpus tooling Stage 9.1: inspection и canonical dataset (`demoparser2==0.41.4`
 за портом), DuckDB persistence (миграции 001–023), `Gameplay Analytics Engine V1`
 (opening/trade/KAST/multikill/advantage/bomb метрики), `Temporal Round State
 Engine 1.1.0` (immutable timeline, snapshots — [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)),
@@ -940,3 +940,19 @@ GET /api/opponents/{profile_id}/report/export.pdf?run_id={strategy_run_id}
 The generated attachment name uses internal UUIDs rather than the original demo or opponent
 name. JSON and PDF responses expose the same export fingerprint through `ETag`. See
 [REPORT_EXPORT.md](REPORT_EXPORT.md).
+
+### Stage 9.1 Golden Corpus
+
+Golden Corpus metadata is stored in `corpus/golden-corpus-v1.json`; raw demos stay outside
+Git and are addressed only as `<sha256>.dem`. Validate the manifest without pretending that
+the current candidate inventory is production-ready:
+
+```powershell
+uv run --frozen stratweb corpus validate --manifest corpus/golden-corpus-v1.json --pretty
+```
+
+Use `--demo-root <external-directory>` for byte-level file verification and
+`--require-ready` only in a real-corpus acceptance job. The current manifest is expected to
+report `blocked`: five FACEIT candidates exist, but no target opponent or analyst finding
+labels have been confirmed and the 20-match minimum has not been met. See
+[corpus/README.md](corpus/README.md) for the review workflow.

@@ -1,4 +1,4 @@
-.PHONY: install lock lock-check format format-check lint typecheck test integration check release-check import-check db-init run compose-up compose-down
+.PHONY: install lock lock-check format format-check lint typecheck test integration corpus-check corpus-ready check release-check import-check db-init run compose-up compose-down
 
 install:
 	uv sync --frozen --extra dev
@@ -14,6 +14,12 @@ test:
 
 integration:
 	uv run --frozen pytest -m integration
+
+corpus-check:
+	uv run --frozen stratweb corpus validate --manifest corpus/golden-corpus-v1.json --pretty
+
+corpus-ready:
+	uv run --frozen stratweb corpus validate --manifest corpus/golden-corpus-v1.json --require-ready --pretty
 
 format:
 	uv run --frozen ruff format src tests scripts

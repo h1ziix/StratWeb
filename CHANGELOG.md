@@ -4,6 +4,22 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.5.0] - 2026-08-14
+
+### Added
+
+- Stage 9.1 versioned Golden Corpus manifest and external SHA-256 demo storage contract.
+- Deterministic corpus readiness audit for opponent, map, source, edge-case and parser coverage.
+- Analyst-labelled finding contracts with evidence and explicit indeterminate values.
+- Deterministic TP/FP/TN/FN, precision, recall, false-positive-rate and F1 evaluation.
+- `stratweb corpus validate` and `stratweb corpus evaluate` CLI commands.
+
+### Known limitations
+
+- The local manifest contains five FACEIT candidates, not 20 confirmed matches of one opponent.
+- Valve, GOTV/HLTV, POV, damaged and incomplete fixtures still need real analyst-reviewed demos.
+- Corpus readiness is intentionally `blocked` until those external data requirements are met.
+
 ## [0.4.0] - 2026-08-14
 
 ### Added
