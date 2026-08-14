@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import cast
 from uuid import UUID
 
+from stratweb.application.canonical_models import (
+    CanonicalPlayer,
+    CanonicalTeam,
+    PlayerTeamMembership,
+)
 from stratweb.application.persistence_models import MatchQueryFilters, StoredMatch
 from stratweb.domain.enums import Side
 from stratweb.exceptions import DatabaseInitializationError, MatchNotFoundError
@@ -12,6 +17,7 @@ from stratweb.ports import (
     AnalyticsRepository,
     MatchRepository,
     SpatialRepository,
+    TeamNameRepository,
     TemporalRepository,
 )
 from stratweb.web.view_models import (
@@ -33,11 +39,13 @@ class ProductQueryService:
         analytics: AnalyticsRepository,
         temporal: TemporalRepository,
         spatial: SpatialRepository,
+        team_names: TeamNameRepository | None = None,
     ) -> None:
         self._matches = matches
         self._analytics = analytics
         self._temporal = temporal
         self._spatial = spatial
+        self._team_names = team_names
 
     def list_matches(
         self, *, search: str = "", sort: str = "newest"
@@ -208,6 +216,13 @@ class ProductQueryService:
     def _library_item(self, stored: StoredMatch) -> MatchLibraryItemView:
         match_id = stored.match_id
         teams = self._matches.get_teams(match_id)
+        players = {item.player_id: item for item in self._matches.get_players(match_id)}
+        memberships = self._matches.get_memberships(match_id)
+        labels = (
+            {item.team_id: item for item in self._team_names.list_for_match(match_id)}
+            if self._team_names is not None
+            else {}
+        )
         rounds = self._matches.get_rounds(match_id)
         scores = _physical_scores(rounds)
         analytics = self._analytics.get_summary(match_id)
@@ -227,7 +242,22 @@ class ProductQueryService:
             teams=tuple(
                 TeamScoreView(
                     team_id=team.team_id,
-                    name=team.display_name or team.internal_name,
+                    name=(
+                        labels[team.team_id].display_name
+                        if team.team_id in labels
+                        else team.display_name or team.internal_name
+                    ),
+                    name_source=(
+                        labels[team.team_id].source.value
+                        if team.team_id in labels
+                        else "demo" if team.display_name else "fallback"
+                    ),
+                    name_source_reference=(
+                        labels[team.team_id].source_reference
+                        if team.team_id in labels
+                        else None
+                    ),
+                    player_names=_team_player_names(team, memberships, players),
                     score=scores.get(team.team_id),
                 )
                 for team in teams
@@ -241,6 +271,29 @@ class ProductQueryService:
             else "unavailable",
             warning_count=warning_count,
         )
+
+
+def _team_player_names(
+    team: CanonicalTeam,
+    memberships: tuple[PlayerTeamMembership, ...],
+    players: dict[UUID, CanonicalPlayer],
+) -> tuple[str, ...]:
+    player_ids = set(team.starting_player_ids)
+    player_ids.update(
+        item.player_id
+        for item in memberships
+        if item.team_id == team.team_id
+    )
+    return tuple(
+        sorted(
+            (
+                players[player_id].current_name
+                for player_id in player_ids
+                if player_id in players
+            ),
+            key=str.casefold,
+        )
+    )
 
 
 def _physical_scores(rounds: tuple[object, ...]) -> dict[UUID, int]:

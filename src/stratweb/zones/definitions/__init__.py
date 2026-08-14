@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from stratweb.zones.definitions.ancient import ANCIENT_ZONE_SET
 from stratweb.zones.definitions.anubis import ANUBIS_ZONE_SET
+from stratweb.zones.definitions.cache import CACHE_ZONE_SET
 from stratweb.zones.definitions.dust2 import DUST2_ZONE_SET
 from stratweb.zones.definitions.inferno import INFERNO_ZONE_SET
 from stratweb.zones.definitions.mirage import MIRAGE_ZONE_SET
@@ -23,6 +24,7 @@ ALL_ZONE_SETS: tuple[ZoneSetDefinition, ...] = (
     NUKE_ZONE_SET,
     OVERPASS_ZONE_SET,
     ANUBIS_ZONE_SET,
+    CACHE_ZONE_SET,
 )
 
 
@@ -37,6 +39,7 @@ __all__ = [
     "ALL_ZONE_SETS",
     "ANCIENT_ZONE_SET",
     "ANUBIS_ZONE_SET",
+    "CACHE_ZONE_SET",
     "DUST2_ZONE_SET",
     "INFERNO_ZONE_SET",
     "MIRAGE_ZONE_SET",

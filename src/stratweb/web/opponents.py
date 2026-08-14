@@ -9,7 +9,11 @@ from uuid import UUID
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBOpponentRepository
+from stratweb.adapters.persistence import (
+    DuckDBMatchRepository,
+    DuckDBOpponentRepository,
+    DuckDBTeamNameRepository,
+)
 from stratweb.application.opponent_models import OpponentWorkspace
 from stratweb.application.opponents import OpponentWorkspaceService
 from stratweb.exceptions import (
@@ -27,6 +31,7 @@ def opponent_router(database_path: Path) -> APIRouter:
     service = OpponentWorkspaceService(
         DuckDBOpponentRepository(database_path),
         DuckDBMatchRepository(database_path),
+        DuckDBTeamNameRepository(database_path),
     )
 
     @router.get("/ui/opponents", response_class=HTMLResponse, include_in_schema=False)

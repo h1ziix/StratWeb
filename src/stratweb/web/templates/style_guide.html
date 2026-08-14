@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Design system · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/style-guide.css') }}">{% endblock %}
+{% block content %}
+<header class="page-heading">
+  <div>
+    <span class="eyebrow">Internal reference · v{{ design_system_version }}</span>
+    <h1>StratWeb design system</h1>
+    <p>One visual language for evidence, analysis state, controls and technical details.</p>
+  </div>
+  <span class="status available">Ready</span>
+</header>
+
+<section class="guide-section" aria-labelledby="foundations-title">
+  <div class="section-heading">
+    <h2 id="foundations-title">Foundations</h2>
+    <span>Semantic tokens, not page-specific colors</span>
+  </div>
+  <div class="swatch-grid">
+    <article><span class="swatch canvas"></span><strong>Canvas</strong><code>--color-canvas</code></article>
+    <article><span class="swatch surface"></span><strong>Surface</strong><code>--color-surface-1</code></article>
+    <article><span class="swatch brand"></span><strong>Primary action</strong><code>--color-brand</code></article>
+    <article><span class="swatch accent"></span><strong>Evidence link</strong><code>--color-accent</code></article>
+    <article><span class="swatch success"></span><strong>Available</strong><code>--color-success</code></article>
+    <article><span class="swatch warning"></span><strong>Partial</strong><code>--color-warning</code></article>
+    <article><span class="swatch danger"></span><strong>Unavailable</strong><code>--color-danger</code></article>
+  </div>
+</section>
+
+<section class="guide-section" aria-labelledby="type-title">
+  <div class="section-heading"><h2 id="type-title">Typography</h2><span>Readable first, compact where data demands it</span></div>
+  <article class="guide-panel type-sample">
+    <span class="eyebrow">Evidence-based analysis</span>
+    <h1>Match intelligence without guesses</h1>
+    <h2>Repeated opponent behaviour</h2>
+    <h3>Opening pressure on A</h3>
+    <p>Observations remain separate from tactical interpretation and recommendations.</p>
+    <code>match_id · round_number · tick · event_id</code>
+  </article>
+</section>
+
+<section class="guide-section" aria-labelledby="controls-title">
+  <div class="section-heading"><h2 id="controls-title">Controls</h2><span>Consistent interaction and keyboard focus</span></div>
+  <article class="guide-panel guide-stack">
+    <div class="button-row">
+      <button type="button">Primary action</button>
+      <button class="secondary" type="button">Secondary</button>
+      <button class="danger" type="button">Destructive</button>
+      <button type="button" disabled>Disabled</button>
+    </div>
+    <div class="form-sample">
+      <label>Opponent name<input value="Team Alpha"></label>
+      <label>Match sort<select><option>Newest first</option><option>Map</option></select></label>
+      <label>Search<input placeholder="Map, team or source"></label>
+    </div>
+  </article>
+</section>
+
+<section class="guide-section" aria-labelledby="states-title">
+  <div class="section-heading"><h2 id="states-title">States and feedback</h2><span>The same vocabulary everywhere</span></div>
+  <div class="guide-panel guide-stack">
+    <div class="status-row">
+      <span class="status available">Available</span>
+      <span class="status partial">Partial</span>
+      <span class="status unavailable">Unavailable</span>
+      <span class="badge">Neutral label</span>
+    </div>
+    <div class="notice good"><strong>Available.</strong> Evidence can be reproduced from stored events.</div>
+    <div class="notice warning"><strong>Limited sample.</strong> Treat this as an observation, not a causal conclusion.</div>
+    <div class="notice"><strong>Offline only.</strong> No live game state is read.</div>
+  </div>
+</section>
+
+<section class="guide-section" aria-labelledby="data-title">
+  <div class="section-heading"><h2 id="data-title">Data display</h2><span>Human summary first, raw identifiers on demand</span></div>
+  <div class="metric-grid">
+    <article><span class="muted">Matches</span><strong>20</strong><small class="muted">minimum target corpus</small></article>
+    <article><span class="muted">Observed rounds</span><strong>218</strong><small class="muted">eligible sample</small></article>
+    <article><span class="muted">Frequency</span><strong>64%</strong><small class="muted">32 / 50 rounds</small></article>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Observation</th><th>Sample</th><th>Frequency</th><th>State</th></tr></thead>
+      <tbody>
+        <tr><td>Early A utility</td><td>32 / 50</td><td>64%</td><td><span class="status available">Available</span></td></tr>
+        <tr><td>B retake setup</td><td>4 / 9</td><td>44%</td><td><span class="status partial">Partial</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <details class="developer-details">
+    <summary>Developer details</summary>
+    <dl><dt>Design system</dt><dd><code>{{ design_system_version }}</code></dd><dt>Example match_id</dt><dd><code>848aa1c3-932b-56e8-83a6-76e4691ad062</code></dd></dl>
+  </details>
+</section>
+{% endblock %}

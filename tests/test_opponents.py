@@ -229,6 +229,11 @@ def test_opponent_ui_create_confirm_and_remove_flow(
             headers={"Accept": "application/json"},
         )
         profile_id = created.json()["profile_id"]
+        team_label = client.post(
+            f"/api/matches/{dataset.match.match_id}/teams/{dataset.teams[0].team_id}/display-name",
+            data={"display_name": "team_fizik"},
+            headers={"Accept": "application/json"},
+        )
         assigned = client.post(
             f"/api/opponents/{profile_id}/matches",
             data={
@@ -245,13 +250,15 @@ def test_opponent_ui_create_confirm_and_remove_flow(
         )
 
     assert library.status_code == 200
-    assert "Opponent workspaces" in library.text
+    assert "Соперники" in library.text
     assert created.status_code == 201
+    assert team_label.status_code == 200
     assert assigned.status_code == 200
     assert workspace.status_code == 200
     assert "UI Opponent" in workspace.text
-    assert "faceit.dem" in workspace.text
+    assert "faceit.dem" not in workspace.text
     assert "Alpha" in workspace.text
+    assert "team_fizik" in workspace.text
     assert api_workspace.json()["selected_matches"][0]["selection"]["selection_source"] == (
         OpponentSelectionSource.USER_CONFIRMED.value
     )
@@ -303,9 +310,7 @@ def test_opponent_rename_reassign_and_delete_flow(
         after_reassign = client.get(f"/api/opponents/{profile_id}")
 
         delete_blocked = client.post(f"/api/opponents/{profile_id}/delete", headers=json_accept)
-        client.post(
-            f"/api/opponents/{profile_id}/matches/{match_id}/remove", headers=json_accept
-        )
+        client.post(f"/api/opponents/{profile_id}/matches/{match_id}/remove", headers=json_accept)
         deleted = client.post(f"/api/opponents/{profile_id}/delete", headers=json_accept)
         gone = client.get(f"/api/opponents/{profile_id}")
 

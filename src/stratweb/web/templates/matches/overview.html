@@ -1,31 +1,60 @@
 {% extends "base.html" %}
-{% block title %}{{ overview.match.map_name }} · StratWeb{% endblock %}
+{% block title %}{{ overview.match.map_name|map_name }} · StratWeb{% endblock %}
 {% block content %}
-<section class="page-heading match-heading"><div><p class="eyebrow">Match overview</p>
-  <h1>{{ overview.match.map_name }}</h1><p>{{ overview.match.source_name }} · {{ overview.match.round_count }} rounds · <a href="/ui/opponents">Opponent workspaces</a></p></div>
-  <div class="headline-score">{% if overview.match.score_available %}{% for team in overview.match.teams %}<span>{{ team.name }} <strong>{{ team.score }}</strong></span>{% endfor %}{% else %}<span>Score unavailable</span>{% endif %}</div>
+<section class="page-heading match-heading">
+  <div><p class="eyebrow">Обзор матча</p><h1>{{ overview.match.map_name|map_name }}</h1>
+    <p>{{ overview.match.round_count }} раундов · <a href="/ui/opponents">Добавить в профиль соперника</a></p></div>
+  <div class="headline-score">{% if overview.match.score_available %}{% for team in overview.match.teams %}<span>{{ team.name|team_name }} <strong>{{ team.score }}</strong></span>{% endfor %}{% else %}<span>Счёт недоступен</span>{% endif %}</div>
 </section>
-<section class="health-grid" aria-label="Data health">
+
+<div class="button-row"><a class="button" href="/ui/matches/{{ overview.match.match_id }}/features">Факты по раундам</a><a class="button secondary" href="/ui/matches/{{ overview.match.match_id }}/economy">Экономика матча</a></div>
+
+<section class="health-grid" aria-label="Состояние данных">
 {% for item in overview.health %}<a class="health-card {{ item.status }}" {% if item.href %}href="{{ item.href }}"{% endif %}>
-  <span>{{ item.label }}</span><strong>{{ item.status|capitalize }}</strong><small>{{ item.detail }}</small></a>{% endfor %}
+  <span>{{ {'Canonical':'Исходные данные','Analytics':'Аналитика','Temporal':'Состояния раунда','Spatial':'Позиции'}[item.label] or item.label }}</span><strong>{{ item.status|status_label }}</strong><small>{{ item.detail|warning_label }}</small></a>{% endfor %}
 </section>
-<section id="rounds"><div class="section-heading"><h2>Rounds</h2><span>Select map or timeline</span></div>
+
+<details class="product-disclosure team-naming">
+  <summary>Названия команд</summary>
+  <div class="product-disclosure__content">
+    <p class="muted">В этой демке FACEIT не сохранил название вида <code>team_ник</code>. Можно указать его вручную с матча FACEIT. Это изменит только отображение, но не состав, статистику и доказательства.</p>
+    <div class="team-naming-grid">
+    {% for team in overview.match.teams %}
+      <article>
+        <div><strong>{{ team.name|team_name }}</strong><span class="status {{ 'available' if team.name_source != 'fallback' else 'partial' }}">{{ {'manual':'введено вручную','faceit_metadata':'FACEIT','demo':'из демки','fallback':'нейтральное имя'}[team.name_source] }}</span>{% if team.name_source_reference %}<small>Источник: {{ team.name_source_reference }}</small>{% endif %}</div>
+        <p class="muted">Игроки: {{ team.player_names|join(', ') if team.player_names else 'состав недоступен' }}</p>
+        <form action="/api/matches/{{ overview.match.match_id }}/teams/{{ team.team_id }}/display-name" method="post">
+          <label>Название на FACEIT<input name="display_name" maxlength="100" value="{{ team.name if team.name_source != 'fallback' else '' }}" placeholder="Например: team_h1ziix" required></label>
+          <label>Ссылка или примечание (необязательно)<input name="source_reference" maxlength="500" placeholder="Страница матча FACEIT"></label>
+          <button type="submit">Сохранить</button>
+        </form>
+        {% if team.name_source != 'fallback' %}<form action="/api/matches/{{ overview.match.match_id }}/teams/{{ team.team_id }}/display-name/reset" method="post"><button class="secondary" type="submit">Вернуть нейтральное имя</button></form>{% endif %}
+      </article>
+    {% endfor %}
+    </div>
+  </div>
+</details>
+
+<section id="rounds"><div class="section-heading"><h2>Раунды</h2><span>Открыть карту или таймлайн</span></div>
   <div class="round-strip">{% for round in overview.rounds %}<article class="round-pill {% if not round.complete %}partial{% endif %}">
-    <strong>R{{ round.round_number }}</strong><span>{{ round.score }}</span><small>{{ round.winner }}</small>
-    <div>{% if round.map_href %}<a href="{{ round.map_href }}">Map</a>{% endif %}{% if round.timeline_href %}<a href="{{ round.timeline_href }}">Timeline</a>{% endif %}</div>
+    <strong>R{{ round.round_number }}</strong><span>{{ round.score }}</span><small>{{ round.winner|team_name }}</small>
+    <div>{% if round.map_href %}<a href="{{ round.map_href }}">Карта</a>{% endif %}{% if round.timeline_href %}<a href="{{ round.timeline_href }}">Таймлайн</a>{% endif %}</div>
   </article>{% endfor %}</div>
 </section>
-<section class="metric-grid" aria-label="Observed event counts">
-  <article><span>Opening duels</span><strong>{{ overview.opening_duels }}</strong></article>
-  <article><span>Trades</span><strong>{{ overview.trades }}</strong></article>
-  <article><span>Plants</span><strong>{{ overview.plants }}</strong></article>
-  <article><span>Defuses</span><strong>{{ overview.defuses }}</strong></article>
+
+<section class="metric-grid" aria-label="События матча">
+  <article><span>Первые дуэли</span><strong>{{ overview.opening_duels }}</strong></article>
+  <article><span>Размены</span><strong>{{ overview.trades }}</strong></article>
+  <article><span>Установки бомбы</span><strong>{{ overview.plants }}</strong></article>
+  <article><span>Разминирования</span><strong>{{ overview.defuses }}</strong></article>
 </section>
-<section id="players"><div class="section-heading"><h2>Players</h2><span>Stored match totals</span></div>
-  <div class="table-wrap"><table><thead><tr><th>Player</th><th>K</th><th>D</th><th>A</th><th>ADR</th></tr></thead><tbody>
+
+<section id="players"><div class="section-heading"><h2>Игроки</h2><span>Итоги сохранённого матча</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Игрок</th><th>Убийства</th><th>Смерти</th><th>Ассисты</th><th>ADR</th></tr></thead><tbody>
   {% for player in overview.players %}<tr><td>{{ player.name }}</td><td>{{ player.kills if player.kills is not none else '—' }}</td><td>{{ player.deaths if player.deaths is not none else '—' }}</td><td>{{ player.assists if player.assists is not none else '—' }}</td><td>{{ '%.1f'|format(player.adr) if player.adr is not none else '—' }}</td></tr>{% endfor %}
   </tbody></table></div>
 </section>
-<details class="developer-details"><summary>Developer details</summary><dl>{% for label, value in overview.developer_details.items() %}<dt>{{ label }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Copy</button></dd>{% endfor %}</dl></details>
+
+<details class="developer-details"><summary>Технические сведения</summary><dl><dt>Исходный файл</dt><dd><code>{{ overview.match.source_name }}</code></dd>{% for label, value in overview.developer_details.items() %}<dt>{{ label }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Копировать</button></dd>{% endfor %}</dl></details>
 {% endblock %}
 {% block scripts %}<script src="{{ static_asset('js/product-ui.js') }}" defer></script>{% endblock %}

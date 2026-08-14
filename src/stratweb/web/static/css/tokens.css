@@ -1,21 +1,77 @@
 :root {
   color-scheme: dark;
-  --bg: #080b10;
-  --surface: #101620;
-  --surface-2: #161e2a;
-  --surface-3: #202b3a;
-  --line: #293649;
-  --text: #f3f7fb;
-  --muted: #91a1b7;
-  --accent: #ffb33f;
-  --cyan: #5de2e8;
-  --green: #67dfa0;
-  --red: #ff6d82;
-  --purple: #bd89ff;
-  --radius-sm: 8px;
-  --radius: 13px;
-  --radius-lg: 20px;
-  --shadow: 0 22px 70px #0009;
+  --design-system-version: "1.1.0";
+
+  /* Typography */
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  /* Neutral foundation */
+  --color-canvas: #070a0f;
+  --color-canvas-raised: #0a0f16;
+  --color-surface-1: #101721;
+  --color-surface-2: #151f2b;
+  --color-surface-3: #1b2836;
+  --color-surface-hover: #202f40;
+  --color-border-subtle: #1b2735;
+  --color-border: #2a3a4d;
+  --color-border-strong: #40556d;
+
+  /* Text */
+  --color-text-primary: #f4f7fb;
+  --color-text-secondary: #aab7c8;
+  --color-text-tertiary: #73839a;
+  --color-text-inverse: #111015;
+
+  /* Product and data accents */
+  --color-brand: #ffb23f;
+  --color-brand-hover: #ffc365;
+  --color-accent: #52d8df;
+  --color-accent-hover: #79e8ed;
+  --color-success: #66dfa0;
+  --color-warning: #ffd173;
+  --color-danger: #ff7c8d;
+  --color-info: #75a9ff;
+  --color-purple: #bd8dff;
+
+  /* Semantic surfaces */
+  --color-brand-soft: #3a2911;
+  --color-accent-soft: #102b31;
+  --color-success-soft: #102d22;
+  --color-warning-soft: #332912;
+  --color-danger-soft: #351820;
+  --color-info-soft: #13243d;
+  --color-purple-soft: #261b38;
+
+  /* Compatibility aliases for feature-level styles */
+  --bg: var(--color-canvas);
+  --surface: var(--color-surface-1);
+  --surface-2: var(--color-surface-2);
+  --surface-3: var(--color-surface-3);
+  --line: var(--color-border);
+  --text: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --accent: var(--color-brand);
+  --cyan: var(--color-accent);
+  --green: var(--color-success);
+  --red: var(--color-danger);
+  --purple: var(--color-purple);
+
+  /* Shape, depth and motion */
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 2px #0006;
+  --shadow-sm: 0 8px 24px #0005;
+  --shadow: 0 24px 70px #0009;
+  --ring: 0 0 0 3px #52d8df35;
+  --transition-fast: 120ms ease;
+  --transition: 180ms ease;
+
+  /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -23,16 +79,135 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  --space-8: 64px;
+
+  font-family: var(--font-sans);
 }
-* { box-sizing: border-box; }
-html { background: var(--bg); }
-body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 80% 0, #172536 0, var(--bg) 42%); color: var(--text); font: 14px/1.5 Inter, "Segoe UI", system-ui, sans-serif; }
-a { color: var(--cyan); }
-button, input, select { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
-code, .mono { color: var(--muted); font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
-.muted { color: var(--muted); }
-.eyebrow { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-canvas);
+  scrollbar-color: var(--color-border-strong) var(--color-canvas);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(circle at 84% -10%, #1c3046 0, transparent 34rem),
+    radial-gradient(circle at 5% 15%, #17272b55 0, transparent 30rem),
+    var(--color-canvas);
+  font: 14px/1.55 var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  color: var(--color-text-primary);
+  background: #247079;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-weight: 730;
+  line-height: 1.14;
+  letter-spacing: -.025em;
+}
+
+h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+h2 { font-size: clamp(1.25rem, 2vw, 1.55rem); }
+h3 { font-size: 1rem; }
+p { color: var(--color-text-secondary); }
+
+a {
+  color: var(--color-accent);
+  text-underline-offset: 3px;
+  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+a:hover { color: var(--color-accent-hover); }
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+code,
+.mono {
+  color: var(--color-text-secondary);
+  font: 12px/1.55 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--color-canvas-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+small { font-size: 12px; }
+.muted { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.eyebrow {
+  color: var(--color-brand);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

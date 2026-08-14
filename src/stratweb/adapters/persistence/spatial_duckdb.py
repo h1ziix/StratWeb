@@ -10,6 +10,7 @@ from uuid import UUID
 import duckdb
 
 from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, SpatialIntegrityError
@@ -218,8 +219,9 @@ class DuckDBSpatialRepository:
         participant_id: UUID | None = None,
         limit: int = 1000,
         offset: int = 0,
+        spatial_run_id: UUID | None = None,
     ) -> tuple[SpatialSnapshot, ...]:
-        run_id = self._latest_run_id(match_id)
+        run_id = spatial_run_id or self._latest_run_id(match_id)
         if run_id is None:
             return ()
         where = ["spatial_run_id = ?", "match_id = ?"]
@@ -885,6 +887,17 @@ class DuckDBSpatialRepository:
 
     @staticmethod
     def _delete_run(connection: duckdb.DuckDBPyConnection, run_id: UUID) -> None:
+        delete_dependent_feature_runs(connection, "spatial_run_id", [run_id])
+        zone_runs = connection.execute(
+            "SELECT zone_assignment_run_id FROM zone_assignment_runs WHERE spatial_run_id = ?",
+            [run_id],
+        ).fetchall()
+        for zone_run in zone_runs:
+            connection.execute(
+                "DELETE FROM zone_assignments WHERE zone_assignment_run_id = ?",
+                [zone_run[0]],
+            )
+        connection.execute("DELETE FROM zone_assignment_runs WHERE spatial_run_id = ?", [run_id])
         for table in _QUERY_TABLES:
             connection.execute(f'DELETE FROM "{table}" WHERE spatial_run_id = ?', [run_id])
         for table in _CHILD_TABLES:

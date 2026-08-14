@@ -1,18 +1,107 @@
 {% extends "base.html" %}
-{% block title %}Diagnostics · {{ overview.match.map_name }} · StratWeb{% endblock %}
+{% block title %}Диагностика · {{ overview.match.map_name|map_name }} · StratWeb{% endblock %}
 {% block content %}
-<section class="page-heading"><div><p class="eyebrow">Diagnostics mode</p><h1>Data health and runs</h1>
-  <p>Capabilities, warnings and raw identifiers are isolated from analysis mode.</p></div></section>
-<section class="health-grid">{% for item in overview.health %}<article class="health-card {{ item.status }}"><span>{{ item.label }}</span><strong>{{ item.status|capitalize }}</strong><small>{{ item.detail }}</small></article>{% endfor %}</section>
-<section class="diagnostic-panel"><h2>Validation and endpoints</h2><div class="button-row">
-  <a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/summary">Spatial summary JSON</a>
-  <a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/validation">Spatial validation JSON</a>
-  <a class="button secondary" href="/api/temporal/{{ overview.match.match_id }}/diagnostics">Temporal diagnostics JSON</a>
-  <a class="button secondary" href="/ui/temporal/{{ overview.match.match_id }}/diagnostics">Temporal counters</a>
-</div></section>
-<section class="diagnostic-panel"><h2>Map semantics</h2>{% if map_overview %}<dl><dt>Canonical map</dt><dd><code>{{ map_overview.canonical_name or overview.match.map_name }}</code></dd><dt>Revision</dt><dd><code>{{ map_overview.selected_revision or 'legacy_map_semantics' }}</code></dd><dt>Selection</dt><dd>{{ map_overview.revision_selection_status or 'legacy' }}</dd><dt>Evidence</dt><dd>{{ map_overview.selection_evidence|join(', ') or 'none' }}</dd><dt>Calibration</dt><dd>{{ map_overview.calibration_status or 'legacy' }}</dd><dt>Warnings</dt><dd>{{ map_overview.warnings|join(', ') or 'none' }}</dd></dl>{% else %}<p>Unsupported map or overview asset unavailable. Raw spatial evidence is preserved.</p>{% endif %}
-  <div class="button-row"><a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/map">Match map JSON</a>{% if map_developer_mode and map_overview and map_overview.canonical_name %}<form action="/ui/maps/calibration" method="get"><input type="hidden" name="map_name" value="{{ map_overview.canonical_name }}"><label>Explicit research revision<select name="revision">{% for revision in map_revisions %}<option value="{{ revision.map_revision.revision_id }}" {% if revision.map_revision.revision_id == map_overview.selected_revision %}selected{% endif %}>{{ revision.map_revision.display_name }}</option>{% endfor %}</select></label><button type="submit" class="secondary">Open non-persistent override</button></form>{% endif %}</div>
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Режим диагностики</p>
+    <h1>Состояние данных</h1>
+    <p>Здесь видно, какие данные готовы, где есть ограничения и как проверить сохранённые доказательства.</p>
+  </div>
+  <a class="button secondary" href="/ui/matches/{{ overview.match.match_id }}">Вернуться к обзору</a>
 </section>
-<details class="developer-details" open><summary>Run and schema details</summary><dl>{% for label, value in overview.developer_details.items() %}<dt>{{ label }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Copy</button></dd>{% endfor %}</dl></details>
+
+<section aria-labelledby="readiness-title">
+  <div class="section-heading"><div><p class="eyebrow">Кратко</p><h2 id="readiness-title">Готовность обработки</h2></div><span>Неизвестные и частичные данные всегда отмечены</span></div>
+  <div class="health-grid">
+  {% for item in overview.health %}
+    <article class="health-card {{ item.status }}">
+      <span>{{ {'Canonical':'Исходные данные','Analytics':'Аналитика','Temporal':'Состояния раунда','Spatial':'Позиции'}[item.label] or item.label }}</span><strong>{{ item.status|status_label }}</strong><small>{{ item.detail|warning_label }}</small>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section aria-labelledby="tools-title">
+  <div class="section-heading"><div><p class="eyebrow">Полезные разделы</p><h2 id="tools-title">Проверить матч</h2></div><span>Сначала понятные страницы, затем JSON</span></div>
+  <div class="product-card-grid">
+    <article class="product-card">
+      <div class="product-card__header"><div><h3>Состояния раунда</h3><p>Одновременные события, живые игроки и неоднозначный порядок.</p></div><span class="status">Таймлайн</span></div>
+      <div class="product-card__actions"><a class="button secondary" href="/ui/temporal/{{ overview.match.match_id }}/diagnostics">Открыть счётчики</a></div>
+    </article>
+    <article class="product-card">
+      <div class="product-card__header"><div><h3>Экономика раундов</h3><p>Тип закупки и экипировка после окончания freeze time.</p></div><span class="status">Экономика</span></div>
+      <div class="product-card__actions"><a class="button secondary" href="/ui/matches/{{ overview.match.match_id }}/economy">Открыть экономику</a></div>
+    </article>
+    <article class="product-card">
+      <div class="product-card__header"><div><h3>Факты по раундам</h3><p>Детерминированные признаки для дальнейшего анализа.</p></div><span class="status">Факты</span></div>
+      <div class="product-card__actions"><a class="button secondary" href="/ui/matches/{{ overview.match.match_id }}/features">Открыть факты</a></div>
+    </article>
+    <article class="product-card">
+      <div class="product-card__header"><div><h3>Позиции на карте</h3><p>Игроки, гранаты и покрытие размеченными зонами.</p></div><span class="status">Карта</span></div>
+      <div class="product-card__actions"><a class="button secondary" href="/ui/spatial/{{ overview.match.match_id }}/rounds/1">Открыть карту</a></div>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="zone-title">
+  <div class="section-heading"><div><p class="eyebrow">Пространственные данные</p><h2 id="zone-title">Покрытие зонами</h2></div><span>Координаты вне подтверждённых зон остаются неизвестными</span></div>
+  {% if zone_summary %}
+  <div class="product-summary">
+    <article class="{{ zone_summary.capability.status }}"><span>Состояние</span><strong>{{ zone_summary.capability.status|status_label }}</strong><small>Совместимый расчёт зон</small></article>
+    <article><span>Покрытие</span><strong>{% if zone_summary.summary.coverage is not none %}{{ '%.1f'|format(zone_summary.summary.coverage * 100) }}%{% else %}Неизвестно{% endif %}</strong><small>Определено: {{ zone_summary.summary.resolved }}</small></article>
+    <article class="{% if zone_summary.summary.unknown %}partial{% else %}available{% endif %}"><span>Без зоны</span><strong>{{ zone_summary.summary.unknown }}</strong><small>Зона не была угадана</small></article>
+    <article class="{% if zone_summary.summary.unavailable %}unavailable{% else %}available{% endif %}"><span>Недоступно</span><strong>{{ zone_summary.summary.unavailable }}</strong><small>Нет необходимых координат</small></article>
+  </div>
+  {% if zone_summary.warnings %}<div class="warning-stack">{% for warning in zone_summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div>{% endif %}
+  <details class="product-disclosure">
+    <summary>Расчёт зон и исходные данные</summary>
+    <div class="product-disclosure__content">
+      <dl class="technical-facts">
+        <dt>Расчёт зон</dt><dd><code>{{ zone_summary.zone_assignment_run_id }}</code></dd>
+        <dt>Пространственный расчёт</dt><dd><code>{{ zone_summary.spatial_run_id }}</code></dd>
+        <dt>Схема / правило</dt><dd><code>{{ zone_summary.zone_assignment_schema_version }} / {{ zone_summary.zone_assignment_rule_version }}</code></dd>
+        <dt>Отпечаток набора зон</dt><dd><code>{{ zone_summary.zone_set_fingerprint or 'недоступно' }}</code></dd>
+      </dl>
+      <div class="button-row"><a class="button secondary" href="/api/zones/{{ overview.match.match_id }}/runs">Все расчёты зон JSON</a><a class="button secondary" href="/api/zones/{{ overview.match.match_id }}/assignments?limit=100">Пример назначений JSON</a></div>
+    </div>
+  </details>
+  {% else %}
+  <div class="empty-state"><h3>Нет совместимого расчёта зон</h3><p>Позиционные доказательства сохранены. Без расчёта назначения названия зон не додумываются.</p></div>
+  {% endif %}
+</section>
+
+<section aria-labelledby="map-title">
+  <div class="section-heading"><div><p class="eyebrow">Карта</p><h2 id="map-title">Версия и калибровка</h2></div><span>Состояние изображения и координат</span></div>
+  {% if map_overview %}
+  <div class="product-summary">
+    <article><span>Карта</span><strong>{{ (map_overview.canonical_name or overview.match.map_name)|map_name }}</strong><small>Каноническое имя</small></article>
+    <article class="{% if map_overview.revision_selection_status == 'proven' %}available{% else %}partial{% endif %}"><span>Версия</span><strong>{{ 'Подтверждена' if map_overview.revision_selection_status == 'proven' else 'Не подтверждена' }}</strong><small>{{ map_overview.selected_revision or 'устаревшая модель' }}</small></article>
+    <article><span>Калибровка</span><strong>{{ 'Готова' if map_overview.calibration_status else 'Неизвестно' }}</strong><small>Проекция координат на радар</small></article>
+  </div>
+  {% if map_overview.warnings %}<div class="warning-stack">{% for warning in map_overview.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div>{% endif %}
+  <details class="product-disclosure">
+    <summary>Версия карты и инструменты разработчика</summary>
+    <div class="product-disclosure__content">
+      <dl class="technical-facts"><dt>Выбранная ревизия</dt><dd><code>{{ map_overview.selected_revision or 'legacy_map_semantics' }}</code></dd><dt>Основание выбора</dt><dd>{{ map_overview.selection_evidence|join(', ') or 'нет' }}</dd></dl>
+      <div class="button-row"><a class="button secondary" href="/api/spatial/{{ overview.match.match_id }}/map">JSON карты матча</a>{% if map_developer_mode and map_overview.canonical_name %}<form action="/ui/maps/calibration" method="get"><input type="hidden" name="map_name" value="{{ map_overview.canonical_name }}"><label>Исследуемая ревизия<select name="revision">{% for revision in map_revisions %}<option value="{{ revision.map_revision.revision_id }}" {% if revision.map_revision.revision_id == map_overview.selected_revision %}selected{% endif %}>{{ revision.map_revision.display_name }}</option>{% endfor %}</select></label><button type="submit" class="secondary">Открыть временную замену</button></form>{% endif %}</div>
+    </div>
+  </details>
+  {% else %}<div class="empty-state"><h3>Изображение карты недоступно</h3><p>Исходные позиционные снимки сохранены без изменений.</p></div>{% endif %}
+</section>
+
+<details class="product-disclosure" id="raw-exports">
+  <summary>Исходные данные JSON</summary>
+  <div class="product-disclosure__content technical-actions">
+    <a href="/api/spatial/{{ overview.match.match_id }}/summary"><strong>Сводка позиций</strong><small>Возможности и выбранный расчёт</small></a>
+    <a href="/api/spatial/{{ overview.match.match_id }}/validation"><strong>Проверка позиций</strong><small>Целостность и покрытие</small></a>
+    <a href="/api/temporal/{{ overview.match.match_id }}/diagnostics"><strong>Диагностика хронологии</strong><small>Группы, порядок и счётчики смертей</small></a>
+    <a href="/api/zones/{{ overview.match.match_id }}/summary"><strong>Сводка зон</strong><small>Покрытие назначений и предупреждения</small></a>
+    <a href="/api/economy/{{ overview.match.match_id }}/summary"><strong>Сводка экономики</strong><small>Классификация и итоги</small></a>
+    <a href="/api/features/{{ overview.match.match_id }}/summary"><strong>Сводка фактов раундов</strong><small>Расчёт фактов и покрытие</small></a>
+    <a href="/api/features/{{ overview.match.match_id }}/records?limit=100"><strong>Пример доказательств</strong><small>Первые 100 сохранённых записей</small></a>
+  </div>
+</details>
+
+<details class="developer-details"><summary>Идентификаторы и версии схем</summary><dl>{% for label, value in overview.developer_details.items() %}<dt data-field="{{ label }}">{{ label|replace('_', ' ') }}</dt><dd><code>{{ value }}</code><button class="copy-button" type="button" data-copy="{{ value }}">Копировать</button></dd>{% endfor %}</dl></details>
 {% endblock %}
 {% block scripts %}<script src="{{ static_asset('js/product-ui.js') }}" defer></script>{% endblock %}

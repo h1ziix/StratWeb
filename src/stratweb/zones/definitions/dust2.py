@@ -46,8 +46,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'back_plat',
-            'BACK PLAT',
+            "back_plat",
+            "BACK PLAT",
             ZoneKind.AREA,
             0,
             (
@@ -58,8 +58,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'back_site',
-            'BACK SITE',
+            "back_site",
+            "BACK SITE",
             ZoneKind.AREA,
             0,
             (
@@ -70,8 +70,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'window',
-            'WINDOW',
+            "window",
+            "WINDOW",
             ZoneKind.AREA,
             0,
             (
@@ -82,8 +82,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'b_plat',
-            'B PLAT',
+            "b_plat",
+            "B PLAT",
             ZoneKind.AREA,
             0,
             (
@@ -94,8 +94,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -106,8 +106,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'box',
-            'BOX',
+            "box",
+            "BOX",
             ZoneKind.AREA,
             0,
             (
@@ -118,8 +118,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'fence',
-            'FENCE',
+            "fence",
+            "FENCE",
             ZoneKind.AREA,
             0,
             (
@@ -130,8 +130,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'b_doors',
-            'B DOORS',
+            "b_doors",
+            "B DOORS",
             ZoneKind.AREA,
             0,
             (
@@ -142,8 +142,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_mid',
-            'CT MID',
+            "ct_mid",
+            "CT MID",
             ZoneKind.AREA,
             0,
             (
@@ -154,8 +154,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn',
-            'CT SPAWN',
+            "ct_spawn",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -166,8 +166,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ninja',
-            'NINJA',
+            "ninja",
+            "NINJA",
             ZoneKind.AREA,
             0,
             (
@@ -178,8 +178,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'goose',
-            'GOOSE',
+            "goose",
+            "GOOSE",
             ZoneKind.AREA,
             0,
             (
@@ -190,8 +190,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'barrels',
-            'BARRELS',
+            "barrels",
+            "BARRELS",
             ZoneKind.AREA,
             0,
             (
@@ -202,8 +202,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -214,8 +214,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ramp',
-            'RAMP',
+            "ramp",
+            "RAMP",
             ZoneKind.AREA,
             0,
             (
@@ -226,8 +226,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'boost',
-            'BOOST',
+            "boost",
+            "BOOST",
             ZoneKind.AREA,
             0,
             (
@@ -238,8 +238,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cross',
-            'CROSS',
+            "cross",
+            "CROSS",
             ZoneKind.AREA,
             0,
             (
@@ -250,8 +250,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'car_a',
-            'CAR',
+            "car_a",
+            "CAR",
             ZoneKind.AREA,
             0,
             (
@@ -262,8 +262,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'dog',
-            'DOG',
+            "dog",
+            "DOG",
             ZoneKind.AREA,
             0,
             (
@@ -274,8 +274,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'car_b',
-            'CAR',
+            "car_b",
+            "CAR",
             ZoneKind.AREA,
             0,
             (
@@ -286,8 +286,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'closet',
-            'CLOSET',
+            "closet",
+            "CLOSET",
             ZoneKind.AREA,
             0,
             (
@@ -298,8 +298,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'lower_tunnels',
-            'LOWER TUNNELS',
+            "lower_tunnels",
+            "LOWER TUNNELS",
             ZoneKind.AREA,
             0,
             (
@@ -310,8 +310,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'mid_doors',
-            'MID DOORS',
+            "mid_doors",
+            "MID DOORS",
             ZoneKind.AREA,
             0,
             (
@@ -322,8 +322,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'stairs',
-            'STAIRS',
+            "stairs",
+            "STAIRS",
             ZoneKind.AREA,
             0,
             (
@@ -334,8 +334,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short',
-            'SHORT',
+            "short",
+            "SHORT",
             ZoneKind.AREA,
             0,
             (
@@ -346,8 +346,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'xbox',
-            'XBOX',
+            "xbox",
+            "XBOX",
             ZoneKind.AREA,
             0,
             (
@@ -358,8 +358,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'upper_tunnels',
-            'UPPER TUNNELS',
+            "upper_tunnels",
+            "UPPER TUNNELS",
             ZoneKind.AREA,
             0,
             (
@@ -370,8 +370,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'blue',
-            'BLUE',
+            "blue",
+            "BLUE",
             ZoneKind.AREA,
             0,
             (
@@ -382,8 +382,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long',
-            'LONG',
+            "long",
+            "LONG",
             ZoneKind.AREA,
             0,
             (
@@ -394,8 +394,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long_corner',
-            'LONG CORNER',
+            "long_corner",
+            "LONG CORNER",
             ZoneKind.AREA,
             0,
             (
@@ -406,8 +406,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cat',
-            'CAT',
+            "cat",
+            "CAT",
             ZoneKind.AREA,
             0,
             (
@@ -418,8 +418,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'green',
-            'GREEN',
+            "green",
+            "GREEN",
             ZoneKind.AREA,
             0,
             (
@@ -430,8 +430,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'palm',
-            'PALM',
+            "palm",
+            "PALM",
             ZoneKind.AREA,
             0,
             (
@@ -442,8 +442,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long_doors',
-            'LONG DOORS',
+            "long_doors",
+            "LONG DOORS",
             ZoneKind.AREA,
             0,
             (
@@ -454,8 +454,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'pit',
-            'PIT',
+            "pit",
+            "PIT",
             ZoneKind.AREA,
             0,
             (
@@ -466,8 +466,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'outside_tunnels',
-            'OUTSIDE TUNNELS',
+            "outside_tunnels",
+            "OUTSIDE TUNNELS",
             ZoneKind.AREA,
             0,
             (
@@ -478,8 +478,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'outside_long',
-            'OUTSIDE LONG',
+            "outside_long",
+            "OUTSIDE LONG",
             ZoneKind.AREA,
             0,
             (
@@ -490,8 +490,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'suicide',
-            'SUICIDE',
+            "suicide",
+            "SUICIDE",
             ZoneKind.AREA,
             0,
             (
@@ -502,8 +502,8 @@ DUST2_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T SPAWN',
+            "t_spawn",
+            "T SPAWN",
             ZoneKind.SPAWN,
             10,
             (

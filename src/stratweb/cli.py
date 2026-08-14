@@ -12,12 +12,23 @@ from uuid import UUID
 
 from pydantic import BaseModel, TypeAdapter
 
-from stratweb.adapters.parsers import Demoparser2Adapter, Demoparser2SpatialExtractor
+from stratweb.adapters.parsers import (
+    Demoparser2Adapter,
+    Demoparser2EconomyExtractor,
+    Demoparser2SpatialExtractor,
+)
 from stratweb.adapters.persistence import (
+    DuckDBAnalysisRepository,
     DuckDBAnalyticsRepository,
+    DuckDBCounterStrategyRepository,
+    DuckDBEconomyRepository,
     DuckDBMatchRepository,
+    DuckDBOpponentRepository,
+    DuckDBPatternRepository,
+    DuckDBRoundFeatureRepository,
     DuckDBSpatialRepository,
     DuckDBTemporalRepository,
+    DuckDBZoneAssignmentRepository,
 )
 from stratweb.adapters.persistence.migrations import MIGRATIONS
 from stratweb.application.analytics import (
@@ -27,7 +38,21 @@ from stratweb.application.analytics import (
 )
 from stratweb.application.canonical_models import CanonicalizationSummary
 from stratweb.application.canonicalization import CanonicalizationService
+from stratweb.application.counter_strategy import (
+    ComputeCounterStrategiesService,
+    CounterStrategyQueryService,
+    ValidateCounterStrategiesService,
+)
+from stratweb.application.economy import ComputeEconomyService, EconomyQueryService
+from stratweb.application.findings import (
+    AnalysisFindingQueryService,
+    ComputeAnalysisFindingsService,
+)
 from stratweb.application.inspection import DemoInspectionService
+from stratweb.application.patterns import (
+    ComputeCrossMatchPatternsService,
+    PatternQueryService,
+)
 from stratweb.application.persistence import (
     ImportCanonicalMatchService,
     MatchQueryService,
@@ -39,8 +64,21 @@ from stratweb.application.persistence_models import (
     ImportStatus,
     MatchQueryFilters,
 )
+from stratweb.application.readiness import FindingReadinessService
+from stratweb.application.round_features import (
+    ComputeRoundFeaturesService,
+    RoundFeatureQueryService,
+)
 from stratweb.application.spatial import ComputeSpatialStateService, SpatialQueryService
 from stratweb.application.temporal import ComputeTemporalStateService, TemporalQueryService
+from stratweb.application.zone_assignments import (
+    ComputeZoneAssignmentsService,
+    ZoneAssignmentQueryService,
+)
+from stratweb.counter_strategy.models import CounterStrategyCategory, CounterStrategyConfig
+from stratweb.counter_strategy.validation_models import StrategyValidationConfig
+from stratweb.domain.enums import Side
+from stratweb.economy.models import BuyType, EconomyConfig
 from stratweb.exceptions import (
     CanonicalImportError,
     DemoFileNotFoundError,
@@ -52,8 +90,17 @@ from stratweb.exceptions import (
     PersistenceError,
     UnsupportedDemoError,
 )
+from stratweb.features.models import (
+    FeatureAvailability,
+    RoundFeatureConfig,
+    RoundFeatureType,
+)
+from stratweb.findings.models import FindingCategory, FindingConfig
+from stratweb.patterns.models import PatternAvailability, PatternConfig, PatternType
+from stratweb.readiness.models import FindingReadinessConfig
 from stratweb.spatial.models import SpatialConfig
 from stratweb.temporal.models import TemporalConfig
+from stratweb.zones.assignment_models import ZoneAssignmentConfig, ZoneAssignmentStatus
 
 _EXIT_UNEXPECTED = 1
 _EXIT_FILE_NOT_FOUND = 3
@@ -81,6 +128,13 @@ def build_argument_parser() -> argparse.ArgumentParser:
     _add_analytics_commands(subparsers)
     _add_temporal_commands(subparsers)
     _add_spatial_commands(subparsers)
+    _add_zone_assignment_commands(subparsers)
+    _add_economy_commands(subparsers)
+    _add_round_feature_commands(subparsers)
+    _add_pattern_commands(subparsers)
+    _add_finding_commands(subparsers)
+    _add_readiness_commands(subparsers)
+    _add_counter_strategy_commands(subparsers)
     return parser
 
 
@@ -104,6 +158,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_temporal_command(args)
         if args.command == "spatial":
             return _run_spatial_command(args)
+        if args.command == "zones":
+            return _run_zone_assignment_command(args)
+        if args.command == "economy":
+            return _run_economy_command(args)
+        if args.command == "features":
+            return _run_round_feature_command(args)
+        if args.command == "patterns":
+            return _run_pattern_command(args)
+        if args.command == "findings":
+            return _run_finding_command(args)
+        if args.command == "readiness":
+            return _run_readiness_command(args)
+        if args.command == "strategies":
+            return _run_counter_strategy_command(args)
         raise AssertionError(f"Unhandled CLI command: {args.command}")
     except DemoInspectionError as exc:
         print(f"error [{exc.error_code}]: {exc}", file=sys.stderr)
@@ -351,6 +419,306 @@ def _add_spatial_commands(subparsers: Any) -> None:
     delete = actions.add_parser("delete", help="delete Spatial runs only")
     delete.add_argument("match_id", type=UUID)
     delete.add_argument("--yes", action="store_true", help="skip confirmation")
+    _add_database_options(delete)
+
+
+def _add_zone_assignment_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser(
+        "zones", help="compute or inspect versioned spatial-to-zone assignments"
+    )
+    actions = command.add_subparsers(dest="zones_command", required=True)
+
+    compute = actions.add_parser("compute", help="assign one exact Spatial run to zones")
+    compute.add_argument("match_id", type=UUID)
+    compute.add_argument("--spatial-run", dest="spatial_run_id", type=UUID)
+    compute.add_argument(
+        "--require-proven-map-revision",
+        action="store_true",
+        help="mark assignments unavailable when the demo cannot prove the map revision",
+    )
+    compute.add_argument("--force", action="store_true", help="replace the same run atomically")
+    _add_database_options(compute)
+
+    status = actions.add_parser("status", help="show selected run, coverage and provenance")
+    status.add_argument("match_id", type=UUID)
+    status.add_argument("--spatial-run", dest="spatial_run_id", type=UUID)
+    _add_database_options(status)
+
+    runs = actions.add_parser("runs", help="list persisted zone assignment runs")
+    runs.add_argument("match_id", type=UUID)
+    _add_database_options(runs)
+
+    show = actions.add_parser("show", help="list immutable snapshot zone assignments")
+    show.add_argument("match_id", type=UUID)
+    show.add_argument("--run", dest="zone_assignment_run_id", type=UUID)
+    show.add_argument("--round", dest="round_number", type=int)
+    show.add_argument("--status", choices=tuple(item.value for item in ZoneAssignmentStatus))
+    show.add_argument("--limit", type=int, default=1000)
+    show.add_argument("--offset", type=int, default=0)
+    _add_database_options(show)
+
+    delete = actions.add_parser("delete", help="delete zone runs but preserve Spatial data")
+    delete.add_argument("match_id", type=UUID)
+    delete.add_argument("--yes", action="store_true", help="skip confirmation")
+    _add_database_options(delete)
+
+
+def _add_economy_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser("economy", help="compute or inspect freeze-end economy context")
+    actions = command.add_subparsers(dest="economy_command", required=True)
+
+    compute = actions.add_parser("compute", help="compute one versioned Economy run")
+    compute.add_argument("match_id", type=UUID)
+    compute.add_argument("demo", type=Path, help="the exact imported completed .dem")
+    compute.add_argument("--force", action="store_true", help="replace the same run atomically")
+    _add_database_options(compute)
+
+    for name, help_text in (
+        ("status", "show selected Economy run and coverage"),
+        ("runs", "list persisted Economy runs"),
+    ):
+        query = actions.add_parser(name, help=help_text)
+        query.add_argument("match_id", type=UUID)
+        _add_database_options(query)
+
+    teams = actions.add_parser("teams", help="list team-round buy classifications")
+    teams.add_argument("match_id", type=UUID)
+    teams.add_argument("--run", dest="economy_run_id", type=UUID)
+    teams.add_argument("--round", dest="round_number", type=int)
+    teams.add_argument("--side", choices=(Side.T.value, Side.CT.value))
+    teams.add_argument("--buy-type", choices=tuple(item.value for item in BuyType))
+    teams.add_argument("--limit", type=int, default=1000)
+    teams.add_argument("--offset", type=int, default=0)
+    _add_database_options(teams)
+
+    players = actions.add_parser("players", help="list player freeze-end equipment")
+    players.add_argument("match_id", type=UUID)
+    players.add_argument("--run", dest="economy_run_id", type=UUID)
+    players.add_argument("--round", dest="round_number", type=int)
+    players.add_argument("--player", dest="participant_id", type=UUID)
+    players.add_argument("--limit", type=int, default=1000)
+    players.add_argument("--offset", type=int, default=0)
+    _add_database_options(players)
+
+    delete = actions.add_parser("delete", help="delete Economy runs only")
+    delete.add_argument("match_id", type=UUID)
+    delete.add_argument("--yes", action="store_true", help="skip confirmation")
+    _add_database_options(delete)
+
+
+def _add_round_feature_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser(
+        "features", help="compute or inspect version-pinned per-round tactical facts"
+    )
+    actions = command.add_subparsers(dest="features_command", required=True)
+
+    compute = actions.add_parser("compute", help="compute one Stage 8.4 feature run")
+    compute.add_argument("match_id", type=UUID)
+    compute.add_argument(
+        "--checkpoint-offset-ticks",
+        type=int,
+        nargs="+",
+        default=None,
+        help="strictly increasing freeze-end tick offsets",
+    )
+    compute.add_argument("--early-window-ticks", type=int, default=1280)
+    compute.add_argument("--include-incomplete", action="store_true")
+    compute.add_argument("--force", action="store_true", help="replace the same run atomically")
+    _add_database_options(compute)
+
+    for name, help_text in (
+        ("status", "show selected Stage 8.4 run and capability counts"),
+        ("runs", "list persisted Stage 8.4 runs"),
+    ):
+        query = actions.add_parser(name, help=help_text)
+        query.add_argument("match_id", type=UUID)
+        _add_database_options(query)
+
+    show = actions.add_parser("show", help="list atomic per-round feature records")
+    show.add_argument("match_id", type=UUID)
+    show.add_argument("--run", dest="feature_run_id", type=UUID)
+    show.add_argument("--round", dest="round_number", type=int)
+    show.add_argument("--team", dest="team_id", type=UUID)
+    show.add_argument("--side", choices=(Side.T.value, Side.CT.value))
+    show.add_argument(
+        "--type",
+        dest="feature_type",
+        choices=tuple(item.value for item in RoundFeatureType),
+    )
+    show.add_argument("--availability", choices=tuple(item.value for item in FeatureAvailability))
+    show.add_argument("--buy-type", choices=tuple(item.value for item in BuyType))
+    show.add_argument("--limit", type=int, default=1000)
+    show.add_argument("--offset", type=int, default=0)
+    _add_database_options(show)
+
+    delete = actions.add_parser("delete", help="delete Stage 8.4 runs only")
+    delete.add_argument("match_id", type=UUID)
+    delete.add_argument("--yes", action="store_true", help="skip confirmation")
+    _add_database_options(delete)
+
+
+def _add_pattern_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser(
+        "patterns", help="compute or inspect Stage 8.5 opponent cross-match patterns"
+    )
+    actions = command.add_subparsers(dest="patterns_command", required=True)
+
+    compute = actions.add_parser("compute", help="compute one versioned pattern run")
+    compute.add_argument("profile_id", type=UUID)
+    compute.add_argument("--minimum-corpus-matches", type=int, default=20)
+    compute.add_argument("--minimum-sample-size", type=int, default=5)
+    compute.add_argument(
+        "--plant-timing-buckets",
+        type=float,
+        nargs="+",
+        default=None,
+        help="strictly increasing plant-time bucket boundaries in proven seconds",
+    )
+    compute.add_argument(
+        "--exclude-partial-features",
+        action="store_true",
+        help="exclude Stage 8.4 partial payloads from denominators",
+    )
+    compute.add_argument("--force", action="store_true")
+    _add_database_options(compute)
+
+    for name, help_text in (
+        ("status", "show the selected Stage 8.5 run"),
+        ("runs", "list persisted Stage 8.5 runs"),
+    ):
+        query = actions.add_parser(name, help=help_text)
+        query.add_argument("profile_id", type=UUID)
+        _add_database_options(query)
+
+    show = actions.add_parser("show", help="list cross-match pattern records")
+    show.add_argument("profile_id", type=UUID)
+    show.add_argument("--run", dest="pattern_run_id", type=UUID)
+    show.add_argument("--map", dest="map_name")
+    show.add_argument("--side", choices=(Side.T.value, Side.CT.value))
+    show.add_argument("--buy-type", choices=tuple(item.value for item in BuyType))
+    show.add_argument(
+        "--type",
+        dest="pattern_type",
+        choices=tuple(item.value for item in PatternType),
+    )
+    show.add_argument("--availability", choices=tuple(item.value for item in PatternAvailability))
+    show.add_argument("--limit", type=int, default=1000)
+    show.add_argument("--offset", type=int, default=0)
+    _add_database_options(show)
+
+    delete = actions.add_parser("delete", help="delete Stage 8.5 runs for one profile")
+    delete.add_argument("profile_id", type=UUID)
+    delete.add_argument("--yes", action="store_true")
+    _add_database_options(delete)
+
+
+def _add_finding_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser(
+        "findings", help="compute or inspect Stage 8.6 analysis findings"
+    )
+    actions = command.add_subparsers(dest="findings_command", required=True)
+
+    compute = actions.add_parser("compute", help="materialize one immutable analysis run")
+    compute.add_argument("profile_id", type=UUID)
+    compute.add_argument("--exclude-partial-patterns", action="store_true")
+    compute.add_argument("--include-zero-frequency", action="store_true")
+    compute.add_argument("--force", action="store_true")
+    _add_database_options(compute)
+
+    for name in ("status", "runs"):
+        query = actions.add_parser(name)
+        query.add_argument("profile_id", type=UUID)
+        _add_database_options(query)
+
+    show = actions.add_parser("show", help="list immutable findings")
+    show.add_argument("profile_id", type=UUID)
+    show.add_argument("--run", dest="analysis_run_id", type=UUID)
+    show.add_argument("--map", dest="map_name")
+    show.add_argument("--side", choices=(Side.T.value, Side.CT.value))
+    show.add_argument("--category", choices=tuple(item.value for item in FindingCategory))
+    show.add_argument(
+        "--type", dest="pattern_type", choices=tuple(item.value for item in PatternType)
+    )
+    show.add_argument("--limit", type=int, default=1000)
+    show.add_argument("--offset", type=int, default=0)
+    _add_database_options(show)
+
+    evidence = actions.add_parser("evidence", help="show one finding and its evidence")
+    evidence.add_argument("profile_id", type=UUID)
+    evidence.add_argument("finding_id", type=UUID)
+    evidence.add_argument("--run", dest="analysis_run_id", type=UUID)
+    _add_database_options(evidence)
+
+    delete = actions.add_parser("delete", help="delete Stage 8.6 runs for one profile")
+    delete.add_argument("profile_id", type=UUID)
+    delete.add_argument("--yes", action="store_true")
+    _add_database_options(delete)
+
+
+def _add_readiness_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser("readiness", help="audit Stage 8.6 findings before Stage 8.7")
+    actions = command.add_subparsers(dest="readiness_command", required=True)
+    audit = actions.add_parser("audit", help="run a deterministic read-only audit")
+    audit.add_argument("profile_id", type=UUID)
+    audit.add_argument("--run", dest="analysis_run_id", type=UUID)
+    audit.add_argument("--minimum-corpus-matches", type=int, default=20)
+    audit.add_argument("--minimum-finding-matches", type=int, default=2)
+    audit.add_argument("--allow-partial-source", action="store_true")
+    audit.add_argument("--allow-unknown-buy-type", action="store_true")
+    audit.add_argument("--require-all-evidence-ticks", action="store_true")
+    audit.add_argument("--summary-only", action="store_true")
+    _add_database_options(audit)
+
+
+def _add_counter_strategy_commands(subparsers: Any) -> None:
+    command = subparsers.add_parser(
+        "strategies", help="compute or inspect deterministic Stage 8.7 recommendations"
+    )
+    actions = command.add_subparsers(dest="strategies_command", required=True)
+    compute = actions.add_parser("compute", help="materialize one immutable strategy run")
+    compute.add_argument("profile_id", type=UUID)
+    compute.add_argument("--minimum-corpus-matches", type=int, default=20)
+    compute.add_argument("--minimum-finding-matches", type=int, default=2)
+    compute.add_argument("--force", action="store_true")
+    _add_database_options(compute)
+
+    for name in ("status", "runs", "skipped"):
+        query = actions.add_parser(name)
+        query.add_argument("profile_id", type=UUID)
+        if name == "skipped":
+            query.add_argument("--run", dest="strategy_run_id", type=UUID)
+        _add_database_options(query)
+
+    validate = actions.add_parser(
+        "validate", help="run the Stage 8.7.1 corpus and rule-quality audit"
+    )
+    validate.add_argument("profile_id", type=UUID)
+    validate.add_argument("--run", dest="strategy_run_id", type=UUID)
+    validate.add_argument("--minimum-corpus-matches", type=int, default=20)
+    validate.add_argument("--allow-single-side", action="store_true")
+    validate.add_argument("--allow-zero-recommendations", action="store_true")
+    _add_database_options(validate)
+
+    show = actions.add_parser("show", help="list published recommendations")
+    show.add_argument("profile_id", type=UUID)
+    show.add_argument("--run", dest="strategy_run_id", type=UUID)
+    show.add_argument("--map", dest="map_name")
+    show.add_argument("--side", choices=(Side.T.value, Side.CT.value))
+    show.add_argument("--buy-type", choices=tuple(item.value for item in BuyType))
+    show.add_argument("--category", choices=tuple(item.value for item in CounterStrategyCategory))
+    show.add_argument("--limit", type=int, default=1000)
+    show.add_argument("--offset", type=int, default=0)
+    _add_database_options(show)
+
+    evidence = actions.add_parser("evidence", help="show a recommendation and evidence")
+    evidence.add_argument("profile_id", type=UUID)
+    evidence.add_argument("recommendation_id", type=UUID)
+    evidence.add_argument("--run", dest="strategy_run_id", type=UUID)
+    _add_database_options(evidence)
+
+    delete = actions.add_parser("delete", help="delete Stage 8.7 runs for one profile")
+    delete.add_argument("profile_id", type=UUID)
+    delete.add_argument("--yes", action="store_true")
     _add_database_options(delete)
 
 
@@ -626,6 +994,381 @@ def _run_spatial_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_zone_assignment_command(args: argparse.Namespace) -> int:
+    spatial_repository = _build_spatial_repository(args.db)
+    zone_repository = _build_zone_assignment_repository(args.db)
+    if args.zones_command == "compute":
+        result = ComputeZoneAssignmentsService(spatial_repository, zone_repository).compute(
+            args.match_id,
+            spatial_run_id=args.spatial_run_id,
+            config=ZoneAssignmentConfig(
+                allow_unproven_map_revision=not args.require_proven_map_revision
+            ),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = ZoneAssignmentQueryService(zone_repository)
+    if args.zones_command == "status":
+        value: Any = service.get_summary(args.match_id, spatial_run_id=args.spatial_run_id)
+    elif args.zones_command == "runs":
+        value = service.list_runs(args.match_id)
+    elif args.zones_command == "show":
+        value = service.list_assignments(
+            args.match_id,
+            zone_assignment_run_id=args.zone_assignment_run_id,
+            round_number=args.round_number,
+            status=ZoneAssignmentStatus(args.status) if args.status is not None else None,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.zones_command == "delete":
+        if not args.yes and not _confirm_zone_assignment_delete(args.match_id):
+            _print_value(
+                {"match_id": str(args.match_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = service.delete(args.match_id)
+    else:  # pragma: no cover - argparse enforces this set
+        raise AssertionError(f"Unhandled zone command: {args.zones_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
+def _run_economy_command(args: argparse.Namespace) -> int:
+    repository = _build_economy_repository(args.db)
+    if args.economy_command == "compute":
+        result = ComputeEconomyService(
+            _build_repository(args.db),
+            repository,
+            Demoparser2EconomyExtractor(),
+        ).compute(
+            args.match_id,
+            args.demo,
+            config=EconomyConfig(),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = EconomyQueryService(repository)
+    if args.economy_command == "status":
+        value: Any = service.get_summary(args.match_id)
+    elif args.economy_command == "runs":
+        value = service.list_runs(args.match_id)
+    elif args.economy_command == "teams":
+        value = service.list_team_snapshots(
+            args.match_id,
+            economy_run_id=args.economy_run_id,
+            round_number=args.round_number,
+            side=Side(args.side) if args.side else None,
+            buy_type=BuyType(args.buy_type) if args.buy_type else None,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.economy_command == "players":
+        value = service.list_player_snapshots(
+            args.match_id,
+            economy_run_id=args.economy_run_id,
+            round_number=args.round_number,
+            participant_id=args.participant_id,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.economy_command == "delete":
+        if not args.yes and not _confirm_economy_delete(args.match_id):
+            _print_value(
+                {"match_id": str(args.match_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = service.delete(args.match_id)
+    else:  # pragma: no cover - argparse enforces this set
+        raise AssertionError(f"Unhandled economy command: {args.economy_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
+def _run_round_feature_command(args: argparse.Namespace) -> int:
+    repository = _build_round_feature_repository(args.db)
+    if args.features_command == "compute":
+        offsets = (
+            tuple(args.checkpoint_offset_ticks)
+            if args.checkpoint_offset_ticks is not None
+            else RoundFeatureConfig().checkpoint_offsets_ticks
+        )
+        result = ComputeRoundFeaturesService(
+            _build_repository(args.db),
+            _build_analytics_repository(args.db),
+            _build_temporal_repository(args.db),
+            _build_spatial_repository(args.db),
+            _build_zone_assignment_repository(args.db),
+            repository,
+            economy_repository=_build_economy_repository(args.db),
+        ).compute(
+            args.match_id,
+            config=RoundFeatureConfig(
+                checkpoint_offsets_ticks=offsets,
+                early_window_ticks=args.early_window_ticks,
+                include_incomplete_rounds=bool(args.include_incomplete),
+            ),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = RoundFeatureQueryService(repository)
+    if args.features_command == "status":
+        value: Any = service.get_summary(args.match_id)
+    elif args.features_command == "runs":
+        value = service.list_runs(args.match_id)
+    elif args.features_command == "show":
+        value = service.list_features(
+            args.match_id,
+            feature_run_id=args.feature_run_id,
+            round_number=args.round_number,
+            team_id=args.team_id,
+            side=Side(args.side) if args.side else None,
+            feature_type=(RoundFeatureType(args.feature_type) if args.feature_type else None),
+            availability=(FeatureAvailability(args.availability) if args.availability else None),
+            buy_type=BuyType(args.buy_type) if args.buy_type else None,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.features_command == "delete":
+        if not args.yes and not _confirm_round_feature_delete(args.match_id):
+            _print_value(
+                {"match_id": str(args.match_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = service.delete(args.match_id)
+    else:  # pragma: no cover - argparse enforces this set
+        raise AssertionError(f"Unhandled features command: {args.features_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
+def _run_pattern_command(args: argparse.Namespace) -> int:
+    repository = _build_pattern_repository(args.db)
+    if args.patterns_command == "compute":
+        defaults = PatternConfig()
+        buckets = (
+            tuple(args.plant_timing_buckets)
+            if args.plant_timing_buckets is not None
+            else defaults.plant_timing_bucket_seconds
+        )
+        result = ComputeCrossMatchPatternsService(
+            _build_opponent_repository(args.db),
+            _build_repository(args.db),
+            _build_round_feature_repository(args.db),
+            repository,
+        ).compute(
+            args.profile_id,
+            config=PatternConfig(
+                minimum_corpus_matches=args.minimum_corpus_matches,
+                minimum_sample_size=args.minimum_sample_size,
+                plant_timing_bucket_seconds=buckets,
+                include_partial_features=not bool(args.exclude_partial_features),
+            ),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = PatternQueryService(repository)
+    if args.patterns_command == "status":
+        value: Any = service.get_summary(args.profile_id)
+    elif args.patterns_command == "runs":
+        value = service.list_runs(args.profile_id)
+    elif args.patterns_command == "show":
+        value = service.list_patterns(
+            args.profile_id,
+            pattern_run_id=args.pattern_run_id,
+            map_name=args.map_name,
+            side=Side(args.side) if args.side else None,
+            buy_type=BuyType(args.buy_type) if args.buy_type else None,
+            pattern_type=PatternType(args.pattern_type) if args.pattern_type else None,
+            availability=(PatternAvailability(args.availability) if args.availability else None),
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.patterns_command == "delete":
+        if not args.yes and not _confirm_pattern_delete(args.profile_id):
+            _print_value(
+                {"profile_id": str(args.profile_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = {"profile_id": args.profile_id, "deleted_runs": service.delete(args.profile_id)}
+    else:  # pragma: no cover - argparse enforces this set
+        raise AssertionError(f"Unhandled patterns command: {args.patterns_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
+def _run_finding_command(args: argparse.Namespace) -> int:
+    patterns = _build_pattern_repository(args.db)
+    repository = _build_analysis_repository(args.db)
+    if args.findings_command == "compute":
+        result = ComputeAnalysisFindingsService(
+            patterns, _build_repository(args.db), repository
+        ).compute(
+            args.profile_id,
+            config=FindingConfig(
+                include_partial_patterns=not bool(args.exclude_partial_patterns),
+                include_zero_frequency=bool(args.include_zero_frequency),
+            ),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = AnalysisFindingQueryService(patterns, repository)
+    if args.findings_command == "status":
+        value: Any = service.get_summary(args.profile_id)
+    elif args.findings_command == "runs":
+        value = service.list_runs(args.profile_id)
+    elif args.findings_command == "show":
+        value = service.list_findings(
+            args.profile_id,
+            analysis_run_id=args.analysis_run_id,
+            map_name=args.map_name,
+            side=Side(args.side) if args.side else None,
+            category=FindingCategory(args.category) if args.category else None,
+            pattern_type=PatternType(args.pattern_type) if args.pattern_type else None,
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.findings_command == "evidence":
+        value = service.get_finding(
+            args.profile_id,
+            args.finding_id,
+            analysis_run_id=args.analysis_run_id,
+        )
+    elif args.findings_command == "delete":
+        if not args.yes and not _confirm_finding_delete(args.profile_id):
+            _print_value(
+                {"profile_id": str(args.profile_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = {
+            "profile_id": args.profile_id,
+            "deleted_runs": service.delete(args.profile_id),
+        }
+    else:  # pragma: no cover
+        raise AssertionError(f"Unhandled findings command: {args.findings_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
+def _run_readiness_command(args: argparse.Namespace) -> int:
+    if args.readiness_command != "audit":  # pragma: no cover - argparse enforces this
+        raise AssertionError(f"Unhandled readiness command: {args.readiness_command}")
+    patterns = _build_pattern_repository(args.db)
+    analysis = _build_analysis_repository(args.db)
+    result = FindingReadinessService(AnalysisFindingQueryService(patterns, analysis)).audit(
+        args.profile_id,
+        analysis_run_id=args.analysis_run_id,
+        config=FindingReadinessConfig(
+            minimum_corpus_matches=args.minimum_corpus_matches,
+            minimum_finding_matches=args.minimum_finding_matches,
+            block_partial_source=not bool(args.allow_partial_source),
+            require_known_buy_type=not bool(args.allow_unknown_buy_type),
+            require_all_evidence_ticks=bool(args.require_all_evidence_ticks),
+        ),
+    )
+    if args.summary_only:
+        _print_value(
+            {
+                "readiness_schema_version": result.readiness_schema_version,
+                "readiness_rule_version": result.readiness_rule_version,
+                "audit_id": result.audit_id,
+                "audit_fingerprint": result.audit_fingerprint,
+                "source_analysis_run_id": result.source_analysis_run_id,
+                "config": result.config,
+                "summary": result.summary,
+                "warnings": result.warnings,
+            },
+            pretty=args.pretty,
+        )
+    else:
+        _print_model(result, pretty=args.pretty)
+    return 0
+
+
+def _run_counter_strategy_command(args: argparse.Namespace) -> int:
+    patterns = _build_pattern_repository(args.db)
+    analysis = _build_analysis_repository(args.db)
+    finding_query = AnalysisFindingQueryService(patterns, analysis)
+    repository = _build_counter_strategy_repository(args.db)
+    if args.strategies_command == "compute":
+        result = ComputeCounterStrategiesService(finding_query, repository).compute(
+            args.profile_id,
+            readiness_config=FindingReadinessConfig(
+                minimum_corpus_matches=args.minimum_corpus_matches,
+                minimum_finding_matches=args.minimum_finding_matches,
+            ),
+            strategy_config=CounterStrategyConfig(),
+            replace=bool(args.force),
+        )
+        _print_model(result, pretty=args.pretty)
+        return 0
+
+    service = CounterStrategyQueryService(finding_query, repository)
+    if args.strategies_command == "status":
+        value: Any = service.get_summary(args.profile_id)
+    elif args.strategies_command == "runs":
+        value = service.list_runs(args.profile_id)
+    elif args.strategies_command == "show":
+        value = service.list_recommendations(
+            args.profile_id,
+            strategy_run_id=args.strategy_run_id,
+            map_name=args.map_name,
+            side=Side(args.side) if args.side else None,
+            buy_type=BuyType(args.buy_type) if args.buy_type else None,
+            category=(CounterStrategyCategory(args.category) if args.category else None),
+            limit=args.limit,
+            offset=args.offset,
+        )
+    elif args.strategies_command == "skipped":
+        value = service.list_skipped(args.profile_id, strategy_run_id=args.strategy_run_id)
+    elif args.strategies_command == "validate":
+        value = ValidateCounterStrategiesService(finding_query, service).validate(
+            args.profile_id,
+            strategy_run_id=args.strategy_run_id,
+            config=StrategyValidationConfig(
+                minimum_corpus_matches=args.minimum_corpus_matches,
+                require_both_sides=not bool(args.allow_single_side),
+                require_at_least_one_recommendation=not bool(args.allow_zero_recommendations),
+            ),
+        )
+    elif args.strategies_command == "evidence":
+        value = service.get_recommendation(
+            args.profile_id,
+            args.recommendation_id,
+            strategy_run_id=args.strategy_run_id,
+        )
+    elif args.strategies_command == "delete":
+        if not args.yes and not _confirm_strategy_delete(args.profile_id):
+            _print_value(
+                {"profile_id": str(args.profile_id), "status": "cancelled"},
+                pretty=args.pretty,
+            )
+            return 0
+        value = {
+            "profile_id": args.profile_id,
+            "deleted_runs": service.delete(args.profile_id),
+        }
+    else:  # pragma: no cover
+        raise AssertionError(f"Unhandled strategies command: {args.strategies_command}")
+    _print_value(value, pretty=args.pretty)
+    return 0
+
+
 def _build_service() -> DemoInspectionService:
     return DemoInspectionService(Demoparser2Adapter())
 
@@ -648,6 +1391,42 @@ def _build_temporal_repository(database_path: Path | None) -> DuckDBTemporalRepo
 
 def _build_spatial_repository(database_path: Path | None) -> DuckDBSpatialRepository:
     return DuckDBSpatialRepository(resolve_database_path(database_path))
+
+
+def _build_zone_assignment_repository(
+    database_path: Path | None,
+) -> DuckDBZoneAssignmentRepository:
+    return DuckDBZoneAssignmentRepository(resolve_database_path(database_path))
+
+
+def _build_economy_repository(database_path: Path | None) -> DuckDBEconomyRepository:
+    return DuckDBEconomyRepository(resolve_database_path(database_path))
+
+
+def _build_round_feature_repository(
+    database_path: Path | None,
+) -> DuckDBRoundFeatureRepository:
+    return DuckDBRoundFeatureRepository(resolve_database_path(database_path))
+
+
+def _build_opponent_repository(
+    database_path: Path | None,
+) -> DuckDBOpponentRepository:
+    return DuckDBOpponentRepository(resolve_database_path(database_path))
+
+
+def _build_pattern_repository(database_path: Path | None) -> DuckDBPatternRepository:
+    return DuckDBPatternRepository(resolve_database_path(database_path))
+
+
+def _build_analysis_repository(database_path: Path | None) -> DuckDBAnalysisRepository:
+    return DuckDBAnalysisRepository(resolve_database_path(database_path))
+
+
+def _build_counter_strategy_repository(
+    database_path: Path | None,
+) -> DuckDBCounterStrategyRepository:
+    return DuckDBCounterStrategyRepository(resolve_database_path(database_path))
 
 
 def _print_model(model: BaseModel, *, pretty: bool) -> None:
@@ -691,6 +1470,72 @@ def _confirm_temporal_delete(match_id: UUID) -> bool:
 def _confirm_spatial_delete(match_id: UUID) -> bool:
     print(
         f"Delete spatial runs for match {match_id}, preserving canonical and temporal data? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_zone_assignment_delete(match_id: UUID) -> bool:
+    print(
+        f"Delete zone assignment runs for match {match_id}, preserving Spatial data? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_economy_delete(match_id: UUID) -> bool:
+    print(
+        f"Delete Economy runs for match {match_id}, preserving canonical data? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_round_feature_delete(match_id: UUID) -> bool:
+    print(
+        f"Delete Stage 8.4 features for match {match_id}, preserving all input runs? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_pattern_delete(profile_id: UUID) -> bool:
+    print(
+        f"Delete Stage 8.5 pattern runs for opponent profile {profile_id}? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_finding_delete(profile_id: UUID) -> bool:
+    print(
+        f"Delete Stage 8.6 analysis runs for opponent profile {profile_id}? [y/N]",
+        file=sys.stderr,
+    )
+    try:
+        return input().strip().casefold() in {"y", "yes"}
+    except EOFError:
+        return False
+
+
+def _confirm_strategy_delete(profile_id: UUID) -> bool:
+    print(
+        f"Delete Stage 8.7 strategy runs for opponent profile {profile_id}? [y/N]",
         file=sys.stderr,
     )
     try:

@@ -9,7 +9,7 @@ HTML-интерфейс, JavaScript, CSS и изображения карт. О�
 Откройте PowerShell и выполните:
 
 ```powershell
-Set-Location "C:\Users\rausa\OneDrive\Рабочий стол\StratWeb"
+Set-Location "C:\Projects\StratWeb"
 .\scripts\start_server.ps1
 ```
 
@@ -21,8 +21,9 @@ Set-Location "C:\Users\rausa\OneDrive\Рабочий стол\StratWeb"
 
 Окно PowerShell должно оставаться открытым. Для остановки нажмите `Ctrl+C`.
 
-Скрипт намеренно вызывает `.venv\Scripts\python.exe` напрямую. Поэтому не требуется выполнять
-`Activate.ps1`, и случайный системный Python из `WindowsApps` не используется.
+Скрипт намеренно вызывает `.venv\Scripts\python.exe` и передаёт `src` как app directory.
+Поэтому не требуется выполнять `Activate.ps1`, и случайный системный Python из
+`WindowsApps` не используется даже после переноса проекта.
 
 ## Где лежат данные
 

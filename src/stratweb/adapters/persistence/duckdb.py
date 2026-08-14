@@ -13,6 +13,7 @@ from uuid import UUID
 import duckdb
 import polars as pl
 
+from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_matches
 from stratweb.adapters.persistence.migrations import MIGRATIONS, Migration
 from stratweb.application.canonical_models import (
     CanonicalBombEvent,
@@ -65,7 +66,15 @@ _MATCH_TABLES: tuple[str, ...] = (
 )
 
 _DELETE_ORDER: tuple[str, ...] = (
+    "team_display_labels",
     "opponent_match_selections",
+    "round_features",
+    "round_feature_runs",
+    "player_equipment_snapshots",
+    "team_economy_snapshots",
+    "economy_runs",
+    "zone_assignments",
+    "zone_assignment_runs",
     "bomb_position_query_rows",
     "spatial_snapshot_query_rows",
     "spatial_validation_issues",
@@ -870,6 +879,7 @@ class DuckDBMatchRepository:
     def _delete_match_in_connection(
         self, connection: duckdb.DuckDBPyConnection, match_id: UUID
     ) -> None:
+        delete_patterns_for_matches(connection, [match_id])
         for table in _DELETE_ORDER:
             connection.execute(f'DELETE FROM "{table}" WHERE match_id = ?', [match_id])
 

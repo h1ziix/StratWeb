@@ -151,3 +151,83 @@ class SpatialConfigurationError(SpatialError):
 
 class PlaybackIndexError(SpatialError):
     error_code = "playback_index_out_of_range"
+
+
+class ZoneAssignmentError(PersistenceError):
+    error_code = "zone_assignment_error"
+
+
+class ZoneAssignmentNotFoundError(ZoneAssignmentError):
+    error_code = "zone_assignment_not_found"
+
+
+class ZoneAssignmentIntegrityError(ZoneAssignmentError):
+    error_code = "zone_assignment_integrity_error"
+
+
+class ZoneAssignmentConfigurationError(ZoneAssignmentError):
+    error_code = "zone_assignment_configuration_error"
+
+
+class EconomyError(PersistenceError):
+    error_code = "economy_error"
+
+
+class EconomyNotFoundError(EconomyError):
+    error_code = "economy_not_found"
+
+
+class EconomyIntegrityError(EconomyError):
+    error_code = "economy_integrity_error"
+
+
+class EconomyConfigurationError(EconomyError):
+    error_code = "economy_configuration_error"
+
+
+class RoundFeatureError(PersistenceError):
+    error_code = "round_feature_error"
+
+
+class RoundFeatureNotFoundError(RoundFeatureError):
+    error_code = "round_feature_not_found"
+
+
+class RoundFeatureIntegrityError(RoundFeatureError):
+    error_code = "round_feature_integrity_error"
+
+
+class RoundFeatureConfigurationError(RoundFeatureError):
+    error_code = "round_feature_configuration_error"
+
+
+class PatternError(PersistenceError):
+    error_code = "pattern_error"
+
+
+class PatternNotFoundError(PatternError):
+    error_code = "pattern_not_found"
+
+
+class PatternIntegrityError(PatternError):
+    error_code = "pattern_integrity_error"
+
+
+class PatternConfigurationError(PatternError):
+    error_code = "pattern_configuration_error"
+
+
+class AnalysisFindingError(PersistenceError):
+    error_code = "analysis_finding_error"
+
+
+class AnalysisFindingNotFoundError(AnalysisFindingError):
+    error_code = "analysis_finding_not_found"
+
+
+class CounterStrategyError(PersistenceError):
+    error_code = "counter_strategy_error"
+
+
+class CounterStrategyNotFoundError(CounterStrategyError):
+    error_code = "counter_strategy_not_found"

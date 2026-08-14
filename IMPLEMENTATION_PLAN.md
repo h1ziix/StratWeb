@@ -307,7 +307,7 @@ storage, upload catalog/status, API endpoints, serialized writes и security tes
 ## Отложено — AnalysisDataset и analysis provenance (заменено Stage 8.6)
 
 > Раздел сохранён как история. Актуальная детализация — в
-> [Stage 8.6 — Analysis Run, Finding and Evidence Persistence](#stage-86--analysis-run-finding-and-evidence-persistence-не-начат).
+> [Stage 8.6 — Analysis Run, Finding and Evidence Persistence](#stage-86--analysis-run-finding-and-evidence-persistence-реализован).
 
 1. Спроектировать immutable `AnalysisDataset` snapshot поверх сохранённых canonical
    rows, явно исключая warmup/incomplete/unassigned data.
@@ -748,9 +748,58 @@ gameplay patterns, findings, recommendations, reports or LLM integration.
   маршрутов;
 - [x] освежить README (вводная, дерево структуры, «Текущие ограничения»).
 
-## Stage 8.2 — Map Zone Engine (в работе)
+## Stage 8.2 — Map Zone Engine (Stage 8.2B реализован; ожидает ручной acceptance)
 
-Статус 2026-07-27: ядро реализовано (`src/stratweb/zones/`, нормативная
+### Stage 8.2A — Trusted zone baseline
+
+- [x] `simple_polygon_v1`: repeated vertices, zero-length edges и
+  self-intersections имеют детерминированные issue codes;
+- [x] developer editor отклоняет невалидный proposal до записи;
+- [x] технические closing-точки/петли устранены во всех зарегистрированных
+  authored sets, все наборы проходят строгую structural validation;
+- [x] Anubis (34) и Cache (36) закреплены точной map revision, fingerprints,
+  Valve anchors и дополнительными named-layout anchors;
+- [x] Stage 8.2B — versioned Zone Assignment Run: результаты каждого Spatial
+  snapshot материализуются в DuckDB и привязаны к точному Spatial run.
+
+### Stage 8.2B — Versioned Zone Assignment Run
+
+Реализовано 2026-08-02:
+
+- [x] schema `1.0.0`, rule `snapshot_point_to_zone_v1`, DuckDB migration 017;
+- [x] отдельный immutable run с SHA-256 по Spatial fingerprint, config, map
+  revision, zone-set fingerprint и всем assignment outcomes;
+- [x] три typed результата: `resolved`, `unknown`, `unavailable`; ближайшая
+  зона никогда не подставляется;
+- [x] сохранённые строки содержат точные ссылки на Spatial snapshot, match,
+  round, tick и participant;
+- [x] run закрепляет Spatial schema/rule/fingerprint, map definition
+  fingerprint, map revision selection status, zone schema/rules/fingerprint;
+- [x] map revision `unproven` допускается только явной версионированной
+  конфигурацией по умолчанию и понижает capability до `partial`; CLI умеет
+  включить строгий запрет;
+- [x] повторный запуск идемпотентен, collision проверяется, старые runs не
+  переинтерпретируются после правки зон;
+- [x] вычисление встроено после Spatial в durable import job (`zones`, 94%);
+- [x] CLI `zones compute/status/runs/show/delete`;
+- [x] API `/api/zones/{match_id}/summary|runs|assignments`;
+- [x] playback/tick/path JSON возвращает assignment для каждого игрока и
+  provenance выбранного zone run; UI показывает зону выбранного игрока,
+  tooltips, warnings и zone diagnostics;
+- [x] удаление Spatial run или match каскадно удаляет зависимые zone runs.
+
+Не сделано в 8.2B: агрегации времени в зоне, first-contact/early-control
+features, heatmap, тактические выводы, рекомендации и LLM. Это входные данные
+для Stage 8.4+, а не часть point-to-zone слоя.
+
+Зафиксированные решения владельца продукта для следующих этапов:
+
+- целевой минимальный corpus opponent analysis — около 20 матчей;
+- T и CT получают одинаковое покрытие;
+- economy taxonomy: `pistol / eco / force / semi / full / unknown`;
+- исходные загруженные `.dem` можно сохранять.
+
+Статус 2026-08-02: ядро реализовано (`src/stratweb/zones/`, нормативная
 семантика в [ZONE_MODEL.md](ZONE_MODEL.md)) — версионированный
 `ZoneSetDefinition` c fingerprint, `point_in_polygon_v1` c тотальной
 границей, высотные `min_z`/`max_z` (этажи Nuke), `unknown` без догадок,
@@ -758,11 +807,13 @@ gameplay patterns, findings, recommendations, reports or LLM integration.
 `sampled_coverage`. Также готово: developer overlay c ручным редактором
 (`/ui/dev/zones/{map}`: перетаскивание, вершины, freehand-карандаш,
 свои зоны с именами; сохранение в `zone_proposals/{map}.json`, которое
-живьём заменяет авторскую разметку) и **принятый эталон `de_mirage` —
-33 зоны, полностью расставленные пользователем вручную,
-OVERLAY_VERIFIED** (fold 2026-07-27, evidence-тесты зелёные). Осталось:
-разметка остальных карт тем же редактором, закрепление zone fingerprint
-в runs и «клик по игроку показывает зону» в UI.
+живьём заменяет авторскую разметку). В код закреплены принятые ручные наборы
+`de_mirage` (33 зоны), `de_anubis` (34 зоны) и `de_cache` (36 зон), все со
+статусом `OVERLAY_VERIFIED`, стабильным fingerprint и evidence-тестами для
+доступных Valve-якорей/контрольных точек. Осталось: ручная проверка Stage 8.2B
+на сохранённых реальных матчах и дальнейшая разметка карт по продуктовой
+необходимости. Zone fingerprint уже закреплён в отдельном immutable run, а
+выбранный игрок показывает сохранённую зону в UI.
 
 Цель: преобразовать координаты в доказанные именованные области карты.
 
@@ -805,7 +856,7 @@ Acceptance:
 - версия зон закреплена в spatial/analysis run;
 - смена map revision не изменяет старые результаты.
 
-## Stage 8.3 — Economy and Equipment Context (не начат)
+## Stage 8.3 — Economy and Equipment Context (реализован и принят на real demo)
 
 Цель: не сравнивать pistol, eco, force и full-buy как одинаковые раунды.
 Сначала провести аудит реальных полей `demoparser2==0.41.4` (по образцу
@@ -816,7 +867,7 @@ Acceptance:
 - equipment snapshots на freeze end;
 - player/team equipment value;
 - оружие, броню, defuse kits и utility;
-- классификацию: pistol; eco; force; partial buy; full buy; unknown;
+- классификацию: pistol; eco; force; semi; full; unknown;
 - сторону и физическую команду;
 - score context;
 - overtime context;
@@ -833,7 +884,40 @@ Acceptance:
 - analytics может фильтровать раунды по buy type;
 - отсутствие equipment не превращается в eco.
 
-## Stage 8.4 — Per-Round Tactical Feature Engine (не начат)
+Реализовано:
+
+- [x] отдельный `Demoparser2EconomyExtractor` для точных freeze-end ticks и
+  `demoparser2==0.41.4`;
+- [x] player/team equipment snapshots с typed availability и provenance каждого поля;
+- [x] weapons, utility, armor, helmet, defuse kit, balance, spend и equipment value;
+- [x] детерминированные `pistol|eco|force|semi|full|unknown` правила с versioned config;
+- [x] физическая команда, T/CT, score-before и overtime context;
+- [x] исключения warmup/incomplete/missing-freeze/unresolved-roster;
+- [x] Economy run schema/rule/config/source-column fingerprint и DuckDB migration 018;
+- [x] CLI/API фильтр team-round данных по `buy_type`, стороне и раунду;
+- [x] автоматический Economy checkpoint для новых import jobs;
+- [x] unit, persistence и HTTP contract tests.
+
+Real-demo acceptance: повторно загруженная FACEIT demo дала 21 раунд, 210 player
+snapshots, 42 team snapshots, 40 классифицированных team-round и coverage 95,2%; два
+неизвестных результата оставлены `unknown`, а не угаданы. Контракт и аудит:
+[ECONOMY_MODEL.md](ECONOMY_MODEL.md) и
+[ECONOMY_PARSER_AUDIT.md](ECONOMY_PARSER_AUDIT.md).
+
+### Stage 8.3.1 — Visual Economy UI (реализован)
+
+- [x] отдельная read-only страница `/ui/matches/{match_id}/economy`;
+- [x] coverage, classified/unknown counts и распределение buy types;
+- [x] round-by-round T/CT cards с equipment value, spend, balance, helmets и kits;
+- [x] раскрываемые player equipment snapshots без подстановки неизвестных значений;
+- [x] фильтры по стороне, buy type и номеру раунда;
+- [x] один pinned Economy run на страницу, видимые schema/rule/parser versions и JSON links;
+- [x] переходы из общей навигации, match overview и diagnostics;
+- [x] unit/HTTP и real FACEIT page-render проверки.
+
+Stage 8.4 реализован; Stage 8.5 реализован отдельно ниже.
+
+## Stage 8.4 — Per-Round Tactical Feature Engine (реализован)
 
 Цель: извлечь факты одного раунда без межматчевых выводов.
 
@@ -867,7 +951,44 @@ event/snapshot IDs; limitations.
 
 Не делать вывод «это execute/default». Пока только факты.
 
-## Stage 8.5 — Cross-Match Pattern Engine (не начат)
+Реализовано:
+
+- [x] parser-independent `RoundFeatureEngine` и строгие Pydantic contracts;
+- [x] `available|partial|unavailable|not_applicable` без подстановки неизвестных данных;
+- [x] immutable run, который закрепляет canonical, Analytics, Temporal, Spatial,
+  Zone Assignment и optional Economy fingerprints/versions;
+- [x] evidence IDs для canonical events, Spatial snapshots и Economy snapshots;
+- [x] migration 019, атомарное DuckDB persistence, latest-compatible selection и
+  dependency-aware child-first cleanup;
+- [x] CLI `features compute|status|runs|show|delete`;
+- [x] read-only API `/api/features/{match_id}/summary|runs|records`;
+- [x] автоматический feature checkpoint в pipeline загрузки новых `.dem`;
+- [x] интеграционные тесты детерминизма, evidence, фильтров и cascade;
+- [x] real FACEIT validation: 21 eligible rounds, 1073 records, 713 available,
+  196 partial, 77 unavailable, 87 not applicable, warnings отсутствуют.
+
+Сознательно не реализованы общие CT rotation и save/exit: текущие данные не
+доказывают роль/намерение. Retake V1 допускает только строгий положительный факт
+входа живого CT в точную зону установленной бомбы. Межматчевые частоты и названия
+тактик относятся только к Stage 8.5+.
+
+### Stage 8.4.1 — Round Facts UI (реализован)
+
+- [x] отдельная read-only страница `/ui/matches/{match_id}/features`;
+- [x] карточки общей доступности и раскрываемое покрытие по типам фактов;
+- [x] серверные фильтры round/team/side/type/availability/buy type;
+- [x] постраничный вывод по 100 записей без загрузки всех тяжёлых payload в DOM;
+- [x] понятное observation-представление поверх неизменённого typed payload;
+- [x] раскрываемые event/spatial/economy evidence IDs, limitations и warnings;
+- [x] переходы в exact map playback и Temporal timeline соответствующего раунда;
+- [x] закрепление одного feature run на страницу и видимый provenance;
+- [x] навигация из match overview, верхнего меню и diagnostics;
+- [x] HTTP/UI tests и проверка рендера на real FACEIT run с 1073 facts.
+
+Stage 8.4.1 не вычисляет новые факты и не меняет Stage 8.4 semantics. Это только
+evidence-safe presentation layer.
+
+## Stage 8.5 — Cross-Match Pattern Engine (реализован)
 
 Цель: находить повторения внутри подтверждённого Opponent Workspace.
 
@@ -899,7 +1020,44 @@ included и excluded rounds; limitations.
 Использовать детерминированный confidence method (например, Wilson interval).
 Не выдавать correlation за causation.
 
-## Stage 8.6 — Analysis Run, Finding and Evidence Persistence (не начат)
+Реализовано:
+
+- [x] pure parser-independent `CrossMatchPatternEngine` поверх pinned Stage 8.4 runs;
+- [x] строгий scope: подтверждённый opponent profile, map, T/CT side, buy type и
+  feature rule version;
+- [x] только завершённые non-warmup rounds; недоступные входы и раунды сохраняют
+  явную причину исключения;
+- [x] 13 вычисляемых семейств: site preference, early zones, recurring opener/death,
+  first contact/utility, bomb route, exact CT setup, opening conversion/recovery,
+  lost advantage, untraded death и plant timing buckets;
+- [x] `early_rotation`, `retake_frequency` и `save_frequency` представлены typed
+  `unavailable`: Stage 8.4 не доказывает соответственно rotation, отрицательную
+  retake opportunity и намерение save;
+- [x] numerator, denominator, frequency, sample size, match counts, minimum sample,
+  small-sample warning и детерминированный Wilson 95% interval для каждой записи;
+- [x] evidence для каждого раунда числителя и полный список раундов знаменателя,
+  включая `match_id`, `round_number`, tick и доступные feature/event/snapshot IDs;
+- [x] Steam ID как единственный cross-match player key; отсутствие Steam ID остаётся
+  match-scoped occurrence и никогда не объединяется по nickname;
+- [x] immutable fingerprints/UUIDv5, schema/rule/config/workspace provenance;
+- [x] migration 020 с normalized run/input/pattern/evidence/exclusion tables;
+- [x] latest-compatible run selection без смешивания изменившихся workspace или
+  feature runs и child-first cascade при удалении upstream данных;
+- [x] CLI `patterns compute|status|runs|show|delete`;
+- [x] localhost-only compute API и read-only summary/runs/pattern list API;
+- [x] unit и сквозные persistence/CLI/API/cascade tests.
+
+Минимальный корпус по умолчанию — 20 включённых матчей, а минимальный denominator
+одной записи — 5. Недостаток данных не скрывает вычисленные значения, но всегда даёт
+`corpus_below_minimum`/`small_sample_warning`. Wilson lower bound хранится как
+консервативный `confidence.score`; это статистическая устойчивость частоты, не
+вероятность причинности и не качество будущей рекомендации.
+
+Контракт и точные denominators описаны в [PATTERN_MODEL.md](PATTERN_MODEL.md).
+Stage 8.5 не создаёт `AnalysisFinding`, tactical interpretation, recommendation,
+report UI или LLM text. Stage 8.6 реализован отдельно ниже.
+
+## Stage 8.6 — Analysis Run, Finding and Evidence Persistence (реализован)
 
 Цель: превратить агрегаты в воспроизводимые `AnalysisFinding`.
 
@@ -923,10 +1081,52 @@ included и excluded rounds; limitations.
 response; avoid; numerator/denominator/frequency; confidence; evidence;
 limitations; small-sample warning.
 
-На этом этапе рекомендации можно оставить пустыми typed-unavailable, если
-Stage 8.7 ещё не выполнен.
+На этапе реализации Stage 8.6 рекомендации были оставлены typed-unavailable;
+актуальный отдельный результат рекомендаций теперь хранит Stage 8.7.
 
-## Stage 8.7 — Deterministic Counter-Strategy Rules (не начат)
+Реализовано:
+
+- [x] pure `AnalysisFindingEngine` поверх одного pinned Stage 8.5 pattern run;
+- [x] immutable `AnalysisRun`, configuration hash, workspace/pattern fingerprints и
+  точные match/team/demo/feature inputs;
+- [x] `AnalysisFinding` с раздельными `observation`, `tactical_implication`,
+  `recommended_response` и `avoid`;
+- [x] observation формируется детерминированно; три поля Stage 8.7 имеют typed
+  `unavailable`, а не выдуманный текст;
+- [x] numerator, denominator, frequency, match counts, sample threshold, Wilson
+  confidence и small-sample warning копируются без пересчёта из source pattern;
+- [x] полный denominator хранится как `EvidenceReference`, включая match/round/tick,
+  demo SHA-256, feature/event/spatial/economy IDs и exact map/timeline links;
+- [x] migration 021, atomic/idempotent DuckDB persistence, historical runs,
+  latest-compatible selection и child-first cascade от pattern run;
+- [x] CLI `findings compute|status|runs|show|evidence|delete`;
+- [x] localhost-only compute API, summary/runs/findings/detail/evidence API;
+- [x] zero-frequency patterns по умолчанию не превращаются в утверждения; это
+  fingerprinted config и видимый warning;
+- [x] unit/integration/CLI/API/cascade tests.
+
+Контракт описан в [FINDING_MODEL.md](FINDING_MODEL.md). Сам Stage 8.6 по-прежнему
+не вычисляет тактические интерпретации: отдельный Stage 8.7 создаёт их только после
+readiness gate и не изменяет исходный finding.
+
+## Stage 8.6.1 — Finding Readiness Gate (завершён)
+
+Цель: не допустить переход слабых или неполных Stage 8.6 findings в будущие
+рекомендации.
+
+- [x] typed `ready / limited / blocked` result для каждого finding;
+- [x] явные blocking reasons и limitations без догадок о неизвестных данных;
+- [x] минимальный корпус 20 матчей и минимум 2 матча в evidence finding;
+- [x] блокировка small sample, partial source pattern и неизвестного buy type;
+- [x] отдельная проверка покрытия evidence ticks;
+- [x] versioned rule/schema/configuration hash и воспроизводимый UUIDv5 audit;
+- [x] read-only CLI `readiness audit` и JSON API;
+- [x] unit/integration/CLI/API проверки детерминизма;
+- [x] контракт описан в `FINDING_READINESS.md`.
+
+Stage 8.6.1 ничего не рекомендует и не начинает Stage 8.7.
+
+## Stage 8.7 — Deterministic Counter-Strategy Rules (V1 реализован; corpus acceptance ожидается)
 
 Цель: формировать рекомендации только из подтверждённых findings.
 
@@ -954,7 +1154,50 @@ Stage 8.7 ещё не выполнен.
 скрывать denominator; использовать LLM для расчёта; выдавать recommendation
 без evidence.
 
-## Stage 8.8 — Scouting Report UI (не начат)
+Реализовано в V1:
+
+- [x] pure `CounterStrategyEngine` поверх одного pinned Analysis run и точного
+  Stage 8.6.1 readiness audit;
+- [x] жёсткий запрет recommendation для `limited` и `blocked` findings;
+- [x] отдельные observation, tactical interpretation, recommendation и avoid;
+- [x] восемь консервативных rule families: site, early/contact control, opening
+  player/victim, opening conversion/recovery, lost advantage, untraded death;
+- [x] все thresholds находятся в versioned/fingerprinted config;
+- [x] полное копирование numerator/denominator/frequency/confidence/evidence без
+  текстового перерасчёта;
+- [x] immutable run, migration 022, atomic/idempotent DuckDB persistence,
+  historical/latest-compatible runs и cascade от Analysis run;
+- [x] CLI `strategies compute|status|runs|show|skipped|evidence|delete`;
+- [x] localhost-only compute API и read-only summary/runs/list/detail/evidence/skips;
+- [x] real corpus validation: 155 findings, 0 ready, 0 recommendations,
+  155 explicit skips при корпусе 1/20 — gate не обойдён;
+- [x] контракт описан в `COUNTER_STRATEGY_MODEL.md`.
+
+До полного content acceptance Stage 8.7 требуется корпус примерно из 20 матчей одного
+соперника и ручная проверка опубликованных рекомендаций. UI Stage 8.8 реализован, но
+не подменяет этот corpus gate.
+
+### Stage 8.7.1 — Corpus and rule-quality acceptance audit (реализован)
+
+- [x] pure read-only audit над одним immutable CounterStrategy run;
+- [x] versioned config/schema/rules, canonical SHA-256 и UUIDv5 identity;
+- [x] `passed|blocked|failed` без подмены недостатка корпуса ошибкой данных;
+- [x] checks provenance, input counts, exact readiness reproduction и полной
+  одноразовой классификации findings;
+- [x] checks readiness gate, неизменности statistics/observation/evidence,
+  принадлежности evidence корпусу, дубликатов и причинных формулировок;
+- [x] coverage по матчам, картам, сторонам, закупам, findings, рекомендациям,
+  evidence и правилам;
+- [x] CLI `strategies validate` и read-only validation API;
+- [x] synthetic 20-match acceptance fixture проходит; реальный профиль честно
+  `blocked` при 1/20 матчей и 0 рекомендаций, integrity failures отсутствуют;
+- [x] контракт описан в `COUNTER_STRATEGY_VALIDATION.md`.
+
+Оставшиеся четыре импортированных матча не назначены текущему сопернику по догадке.
+Для реального `passed` нужны явные owner-confirmed selections примерно 20 матчей и
+ручная тактическая проверка появившихся рекомендаций.
+
+## Stage 8.8 — Scouting Report UI (V1 реализован)
 
 Цель: показать тренеру готовый предматчевый отчёт.
 
@@ -976,27 +1219,59 @@ Finding
   → calculation details
 ```
 
+## Stage 8.8.4 — final product UI polish (completed)
+
+- design-system contract upgraded to `1.1.0` with a global final polish layer;
+- report, filters, fact grids, diagnostics and empty states hardened for phone widths;
+- long evidence values and tables no longer force the complete page to overflow;
+- remaining user-facing English accessibility labels and layer names translated to Russian;
+- keyboard focus and reduced-motion behavior normalized across shared controls;
+- analytics, evidence, parser, persistence and report calculations remain unchanged.
+
 Добавить JSON export. PDF — отдельным подэтапом после принятия HTML.
 
 Новые страницы строить только на современном стеке (Jinja templates +
 autoescape + typed view models), не расширяя legacy f-string рендеринг
 `web/temporal.py` / `web/spatial.py`.
 
-## Stage 8.9 — Report Export (не начат)
+Реализовано в V1:
 
-Реализовать:
+- [x] read-only `ScoutingReportService` собирает один pinned Strategy/Analysis/
+  Readiness/Validation bundle без смешивания runs;
+- [x] versioned typed report и evidence-detail view models;
+- [x] acceptance banner и все Stage 8.7.1 checks без ложного зелёного статуса;
+- [x] T-side, CT-side, individual и outcome/risk observation sections;
+- [x] отдельные observation, tactical interpretation, recommended response и avoid;
+- [x] явный blocked/empty state, если readiness не пропустил рекомендации;
+- [x] filters map/side/buy/pattern/minimum sample/minimum Wilson score без
+  перерасчёта statistics;
+- [x] полный denominator evidence drill-down до match/round/tick/map/timeline;
+- [x] owner-confirmed corpus manifest, pagination и pinned run во всех ссылках;
+- [x] responsive desktop/mobile UI и read-only versioned report JSON;
+- [x] real-data review: 1/20, 155 findings, 0 ready/recommendations, 155 skips,
+  498 source evidence references, status `blocked`, 14 deterministic checks;
+- [x] контракт описан в `SCOUTING_REPORT_UI.md`.
 
-- стабильный JSON contract;
-- printable HTML;
-- PDF export;
-- дату и scope анализа;
-- версии всех rules;
-- список демок;
-- SHA-256;
-- ограничения выборки;
-- evidence appendix.
+Фильтр отдельных матчей и временного диапазона отложен: он меняет denominator и
+должен создавать новый Analysis run, а не только скрывать строки UI. Остаётся ручное
+product acceptance владельцем. Stage 8.9/PDF не начат.
 
-PDF не должен содержать выводов, отсутствующих в сохранённом Analysis run.
+## Stage 8.9 — Report Export (completed)
+
+Реализовано:
+
+- [x] стабильный versioned JSON contract без UI-фильтров и пагинации;
+- [x] printable HTML с полным корпусом, findings и evidence appendix;
+- [x] детерминированный PDF export с Unicode-шрифтом и нумерацией страниц;
+- [x] сохранённые даты Analysis/Strategy run и полный scope анализа;
+- [x] версии opponent/pattern/analysis/readiness/strategy/validation/export rules;
+- [x] список демок, оригинальные имена и SHA-256 без небезопасных имён файлов;
+- [x] проверки качества, ограничения выборки и неизвестные значения как `null`;
+- [x] evidence appendix: match, round, tick and event IDs; complete feature/snapshot IDs in
+  JSON/printable HTML and exact supporting counts in the compact server PDF;
+- [x] одинаковый source run даёт одинаковый JSON fingerprint и PDF bytes.
+
+PDF не содержит выводов, отсутствующих в сохранённом Analysis/Strategy run.
 
 ## Stage 9 — Optional LLM Rephrasing (не начат)
 
@@ -1057,6 +1332,41 @@ LLM-текстом.
         ↓
 10 Hardening
 ```
+
+## Stage 8.8.1 — interface productization
+
+- **8.8.1a completed:** versioned tokens, typography, surfaces, controls, data tables,
+  evidence states and a local component reference.
+- **8.8.1b completed:** two-level application shell, deterministic active navigation,
+  current-match context and responsive navigation overflow.
+- **8.8.1c completed:** product-first diagnostics, economy navigation and progressive
+  disclosure for validation checks, versions, identifiers and raw exports.
+- **8.8.1d pending:** safe local appearance preferences constrained by semantic roles.
+- **8.8.1e pending:** visual regression matrix and final accessibility/performance pass.
+
+## Stage 8.8.2 — Russian UX and clean match identity
+
+- **completed:** русский язык основных страниц библиотеки, матча, диагностики, экономики,
+  импорта и профилей соперников;
+- **completed:** `TeamAlpha` / `TeamBravo` скрыты за нейтральными подписями;
+- **completed:** исходные имена демо и UUID убраны из основного визуального потока и
+  сохранены в сворачиваемых технических блоках;
+- **completed:** migration 023 и отдельный repository для ручных/импортированных названий
+  команд без изменения canonical identity;
+- **completed:** отображаемое имя проходит через библиотеку, матч, экономику, opponent
+  workspace и scouting report;
+- **completed in 8.8.3:** перевод специализированного playback/temporal UI и текстов
+  детерминированных findings;
+- **pending follow-up:** английский, испанский и китайский каталоги не начаты.
+
+## Stage 8.8.3 — Russian analytical workspace (completed)
+
+- локализованы 2D playback, timeline/snapshots/simultaneous groups и temporal diagnostics;
+- локализованы round facts, фильтры, статусы, закупы и evidence navigation;
+- локализован scouting report, проверки качества, наблюдения, ответы и evidence appendix;
+- presentation layer формирует русские описания по типизированным кодам и сохранённым
+  числам, не меняя deterministic analytics, fingerprints или evidence;
+- UUID и версии сохранены в раскрываемых технических блоках.
 
 ## Готовый prompt для Cloud-агента (Stage 8.2)
 

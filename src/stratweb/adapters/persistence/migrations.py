@@ -898,6 +898,486 @@ CREATE INDEX idx_opponent_selections_match
 """
 
 
+ZONE_ASSIGNMENT_SCHEMA = r"""
+CREATE TABLE zone_assignment_runs (
+    zone_assignment_run_id UUID PRIMARY KEY,
+    zone_assignment_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    zone_assignment_schema_version VARCHAR NOT NULL,
+    zone_assignment_rule_version VARCHAR NOT NULL,
+    zone_assignment_config_hash VARCHAR(64) NOT NULL,
+    match_id UUID NOT NULL,
+    dataset_fingerprint VARCHAR(64) NOT NULL,
+    spatial_run_id UUID NOT NULL,
+    spatial_fingerprint VARCHAR(64) NOT NULL,
+    spatial_schema_version VARCHAR NOT NULL,
+    spatial_rule_version VARCHAR NOT NULL,
+    canonical_map_name VARCHAR,
+    selected_map_revision VARCHAR,
+    map_definition_fingerprint VARCHAR(64),
+    map_revision_selection_status VARCHAR,
+    zone_set_fingerprint VARCHAR(64),
+    zone_set_key VARCHAR NOT NULL,
+    zone_schema_version VARCHAR,
+    zone_resolution_rule_version VARCHAR,
+    zone_validation_rule_version VARCHAR,
+    config JSON NOT NULL,
+    capability JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    UNIQUE (
+        spatial_fingerprint,
+        zone_assignment_rule_version,
+        zone_set_key,
+        zone_assignment_config_hash
+    )
+);
+
+CREATE TABLE zone_assignments (
+    zone_assignment_run_id UUID NOT NULL,
+    assignment_id UUID NOT NULL,
+    spatial_run_id UUID NOT NULL,
+    spatial_snapshot_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    tick BIGINT NOT NULL,
+    participant_id UUID NOT NULL,
+    status VARCHAR NOT NULL,
+    zone_id VARCHAR,
+    zone_name VARCHAR,
+    zone_kind VARCHAR,
+    map_level VARCHAR,
+    warnings JSON NOT NULL,
+    PRIMARY KEY (zone_assignment_run_id, spatial_snapshot_id),
+    UNIQUE (zone_assignment_run_id, assignment_id)
+);
+
+CREATE INDEX idx_zone_assignment_runs_match
+    ON zone_assignment_runs(match_id, created_at);
+CREATE INDEX idx_zone_assignment_runs_spatial
+    ON zone_assignment_runs(spatial_run_id, created_at);
+CREATE INDEX idx_zone_assignments_snapshot
+    ON zone_assignments(zone_assignment_run_id, spatial_snapshot_id);
+CREATE INDEX idx_zone_assignments_round_status
+    ON zone_assignments(zone_assignment_run_id, round_number, status, tick);
+CREATE INDEX idx_zone_assignments_match
+    ON zone_assignments(match_id, round_number, tick);
+"""
+
+
+ECONOMY_CONTEXT_SCHEMA = r"""
+CREATE TABLE economy_runs (
+    economy_run_id UUID PRIMARY KEY,
+    economy_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    economy_schema_version VARCHAR NOT NULL,
+    economy_rule_version VARCHAR NOT NULL,
+    item_category_version VARCHAR NOT NULL,
+    value_policy_version VARCHAR NOT NULL,
+    economy_config_hash VARCHAR(64) NOT NULL,
+    match_id UUID NOT NULL,
+    dataset_fingerprint VARCHAR(64) NOT NULL,
+    source_demo_sha256 VARCHAR(64) NOT NULL,
+    parser_name VARCHAR NOT NULL,
+    parser_version VARCHAR NOT NULL,
+    config JSON NOT NULL,
+    capability JSON NOT NULL,
+    summary JSON NOT NULL,
+    source_columns JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    UNIQUE (
+        dataset_fingerprint,
+        source_demo_sha256,
+        parser_name,
+        parser_version,
+        economy_rule_version,
+        economy_config_hash
+    )
+);
+
+CREATE TABLE player_equipment_snapshots (
+    economy_run_id UUID NOT NULL,
+    player_snapshot_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    freeze_end_tick BIGINT,
+    participant_id UUID NOT NULL,
+    steam_id VARCHAR,
+    team_id UUID,
+    side VARCHAR NOT NULL,
+    eligible BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (economy_run_id, player_snapshot_id)
+);
+
+CREATE TABLE team_economy_snapshots (
+    economy_run_id UUID NOT NULL,
+    team_snapshot_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    freeze_end_tick BIGINT,
+    team_id UUID,
+    side VARCHAR NOT NULL,
+    buy_type VARCHAR NOT NULL,
+    classification_availability VARCHAR NOT NULL,
+    eligible BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (economy_run_id, team_snapshot_id)
+);
+
+CREATE INDEX idx_economy_runs_match
+    ON economy_runs(match_id, created_at);
+CREATE INDEX idx_player_equipment_round
+    ON player_equipment_snapshots(economy_run_id, round_number, side);
+CREATE INDEX idx_player_equipment_participant
+    ON player_equipment_snapshots(economy_run_id, participant_id, round_number);
+CREATE INDEX idx_team_economy_filter
+    ON team_economy_snapshots(economy_run_id, buy_type, side, round_number);
+CREATE INDEX idx_team_economy_match
+    ON team_economy_snapshots(match_id, round_number, side);
+"""
+
+
+ROUND_FEATURE_SCHEMA = r"""
+CREATE TABLE round_feature_runs (
+    feature_run_id UUID PRIMARY KEY,
+    feature_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    feature_schema_version VARCHAR NOT NULL,
+    feature_rule_version VARCHAR NOT NULL,
+    feature_config_hash VARCHAR(64) NOT NULL,
+    match_id UUID NOT NULL,
+    dataset_fingerprint VARCHAR(64) NOT NULL,
+    analytics_fingerprint VARCHAR(64) NOT NULL,
+    analytics_rule_version VARCHAR NOT NULL,
+    temporal_run_id UUID NOT NULL,
+    temporal_fingerprint VARCHAR(64) NOT NULL,
+    temporal_rule_version VARCHAR NOT NULL,
+    spatial_run_id UUID NOT NULL,
+    spatial_fingerprint VARCHAR(64) NOT NULL,
+    spatial_rule_version VARCHAR NOT NULL,
+    zone_assignment_run_id UUID NOT NULL,
+    zone_assignment_fingerprint VARCHAR(64) NOT NULL,
+    zone_assignment_rule_version VARCHAR NOT NULL,
+    economy_run_id UUID,
+    economy_fingerprint VARCHAR(64),
+    economy_rule_version VARCHAR,
+    config JSON NOT NULL,
+    capabilities JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    UNIQUE (
+        dataset_fingerprint,
+        analytics_fingerprint,
+        temporal_fingerprint,
+        spatial_fingerprint,
+        zone_assignment_fingerprint,
+        economy_fingerprint,
+        feature_rule_version,
+        feature_config_hash
+    )
+);
+
+CREATE TABLE round_features (
+    feature_run_id UUID NOT NULL,
+    feature_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    team_id UUID NOT NULL,
+    side VARCHAR NOT NULL,
+    feature_type VARCHAR NOT NULL,
+    availability VARCHAR NOT NULL,
+    tick_start BIGINT,
+    tick_end BIGINT,
+    zone_id VARCHAR,
+    zone_name VARCHAR,
+    buy_type VARCHAR,
+    payload JSON NOT NULL,
+    PRIMARY KEY (feature_run_id, feature_id)
+);
+
+CREATE INDEX idx_round_feature_runs_match
+    ON round_feature_runs(match_id, created_at);
+CREATE INDEX idx_round_features_round
+    ON round_features(feature_run_id, round_number, side);
+CREATE INDEX idx_round_features_type
+    ON round_features(feature_run_id, feature_type, availability, side);
+CREATE INDEX idx_round_features_zone
+    ON round_features(feature_run_id, zone_id, feature_type);
+CREATE INDEX idx_round_features_buy
+    ON round_features(feature_run_id, buy_type, side, feature_type);
+"""
+
+
+CROSS_MATCH_PATTERN_SCHEMA = r"""
+CREATE TABLE cross_match_pattern_runs (
+    pattern_run_id UUID PRIMARY KEY,
+    pattern_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    pattern_schema_version VARCHAR NOT NULL,
+    pattern_rule_version VARCHAR NOT NULL,
+    confidence_method VARCHAR NOT NULL,
+    pattern_config_hash VARCHAR(64) NOT NULL,
+    workspace_fingerprint VARCHAR(64) NOT NULL,
+    profile_id UUID NOT NULL,
+    config JSON NOT NULL,
+    capabilities JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE pattern_run_inputs (
+    pattern_run_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    team_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    input_status VARCHAR NOT NULL,
+    exclusion_reason VARCHAR,
+    feature_run_id UUID,
+    feature_fingerprint VARCHAR(64),
+    feature_rule_version VARCHAR,
+    payload JSON NOT NULL,
+    PRIMARY KEY (pattern_run_id, match_id)
+);
+
+CREATE TABLE cross_match_patterns (
+    pattern_run_id UUID NOT NULL,
+    pattern_id UUID NOT NULL,
+    profile_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    side VARCHAR NOT NULL,
+    buy_type VARCHAR,
+    feature_rule_version VARCHAR NOT NULL,
+    pattern_type VARCHAR NOT NULL,
+    pattern_key VARCHAR NOT NULL,
+    availability VARCHAR NOT NULL,
+    numerator INTEGER NOT NULL,
+    denominator INTEGER NOT NULL,
+    frequency DOUBLE NOT NULL,
+    confidence_lower DOUBLE NOT NULL,
+    confidence_upper DOUBLE NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (pattern_run_id, pattern_id)
+);
+
+CREATE TABLE pattern_round_evidence (
+    pattern_run_id UUID NOT NULL,
+    pattern_id UUID NOT NULL,
+    evidence_index INTEGER NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    tick BIGINT,
+    contributed_to_numerator BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (pattern_run_id, pattern_id, evidence_index)
+);
+
+CREATE TABLE pattern_round_exclusions (
+    pattern_run_id UUID NOT NULL,
+    pattern_id UUID NOT NULL,
+    exclusion_index INTEGER NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    reason VARCHAR NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (pattern_run_id, pattern_id, exclusion_index)
+);
+
+CREATE INDEX idx_pattern_runs_profile
+    ON cross_match_pattern_runs(profile_id, created_at);
+CREATE INDEX idx_pattern_inputs_match
+    ON pattern_run_inputs(match_id, feature_run_id);
+CREATE INDEX idx_patterns_scope
+    ON cross_match_patterns(pattern_run_id, map_name, side, buy_type, pattern_type);
+CREATE INDEX idx_pattern_evidence_round
+    ON pattern_round_evidence(match_id, round_number, tick);
+"""
+
+
+ANALYSIS_FINDING_SCHEMA = r"""
+CREATE TABLE analysis_runs (
+    analysis_run_id UUID PRIMARY KEY,
+    analysis_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    analysis_schema_version VARCHAR NOT NULL,
+    analysis_rule_version VARCHAR NOT NULL,
+    configuration_hash VARCHAR(64) NOT NULL,
+    profile_id UUID NOT NULL,
+    workspace_fingerprint VARCHAR(64) NOT NULL,
+    source_pattern_run_id UUID NOT NULL,
+    source_pattern_fingerprint VARCHAR(64) NOT NULL,
+    source_pattern_schema_version VARCHAR NOT NULL,
+    source_pattern_rule_version VARCHAR NOT NULL,
+    config JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE analysis_run_inputs (
+    analysis_run_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    team_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    input_status VARCHAR NOT NULL,
+    exclusion_reason VARCHAR,
+    demo_file_id UUID,
+    source_demo_sha256 VARCHAR(64),
+    dataset_fingerprint VARCHAR(64),
+    feature_run_id UUID,
+    feature_fingerprint VARCHAR(64),
+    payload JSON NOT NULL,
+    PRIMARY KEY (analysis_run_id, match_id)
+);
+
+CREATE TABLE analysis_findings (
+    analysis_run_id UUID NOT NULL,
+    finding_id UUID NOT NULL,
+    profile_id UUID NOT NULL,
+    source_pattern_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    side VARCHAR NOT NULL,
+    buy_type VARCHAR,
+    category VARCHAR NOT NULL,
+    pattern_type VARCHAR NOT NULL,
+    source_availability VARCHAR NOT NULL,
+    numerator INTEGER NOT NULL,
+    denominator INTEGER NOT NULL,
+    frequency DOUBLE NOT NULL,
+    confidence_score DOUBLE NOT NULL,
+    small_sample_warning BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (analysis_run_id, finding_id)
+);
+
+CREATE TABLE finding_evidence_references (
+    analysis_run_id UUID NOT NULL,
+    finding_id UUID NOT NULL,
+    evidence_id UUID NOT NULL,
+    evidence_index INTEGER NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    tick BIGINT,
+    contributed_to_numerator BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (analysis_run_id, finding_id, evidence_id)
+);
+
+CREATE INDEX idx_analysis_runs_profile
+    ON analysis_runs(profile_id, created_at);
+CREATE INDEX idx_analysis_runs_pattern
+    ON analysis_runs(source_pattern_run_id);
+CREATE INDEX idx_analysis_findings_scope
+    ON analysis_findings(analysis_run_id, map_name, side, buy_type, category, pattern_type);
+CREATE INDEX idx_finding_evidence_round
+    ON finding_evidence_references(match_id, round_number, tick);
+"""
+
+
+COUNTER_STRATEGY_SCHEMA = """
+CREATE TABLE counter_strategy_runs (
+    strategy_run_id UUID PRIMARY KEY,
+    strategy_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    strategy_schema_version VARCHAR NOT NULL,
+    strategy_rule_version VARCHAR NOT NULL,
+    configuration_hash VARCHAR(64) NOT NULL,
+    profile_id UUID NOT NULL,
+    source_analysis_run_id UUID NOT NULL,
+    source_analysis_fingerprint VARCHAR(64) NOT NULL,
+    source_analysis_schema_version VARCHAR NOT NULL,
+    source_analysis_rule_version VARCHAR NOT NULL,
+    readiness_audit_id UUID NOT NULL,
+    readiness_fingerprint VARCHAR(64) NOT NULL,
+    readiness_schema_version VARCHAR NOT NULL,
+    readiness_rule_version VARCHAR NOT NULL,
+    readiness_config JSON NOT NULL,
+    config JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE counter_strategy_recommendations (
+    strategy_run_id UUID NOT NULL,
+    recommendation_id UUID NOT NULL,
+    profile_id UUID NOT NULL,
+    source_finding_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    side VARCHAR NOT NULL,
+    buy_type VARCHAR,
+    category VARCHAR NOT NULL,
+    pattern_type VARCHAR NOT NULL,
+    rule_id VARCHAR NOT NULL,
+    numerator INTEGER NOT NULL,
+    denominator INTEGER NOT NULL,
+    frequency DOUBLE NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (strategy_run_id, recommendation_id)
+);
+
+CREATE TABLE counter_strategy_skipped_findings (
+    strategy_run_id UUID NOT NULL,
+    finding_id UUID NOT NULL,
+    reason VARCHAR NOT NULL,
+    readiness_status VARCHAR NOT NULL,
+    pattern_type VARCHAR NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (strategy_run_id, finding_id)
+);
+
+CREATE TABLE counter_strategy_evidence (
+    strategy_run_id UUID NOT NULL,
+    recommendation_id UUID NOT NULL,
+    evidence_id UUID NOT NULL,
+    evidence_index INTEGER NOT NULL,
+    source_finding_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    round_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    tick BIGINT,
+    payload JSON NOT NULL,
+    PRIMARY KEY (strategy_run_id, recommendation_id, evidence_id)
+);
+
+CREATE INDEX idx_counter_strategy_profile
+    ON counter_strategy_runs(profile_id, created_at);
+CREATE INDEX idx_counter_strategy_analysis
+    ON counter_strategy_runs(source_analysis_run_id);
+CREATE INDEX idx_counter_strategy_scope
+    ON counter_strategy_recommendations(strategy_run_id, map_name, side, buy_type, category);
+CREATE INDEX idx_counter_strategy_evidence_round
+    ON counter_strategy_evidence(match_id, round_number, tick);
+"""
+
+
+TEAM_DISPLAY_LABEL_SCHEMA = """
+CREATE TABLE team_display_labels (
+    match_id UUID NOT NULL,
+    team_id UUID NOT NULL,
+    display_name VARCHAR NOT NULL,
+    source VARCHAR NOT NULL,
+    source_reference VARCHAR,
+    updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY (match_id, team_id)
+);
+
+CREATE INDEX idx_team_display_labels_match
+    ON team_display_labels(match_id, updated_at);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -935,4 +1415,11 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=14, name="spatial_projectile_layer", sql=SPATIAL_PROJECTILE_SCHEMA),
     Migration(version=15, name="durable_import_jobs", sql=IMPORT_JOB_SCHEMA),
     Migration(version=16, name="opponent_workspaces", sql=OPPONENT_WORKSPACE_SCHEMA),
+    Migration(version=17, name="versioned_zone_assignments", sql=ZONE_ASSIGNMENT_SCHEMA),
+    Migration(version=18, name="economy_and_equipment_context", sql=ECONOMY_CONTEXT_SCHEMA),
+    Migration(version=19, name="per_round_tactical_features", sql=ROUND_FEATURE_SCHEMA),
+    Migration(version=20, name="cross_match_pattern_engine", sql=CROSS_MATCH_PATTERN_SCHEMA),
+    Migration(version=21, name="analysis_findings", sql=ANALYSIS_FINDING_SCHEMA),
+    Migration(version=22, name="counter_strategy_rules", sql=COUNTER_STRATEGY_SCHEMA),
+    Migration(version=23, name="team_display_labels", sql=TEAM_DISPLAY_LABEL_SCHEMA),
 )

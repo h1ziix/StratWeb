@@ -88,10 +88,10 @@ def test_recovered_job_page_exposes_retry_and_retry_increments_attempt(
 
     assert page.status_code == 200
     assert "import_interrupted" in page.text
-    assert "Retry import" in page.text
+    assert "Повторить импорт" in page.text
     assert library.status_code == 200
-    assert "Recent imports" in library.text
-    assert "opponent.dem" in library.text
+    assert "Последние загрузки" in library.text
+    assert "opponent.dem" not in library.text
     assert retry.status_code == 202
     assert retry.json()["attempt_count"] == 2
 

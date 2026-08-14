@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Отчёт: {{ exported.display_name }} · StratWeb</title>
+  <link rel="stylesheet" href="{{ static_asset('css/report-print.css') }}">
+</head>
+<body>
+<header class="print-toolbar">
+  <a href="/ui/opponents/{{ exported.profile_id }}/report?run_id={{ exported.strategy_run_id }}">Вернуться к отчёту</a>
+  <button type="button" onclick="window.print()">Печать / сохранить PDF</button>
+  <a href="/api/opponents/{{ exported.profile_id }}/report/export.json?run_id={{ exported.strategy_run_id }}">Скачать JSON</a>
+  <a href="/api/opponents/{{ exported.profile_id }}/report/export.pdf?run_id={{ exported.strategy_run_id }}">Скачать PDF</a>
+</header>
+<main>
+  <header class="report-cover">
+    <p class="eyebrow">STRATWEB · ДОКАЗАТЕЛЬНЫЙ ОТЧЁТ</p>
+    <h1>{{ exported.display_name }}</h1>
+    <p>Офлайн-анализ завершённых матчей CS2. Неизвестные данные не заменены предположениями.</p>
+    <dl class="summary-grid">
+      <div><dt>Статус</dt><dd>{{ export_status_label(exported.acceptance_status) }}</dd></div>
+      <div><dt>Дата анализа</dt><dd>{{ exported.analysis_created_at.isoformat() if exported.analysis_created_at else 'неизвестна' }}</dd></div>
+      <div><dt>Корпус</dt><dd>{{ exported.scope.included_matches }}/{{ exported.scope.required_matches }}</dd></div>
+      <div><dt>Наблюдения</dt><dd>{{ exported.scope.source_findings }}</dd></div>
+      <div><dt>Рекомендации</dt><dd>{{ exported.scope.recommendations }}</dd></div>
+      <div><dt>Доказательства</dt><dd>{{ exported.scope.evidence_references }}</dd></div>
+    </dl>
+  </header>
+
+  <section><h2>Ограничения выборки</h2>{% for item in exported.sample_limitations %}<p class="notice">{{ warning_label(item) }}</p>{% else %}<p>Явных ограничений не зарегистрировано.</p>{% endfor %}{% for warning in exported.warnings %}<p class="notice warning">{{ warning_label(warning) }}</p>{% endfor %}</section>
+
+  <section><h2>Корпус демок</h2><div class="table-wrap"><table><thead><tr><th>Карта / матч</th><th>Файл / SHA-256</th><th>Команда / раунды</th><th>Статус</th></tr></thead><tbody>{% for item in exported.corpus %}<tr><td>{{ item.map_name|map_name }}<small>{{ item.match_id }}</small></td><td>{{ item.original_file_name or 'неизвестно' }}<code>{{ item.demo_sha256 or 'неизвестно' }}</code></td><td>{{ item.opponent_team_name|team_name if item.opponent_team_name else 'неизвестно' }}<small>{{ item.round_count if item.round_count is not none else 'неизвестно' }}</small></td><td>{{ item.input_status|status_label }}{% if item.exclusion_reason %}<small>{{ item.exclusion_reason }}</small>{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>
+
+  <section><h2>Проверки качества</h2><div class="check-grid">{% for check in exported.validation.checks %}<article><strong>{{ check_label(check.code.value) }}</strong><span>{{ export_status_label(check.status.value) }}</span><p>{{ check_message(check) }}</p></article>{% endfor %}</div></section>
+
+  <section><h2>Наблюдения и доказательства</h2>
+    {% for finding in exported.findings %}{% set recommendation = recommendations_by_finding.get(finding.finding_id) %}
+    <article class="finding">
+      <header><p class="eyebrow">{{ finding.scope.map_name|map_name }} · {{ finding.scope.side.value }} · {{ finding.scope.buy_type.value|buy_type if finding.scope.buy_type else 'закупка неизвестна' }}</p><h3>{{ loop.index }}. {{ finding_title(finding) }}</h3></header>
+      <dl class="stats"><div><dt>Числитель</dt><dd>{{ finding.numerator }}</dd></div><div><dt>Знаменатель</dt><dd>{{ finding.denominator }}</dd></div><div><dt>Частота</dt><dd>{{ '%.1f'|format(finding.frequency * 100) }}%</dd></div><div><dt>Выборка</dt><dd>{{ finding.sample_size }}</dd></div><div><dt>Confidence</dt><dd>{{ '%.1f'|format(finding.confidence.score * 100) }}%</dd></div></dl>
+      <h4>Наблюдение</h4><p>{{ finding_observation(finding) }}</p>
+      {% if recommendation %}<div class="recommendation"><h4>Тактическая интерпретация</h4><p>{{ recommendation.tactical_interpretation.text }}</p><h4>Рекомендуемый ответ</h4><p>{{ recommendation.recommendation.text }}</p><h4>Чего избегать</h4><p>{{ recommendation.avoid.text }}</p></div>{% else %}<p class="notice warning">Тактическая рекомендация не опубликована.</p>{% endif %}
+      <h4>Ограничения</h4><ul>{% for item in finding.limitations %}<li>{{ limitation_label(item) }}</li>{% endfor %}</ul>
+      <h4>Приложение доказательств · {{ finding.evidence_references|length }}</h4>
+      <div class="evidence-list">{% for evidence in finding.evidence_references %}<article><strong>Матч {{ evidence.match_id }} · раунд {{ evidence.round_number }} · тик {{ evidence.tick if evidence.tick is not none else 'неизвестен' }}</strong><p>{{ evidence.description }}</p><code>evidence {{ evidence.evidence_id }}</code><code>demo {{ evidence.demo_sha256 }}</code>{% if evidence.event_ids %}<p>События: {% for event_id in evidence.event_ids %}<code>{{ event_id }}</code>{% endfor %}</p>{% endif %}{% if evidence.feature_ids %}<p>Факты: {% for feature_id in evidence.feature_ids %}<code>{{ feature_id }}</code>{% endfor %}</p>{% endif %}{% if evidence.snapshot_ids %}<p>Снимки: {% for snapshot_id in evidence.snapshot_ids %}<code>{{ snapshot_id }}</code>{% endfor %}</p>{% endif %}{% if evidence.economy_snapshot_ids %}<p>Экономика: {% for snapshot_id in evidence.economy_snapshot_ids %}<code>{{ snapshot_id }}</code>{% endfor %}</p>{% endif %}</article>{% endfor %}</div>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="provenance"><h2>Воспроизводимость</h2><dl><dt>Экспорт</dt><dd><code>{{ exported.export_schema_version }} / {{ exported.export_rule_version }}</code></dd><dt>Отпечаток экспорта</dt><dd><code>{{ exported.export_fingerprint }}</code></dd><dt>Профиль соперника</dt><dd><code>{{ exported.versions.opponent_schema_version }} / {{ exported.versions.opponent_identity_rule_version }} / {{ exported.versions.opponent_overlap_rule_version }}</code></dd><dt>Паттерны</dt><dd><code>{{ exported.versions.source_pattern_schema_version }} / {{ exported.versions.source_pattern_rule_version }}</code></dd><dt>Готовность</dt><dd><code>{{ exported.versions.readiness_schema_version }} / {{ exported.versions.readiness_rule_version }}</code></dd><dt>Проверка</dt><dd><code>{{ exported.versions.validation_schema_version }} / {{ exported.versions.validation_rule_version }}</code></dd><dt>Расчёт анализа</dt><dd><code>{{ exported.analysis_run_id }} / {{ exported.analysis_fingerprint }} / {{ exported.versions.analysis_schema_version }} / {{ exported.versions.analysis_rule_version }}</code></dd><dt>Расчёт стратегии</dt><dd><code>{{ exported.strategy_run_id }} / {{ exported.strategy_fingerprint }} / {{ exported.versions.strategy_schema_version }} / {{ exported.versions.strategy_rule_version }}</code></dd></dl></section>
+</main>
+<footer>StratWeb · офлайн-анализ завершённых CS2 demo · {{ exported.export_fingerprint[:12] }}</footer>
+</body>
+</html>

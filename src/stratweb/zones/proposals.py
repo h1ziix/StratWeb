@@ -22,6 +22,7 @@ from stratweb.zones.models import (
     ZoneSetDefinition,
     ZoneVerificationStatus,
 )
+from stratweb.zones.validation import validate_zone_set
 
 _DEFAULT_PRIORITY: dict[ZoneKind, int] = {
     ZoneKind.BOMBSITE: 10,
@@ -50,8 +51,9 @@ def proposal_zone_set(
 
     Returns (zone_set, issues). A `None` zone set means the proposal was
     unusable and the caller should fall back to the authored set. Individual
-    invalid entries are skipped with deterministic issue codes instead of
-    discarding the user's whole layout.
+    malformed entries are skipped with deterministic issue codes, while any
+    non-simple polygon ring rejects the complete proposal: activating only a
+    geometric fragment would silently change the user's accepted layout.
     """
 
     if payload.get("map_name") != map_name or payload.get("revision_id") != map_revision:
@@ -126,15 +128,16 @@ def proposal_zone_set(
         seen.add(zone_id)
     if not zones:
         return None, tuple(issues) or ("proposal_zones_missing",)
-    return (
-        ZoneSetDefinition(
-            map_name=map_name,
-            map_revision=map_revision,
-            zones=tuple(zones),
-            source=_zone_source(payload, True),
-        ),
-        tuple(issues),
+    effective = ZoneSetDefinition(
+        map_name=map_name,
+        map_revision=map_revision,
+        zones=tuple(zones),
+        source=_zone_source(payload, True),
     )
+    structural_issues = validate_zone_set(effective)
+    if structural_issues:
+        return None, (*issues, *structural_issues)
+    return effective, tuple(issues)
 
 
 def _entry_vertices(entry: dict[str, Any]) -> tuple[tuple[float, float], ...] | None:

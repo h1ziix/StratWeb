@@ -9,8 +9,9 @@ import duckdb
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from stratweb.adapters.persistence import DuckDBMatchRepository
+from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBTeamNameRepository
 from stratweb.application.product import _physical_round_score, _physical_winner_label
+from stratweb.application.team_names import TeamNameSource
 from stratweb.domain.enums import Side
 from stratweb.main import create_app
 from stratweb.web.routers import product_router
@@ -25,8 +26,8 @@ def test_match_library_empty_and_persisted_match_navigation(
     with TestClient(create_app(database)) as client:
         empty = client.get("/ui")
     assert empty.status_code == 200
-    assert "Match library" in empty.text
-    assert "No matches found" in empty.text
+    assert "Библиотека матчей" in empty.text
+    assert "Матчи не найдены" in empty.text
 
     dataset = canonical_dataset_factory("product-library")
     repository.save_match(dataset, source_original_name="faceit.dem")
@@ -44,11 +45,47 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert search.status_code == 200 and "faceit.dem" in search.text
     assert css.status_code == 200 and "--accent" in css.text
     assert overview.status_code == 200
-    assert "Match overview" in overview.text
-    assert "Developer details" in overview.text
+    assert "Обзор матча" in overview.text
+    assert "Технические сведения" in overview.text
     assert diagnostics.status_code == 200
-    assert "Diagnostics mode" in diagnostics.text
+    assert "Режим диагностики" in diagnostics.text
     assert "dataset_fingerprint" in diagnostics.text
+    assert "Сначала понятные страницы, затем JSON" in diagnostics.text
+    assert "Исходные данные JSON" in diagnostics.text
+    assert '<details class="developer-details" open>' not in diagnostics.text
+
+
+def test_manual_faceit_team_label_is_persisted_and_rendered(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    database = tmp_path / "team-names.duckdb"
+    repository = DuckDBMatchRepository(database)
+    dataset = canonical_dataset_factory("team-names")
+    repository.save_match(dataset, source_original_name="faceit.dem")
+    team_id = dataset.teams[0].team_id
+
+    with TestClient(create_app(database)) as client:
+        response = client.post(
+            f"/api/matches/{dataset.match.match_id}/teams/{team_id}/display-name",
+            data={
+                "display_name": "  team_fizik  ",
+                "source_reference": "FACEIT match page",
+            },
+            headers={"Accept": "application/json"},
+        )
+        overview = client.get(f"/ui/matches/{dataset.match.match_id}")
+        library = client.get("/ui")
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "team_fizik"
+    assert "team_fizik" in overview.text
+    assert "Игроки: Alpha" in overview.text
+    assert "team_fizik" in library.text
+    saved = DuckDBTeamNameRepository(database).list_for_match(dataset.match.match_id)
+    assert len(saved) == 1
+    assert saved[0].source is TeamNameSource.MANUAL
+    assert saved[0].source_reference == "FACEIT match page"
 
 
 def test_product_ui_remains_readable_while_import_writer_connection_is_open(
@@ -147,6 +184,6 @@ def test_unexpected_ui_failure_uses_controlled_error_page(tmp_path: Path) -> Non
         response = client.get("/ui/test-unexpected-error")
 
     assert response.status_code == 500
-    assert "Unexpected server error" in response.text
+    assert "Непредвиденная ошибка сервера" in response.text
     assert "internal_server_error" in response.text
     assert "private implementation detail" not in response.text

@@ -8,17 +8,25 @@ from pathlib import Path
 from threading import Lock
 from uuid import UUID, uuid4
 
-from stratweb.adapters.parsers import Demoparser2Adapter, Demoparser2SpatialExtractor
+from stratweb.adapters.parsers import (
+    Demoparser2Adapter,
+    Demoparser2EconomyExtractor,
+    Demoparser2SpatialExtractor,
+)
 from stratweb.adapters.persistence import (
     DuckDBAnalyticsRepository,
+    DuckDBEconomyRepository,
     DuckDBImportJobRepository,
     DuckDBMatchRepository,
+    DuckDBRoundFeatureRepository,
     DuckDBSpatialRepository,
     DuckDBTemporalRepository,
+    DuckDBZoneAssignmentRepository,
 )
 from stratweb.analytics.models import AnalyticsConfig
 from stratweb.application.analytics import ComputeMatchAnalyticsService
 from stratweb.application.canonicalization import CanonicalizationService
+from stratweb.application.economy import ComputeEconomyService
 from stratweb.application.import_job_models import (
     ImportJobRecord,
     ImportJobStage,
@@ -26,9 +34,13 @@ from stratweb.application.import_job_models import (
 )
 from stratweb.application.persistence import ImportCanonicalMatchService
 from stratweb.application.persistence_models import ImportStatus
+from stratweb.application.round_features import ComputeRoundFeaturesService
 from stratweb.application.spatial import ComputeSpatialStateService
 from stratweb.application.temporal import ComputeTemporalStateService
+from stratweb.application.zone_assignments import ComputeZoneAssignmentsService
+from stratweb.economy.models import EconomyConfig
 from stratweb.exceptions import ImportJobNotFoundError, ImportJobNotRetryableError
+from stratweb.features.models import RoundFeatureConfig
 from stratweb.ports import ImportJobRepository
 from stratweb.spatial.models import SpatialConfig
 from stratweb.temporal.models import TemporalConfig
@@ -124,6 +136,21 @@ class LocalImportJobManager:
             )
             if result.status is ImportStatus.FAILED:
                 raise RuntimeError(result.warnings[-1] if result.warnings else "Import failed")
+            self._update(
+                job_id,
+                ImportJobStage.ECONOMY,
+                "Capturing freeze-end equipment and classifying buys",
+            )
+            economy_repository = DuckDBEconomyRepository(self._database_path)
+            ComputeEconomyService(
+                matches,
+                economy_repository,
+                Demoparser2EconomyExtractor(),
+            ).compute(
+                dataset.match.match_id,
+                demo_path,
+                config=EconomyConfig(),
+            )
             analytics = DuckDBAnalyticsRepository(self._database_path)
             self._update(job_id, ImportJobStage.ANALYTICS, "Computing deterministic analytics")
             ComputeMatchAnalyticsService(matches, analytics).compute(
@@ -138,15 +165,46 @@ class LocalImportJobManager:
                 analytics_repository=analytics,
             ).compute(dataset.match.match_id, config=TemporalConfig())
             self._update(job_id, ImportJobStage.SPATIAL, "Extracting authoritative spatial samples")
-            ComputeSpatialStateService(
+            spatial_repository = DuckDBSpatialRepository(self._database_path)
+            spatial_result = ComputeSpatialStateService(
                 matches,
                 temporal,
-                DuckDBSpatialRepository(self._database_path),
+                spatial_repository,
                 Demoparser2SpatialExtractor(),
             ).compute(
                 dataset.match.match_id,
                 demo_path,
                 config=SpatialConfig(sampling_interval_ticks=self._sampling_interval_ticks),
+            )
+            self._update(
+                job_id,
+                ImportJobStage.ZONES,
+                "Assigning version-pinned map zones",
+            )
+            zone_repository = DuckDBZoneAssignmentRepository(self._database_path)
+            ComputeZoneAssignmentsService(
+                spatial_repository,
+                zone_repository,
+            ).compute(
+                dataset.match.match_id,
+                spatial_run_id=spatial_result.spatial_run_id,
+            )
+            self._update(
+                job_id,
+                ImportJobStage.FEATURES,
+                "Materializing deterministic per-round facts",
+            )
+            ComputeRoundFeaturesService(
+                matches,
+                analytics,
+                temporal,
+                spatial_repository,
+                zone_repository,
+                DuckDBRoundFeatureRepository(self._database_path),
+                economy_repository=economy_repository,
+            ).compute(
+                dataset.match.match_id,
+                config=RoundFeatureConfig(),
             )
             self._update(
                 job_id,

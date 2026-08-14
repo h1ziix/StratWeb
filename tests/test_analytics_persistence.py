@@ -194,7 +194,28 @@ def test_migration_004_preserves_and_marks_legacy_ambiguous_runs(tmp_path: Path)
         )
 
     repository = DuckDBAnalyticsRepository(database)
-    assert repository.initialize() == (4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
+    assert repository.initialize() == (
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+    )
     summary = repository.get_summary(UUID(match_id))
 
     assert summary is not None

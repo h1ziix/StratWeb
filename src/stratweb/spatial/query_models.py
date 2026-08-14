@@ -29,9 +29,10 @@ from stratweb.spatial.projectiles import (
     UtilityEffect,
     unavailable_projectile_capabilities,
 )
+from stratweb.zones.assignment_models import ZoneAssignment, ZoneAssignmentRunSummary
 
-SPATIAL_QUERY_SCHEMA_VERSION = "1.0.0"
-SPATIAL_PLAYBACK_SCHEMA_VERSION = "1.2.0"
+SPATIAL_QUERY_SCHEMA_VERSION = "1.1.0"
+SPATIAL_PLAYBACK_SCHEMA_VERSION = "1.3.0"
 
 
 class TickResolutionStatus(StrEnum):
@@ -114,6 +115,7 @@ class SpatialPlayerView(SpatialModel):
     view_direction: MapViewDirection | None = None
     render_status: EntityRenderStatus = EntityRenderStatus.UNAVAILABLE
     rejection_reasons: tuple[str, ...] = ()
+    zone_assignment: ZoneAssignment | None = None
 
 
 class TickNavigation(SpatialModel):
@@ -154,6 +156,7 @@ class SpatialTickSnapshot(SpatialModel):
     bomb_carrier_id: UUID | None = None
     events: tuple[SpatialEventMarker, ...] = ()
     overview: MapOverview
+    zone_run: ZoneAssignmentRunSummary | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -169,6 +172,7 @@ class PlayerPath(SpatialModel):
     side: Side = Side.UNKNOWN
     points: tuple[SpatialPlayerView, ...]
     overview: MapOverview
+    zone_run: ZoneAssignmentRunSummary | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -183,6 +187,7 @@ class TeamTickSnapshot(SpatialModel):
     team_name: str
     players: tuple[SpatialPlayerView, ...]
     overview: MapOverview
+    zone_run: ZoneAssignmentRunSummary | None = None
 
 
 class NearestPlayer(SpatialModel):
@@ -291,6 +296,7 @@ class SpatialPlaybackChunk(SpatialModel):
     navigation: PlaybackNavigation
     filters: PlaybackFilters
     overview: MapOverview
+    zone_run: ZoneAssignmentRunSummary | None = None
     position_availability: SpatialAvailabilityStatus
     view_angle_availability: SpatialAvailabilityStatus
     projectile_metadata: ProjectileRunMetadata | None = None

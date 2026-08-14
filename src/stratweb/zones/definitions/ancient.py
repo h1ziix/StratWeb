@@ -46,8 +46,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'ct_spawn',
-            'CT SPAWN',
+            "ct_spawn",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -58,8 +58,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T SPAWN',
+            "t_spawn",
+            "T SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -70,8 +70,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -82,8 +82,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -94,8 +94,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'temple',
-            'TEMPLE',
+            "temple",
+            "TEMPLE",
             ZoneKind.AREA,
             0,
             (
@@ -106,8 +106,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct',
-            'CT',
+            "ct",
+            "CT",
             ZoneKind.AREA,
             0,
             (
@@ -118,8 +118,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'plat',
-            'PLAT',
+            "plat",
+            "PLAT",
             ZoneKind.AREA,
             0,
             (
@@ -130,8 +130,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'big_box',
-            'BIG BOX',
+            "big_box",
+            "BIG BOX",
             ZoneKind.AREA,
             0,
             (
@@ -142,8 +142,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'triple',
-            'TRIPLE',
+            "triple",
+            "TRIPLE",
             ZoneKind.AREA,
             0,
             (
@@ -154,8 +154,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'sniper_nest',
-            'SNIPER NEST',
+            "sniper_nest",
+            "SNIPER NEST",
             ZoneKind.AREA,
             0,
             (
@@ -166,8 +166,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'alley',
-            'ALLEY',
+            "alley",
+            "ALLEY",
             ZoneKind.AREA,
             0,
             (
@@ -178,8 +178,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'back_alley',
-            'BACK ALLEY',
+            "back_alley",
+            "BACK ALLEY",
             ZoneKind.AREA,
             0,
             (
@@ -190,8 +190,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short_b',
-            'SHORT',
+            "short_b",
+            "SHORT",
             ZoneKind.AREA,
             0,
             (
@@ -202,8 +202,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long',
-            'LONG',
+            "long",
+            "LONG",
             ZoneKind.AREA,
             0,
             (
@@ -214,8 +214,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'red',
-            'RED',
+            "red",
+            "RED",
             ZoneKind.AREA,
             0,
             (
@@ -226,8 +226,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'tree',
-            'TREE',
+            "tree",
+            "TREE",
             ZoneKind.AREA,
             0,
             (
@@ -238,8 +238,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'a_main',
-            'A MAIN',
+            "a_main",
+            "A MAIN",
             ZoneKind.AREA,
             0,
             (
@@ -250,8 +250,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short_a',
-            'SHORT',
+            "short_a",
+            "SHORT",
             ZoneKind.AREA,
             0,
             (
@@ -262,8 +262,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'top_mid',
-            'TOP MID',
+            "top_mid",
+            "TOP MID",
             ZoneKind.AREA,
             0,
             (
@@ -274,8 +274,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cave',
-            'CAVE',
+            "cave",
+            "CAVE",
             ZoneKind.AREA,
             0,
             (
@@ -286,8 +286,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'donut',
-            'DONUT',
+            "donut",
+            "DONUT",
             ZoneKind.AREA,
             0,
             (
@@ -298,8 +298,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'wood',
-            'WOOD',
+            "wood",
+            "WOOD",
             ZoneKind.AREA,
             0,
             (
@@ -310,8 +310,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'pit',
-            'PIT',
+            "pit",
+            "PIT",
             ZoneKind.AREA,
             0,
             (
@@ -322,8 +322,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'mid',
-            'MID',
+            "mid",
+            "MID",
             ZoneKind.AREA,
             0,
             (
@@ -334,8 +334,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cat_room',
-            'CAT ROOM',
+            "cat_room",
+            "CAT ROOM",
             ZoneKind.AREA,
             0,
             (
@@ -346,8 +346,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ramp',
-            'RAMP',
+            "ramp",
+            "RAMP",
             ZoneKind.AREA,
             0,
             (
@@ -358,8 +358,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'lower_mid',
-            'LOWER MID',
+            "lower_mid",
+            "LOWER MID",
             ZoneKind.AREA,
             0,
             (
@@ -370,8 +370,8 @@ ANCIENT_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cat',
-            'CAT',
+            "cat",
+            "CAT",
             ZoneKind.AREA,
             0,
             (

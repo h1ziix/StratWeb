@@ -1,102 +1,103 @@
 {% extends "base.html" %}
 {% block title %}{{ workspace.profile.display_name }} · StratWeb{% endblock %}
 {% block content %}
-<nav class="breadcrumbs"><a href="/ui/opponents">Opponents</a> / {{ workspace.profile.display_name }}</nav>
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / {{ workspace.profile.display_name }}</nav>
 <section class="page-heading">
-  <div><p class="eyebrow">User-confirmed evidence scope</p><h1>{{ workspace.profile.display_name }}</h1>
-  <p>Only explicit match-team selections are persisted. Steam ID overlap is advisory.</p></div>
-  <span class="status available">{{ workspace.selected_matches|length }} confirmed matches</span>
+  <div><p class="eyebrow">Подтверждённый корпус матчей</p><h1>{{ workspace.profile.display_name }}</h1>
+  <p>В корпус попадают только команды, которые вы выбрали вручную. Совпадение Steam ID служит подсказкой, но ничего не подтверждает автоматически.</p></div>
+  <span class="status available">Подтверждено матчей: {{ workspace.selected_matches|length }}</span>
 </section>
+<div class="button-row"><a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Открыть отчёт</a><a class="button secondary" href="/api/opponents/{{ workspace.profile.profile_id }}/report">Отчёт JSON</a></div>
 <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/rename" class="opponent-create">
-  <label>Rename workspace
+  <label>Название соперника
     <input type="text" name="display_name" value="{{ workspace.profile.display_name }}" minlength="1" maxlength="100" required>
   </label>
-  <button class="secondary" type="submit">Rename</button>
+  <button class="secondary" type="submit">Переименовать</button>
 </form>
-{% for warning in workspace.warnings %}<p class="notice warning">{{ warning }}</p>{% endfor %}
+{% for warning in workspace.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}
 
 <section>
-  <div class="section-heading"><h2>Confirmed matches</h2><span>Physical team selection</span></div>
+  <div class="section-heading"><h2>Подтверждённые матчи</h2><span>Выбранная физическая команда</span></div>
   {% if workspace.selected_matches %}
   <div class="selected-match-list">
   {% for item in workspace.selected_matches %}
     <article class="selected-match">
-      <div><strong>{{ item.map_name }}</strong><small>{{ item.source_name }} · {{ item.round_count }} rounds</small></div>
-      <div><span class="badge good">{{ item.team_name }}</span><small>{{ item.player_names|join(', ') }}</small></div>
-      <div><strong>{{ item.identified_player_count }}</strong><small>Steam IDs</small></div>
+      <div><strong>{{ item.map_name|map_name }}</strong><small>Раундов: {{ item.round_count }}</small></div>
+      <div><span class="badge good">{{ item.team_name|team_name }}</span><small>{{ item.player_names|join(', ') }}</small></div>
+      <div><strong>{{ item.identified_player_count }}</strong><small>Steam ID</small></div>
       <div class="selected-match-actions">
       {% for alternate in item.alternate_teams %}
         <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches" title="{{ alternate.player_names|join(', ') }}">
           <input type="hidden" name="match_id" value="{{ item.selection.match_id }}">
           <input type="hidden" name="team_id" value="{{ alternate.team_id }}">
-          <button class="secondary" type="submit">Reassign to {{ alternate.team_name }}</button>
+          <button class="secondary" type="submit">Выбрать {{ alternate.team_name|team_name }}</button>
         </form>
       {% endfor %}
-        <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches/{{ item.selection.match_id }}/remove"><button class="secondary" type="submit">Remove</button></form>
+        <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches/{{ item.selection.match_id }}/remove"><button class="secondary" type="submit">Убрать матч</button></form>
       </div>
     </article>
   {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state"><p>Select the opponent's physical team in the first match below. Nicknames alone are never used to merge identities.</p></div>
+  <div class="empty-state"><p>Выберите команду соперника в первом матче ниже. Игроки с одинаковым ником не объединяются без Steam ID.</p></div>
   {% endif %}
 </section>
 
 <section>
-  <div class="section-heading"><h2>Roster identity</h2><span>Aggregated strictly across confirmed teams</span></div>
+  <div class="section-heading"><h2>Состав</h2><span>Только игроки подтверждённых команд</span></div>
   {% if workspace.roster %}
-  <div class="table-wrap"><table><thead><tr><th>Player</th><th>Identity</th><th>Appearances</th><th>Role</th><th>Known names</th></tr></thead><tbody>
+  <div class="table-wrap"><table><thead><tr><th>Игрок</th><th>Идентификация</th><th>Матчи</th><th>Роль</th><th>Известные ники</th></tr></thead><tbody>
   {% for player in workspace.roster %}<tr>
     <td><strong>{{ player.current_name }}</strong>{% if player.steam_id %}<small class="block muted">{{ player.steam_id }}</small>{% endif %}</td>
-    <td>{{ 'Steam ID' if player.identity_status == 'steam_id' else 'Occurrence only' }}</td>
+    <td>{{ 'Steam ID' if player.identity_status == 'steam_id' else 'Только в этой демке' }}</td>
     <td>{{ player.appearance_count }} / {{ player.selected_match_count }}</td>
-    <td><span class="badge {{ 'good' if player.role == 'core' else ('warn' if player.role == 'partial' else 'bad') }}">{{ player.role }}</span></td>
+    <td><span class="badge {{ 'good' if player.role == 'core' else ('warn' if player.role == 'partial' else 'bad') }}">{{ {'core':'основа','partial':'частично','unresolved_identity':'не подтверждён'}[player.role] }}</span></td>
     <td>{{ player.known_names|join(', ') }}</td>
   </tr>{% endfor %}
   </tbody></table></div>
-  {% else %}<p class="muted">Roster appears after the first confirmed match.</p>{% endif %}
+  {% else %}<p class="muted">Состав появится после подтверждения первого матча.</p>{% endif %}
 </section>
 
 <section>
-  <div class="section-heading"><h2>Add imported matches</h2><span>Overlap never auto-confirms a team</span></div>
+  <div class="section-heading"><h2>Добавить загруженные матчи</h2><span>Совпадение игроков не подтверждает команду автоматически</span></div>
   {% if workspace.candidates %}
   <div class="candidate-list">
   {% for match in workspace.candidates %}
     <article class="candidate-match">
-      <header><div><strong>{{ match.map_name }}</strong><small>{{ match.source_name }} · {{ match.round_count }} rounds</small></div><a href="/ui/matches/{{ match.match_id }}">Inspect match</a></header>
+      <header><div><strong>{{ match.map_name|map_name }}</strong><small>Раундов: {{ match.round_count }}</small></div><a href="/ui/matches/{{ match.match_id }}">Открыть матч</a></header>
       <div class="candidate-teams">
       {% for team in match.teams %}
         <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/matches" class="candidate-team {{ team.strength }}">
           <input type="hidden" name="match_id" value="{{ match.match_id }}">
           <input type="hidden" name="team_id" value="{{ team.team_id }}">
-          <div><strong>{{ team.team_name }}</strong><span class="badge {{ 'good' if team.strength == 'strong' else ('warn' if team.strength == 'possible' else '') }}">{{ team.strength }}</span></div>
+          <div><strong>{{ team.team_name|team_name }}</strong><span class="badge {{ 'good' if team.strength == 'strong' else ('warn' if team.strength == 'possible' else '') }}">{{ {'strong':'сильное совпадение','possible':'возможное','weak':'слабое','unscored':'нет оценки'}[team.strength] }}</span></div>
           <p>{{ team.player_names|join(', ') }}</p>
           <p class="muted">
-            {% if team.overlap_frequency is not none %}{{ team.overlap_numerator }}/{{ team.overlap_denominator }} Steam IDs overlap{% else %}Overlap unscored{% endif %}
+            {% if team.overlap_frequency is not none %}Совпало Steam ID: {{ team.overlap_numerator }}/{{ team.overlap_denominator }}{% else %}Совпадение не рассчитано{% endif %}
             {% if team.shared_player_names %} · {{ team.shared_player_names|join(', ') }}{% endif %}
-            {% if team.missing_steam_id_count %} · {{ team.missing_steam_id_count }} missing Steam ID{% endif %}
+            {% if team.missing_steam_id_count %} · Без Steam ID: {{ team.missing_steam_id_count }}{% endif %}
           </p>
-          <button type="submit">Confirm this team</button>
+          <button type="submit">Подтвердить эту команду</button>
         </form>
       {% endfor %}
       </div>
     </article>
   {% endfor %}
   </div>
-  {% else %}<div class="empty-state"><p>Every imported match is already assigned to this workspace.</p></div>{% endif %}
+  {% else %}<div class="empty-state"><p>Все загруженные матчи уже добавлены в этот профиль.</p></div>{% endif %}
 </section>
 {% if not workspace.selected_matches %}
 <section>
-  <div class="section-heading"><h2>Delete workspace</h2><span>Only an empty workspace can be deleted</span></div>
+  <div class="section-heading"><h2>Удалить профиль</h2><span>Удалить можно только пустой профиль</span></div>
   <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/delete" class="opponent-create">
-    <label><input type="checkbox" required> I confirm deleting the empty workspace “{{ workspace.profile.display_name }}”</label>
-    <button class="secondary" type="submit">Delete workspace</button>
+    <label><input type="checkbox" required> Я подтверждаю удаление профиля «{{ workspace.profile.display_name }}»</label>
+    <button class="secondary" type="submit">Удалить профиль</button>
   </form>
 </section>
 {% endif %}
-<details class="developer-details"><summary>Identity contract</summary><dl>
-  <dt>Schema</dt><dd><code>{{ workspace.opponent_schema_version }}</code></dd>
-  <dt>Identity rule</dt><dd><code>{{ workspace.identity_rule_version }}</code></dd>
-  <dt>Overlap rule</dt><dd><code>{{ workspace.overlap_rule_version }}</code></dd>
+<details class="developer-details"><summary>Версии правил идентификации</summary><dl>
+  <dt>Схема</dt><dd><code>{{ workspace.opponent_schema_version }}</code></dd>
+  <dt>Правило игроков</dt><dd><code>{{ workspace.identity_rule_version }}</code></dd>
+  <dt>Правило совпадения</dt><dd><code>{{ workspace.overlap_rule_version }}</code></dd>
 </dl></details>
 {% endblock %}

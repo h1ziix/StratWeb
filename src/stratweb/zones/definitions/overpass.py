@@ -59,8 +59,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'a_main',
-            'A MAIN',
+            "a_main",
+            "A MAIN",
             ZoneKind.AREA,
             0,
             (
@@ -83,8 +83,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'abc',
-            'ABC',
+            "abc",
+            "ABC",
             ZoneKind.AREA,
             0,
             (
@@ -105,8 +105,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'alley',
-            'ALLEY',
+            "alley",
+            "ALLEY",
             ZoneKind.AREA,
             0,
             (
@@ -125,8 +125,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bank',
-            'BANK',
+            "bank",
+            "BANK",
             ZoneKind.AREA,
             0,
             (
@@ -157,8 +157,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'barrels',
-            'BARRELS',
+            "barrels",
+            "BARRELS",
             ZoneKind.AREA,
             0,
             (
@@ -176,8 +176,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -197,8 +197,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -217,8 +217,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bridge',
-            'BRIDGE',
+            "bridge",
+            "BRIDGE",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -238,8 +238,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'close_left',
-            'CLOSE LEFT',
+            "close_left",
+            "CLOSE LEFT",
             ZoneKind.AREA,
             0,
             (
@@ -261,8 +261,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'con',
-            'CON',
+            "con",
+            "CON",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -283,8 +283,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn',
-            'CT SPAWN',
+            "ct_spawn",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -295,8 +295,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'fountain',
-            'FOUNTAIN',
+            "fountain",
+            "FOUNTAIN",
             ZoneKind.AREA,
             0,
             (
@@ -314,8 +314,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'heaven',
-            'HEAVEN',
+            "heaven",
+            "HEAVEN",
             ZoneKind.AREA,
             0,
             (
@@ -330,8 +330,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'jail',
-            'JAIL',
+            "jail",
+            "JAIL",
             ZoneKind.AREA,
             0,
             (
@@ -345,8 +345,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ladder',
-            'LADDER',
+            "ladder",
+            "LADDER",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -363,8 +363,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long',
-            'LONG',
+            "long",
+            "LONG",
             ZoneKind.AREA,
             0,
             (
@@ -380,8 +380,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long_boost',
-            'LONG BOOST',
+            "long_boost",
+            "LONG BOOST",
             ZoneKind.AREA,
             0,
             (
@@ -395,8 +395,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long_toilets',
-            'LONG TOILETS',
+            "long_toilets",
+            "LONG TOILETS",
             ZoneKind.AREA,
             0,
             (
@@ -416,8 +416,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'lower_con',
-            'LOWER CON',
+            "lower_con",
+            "LOWER CON",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -432,8 +432,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'mid',
-            'MID',
+            "mid",
+            "MID",
             ZoneKind.AREA,
             0,
             (
@@ -455,8 +455,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'monster',
-            'MONSTER',
+            "monster",
+            "MONSTER",
             ZoneKind.AREA,
             0,
             (
@@ -480,8 +480,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'party',
-            'PARTY',
+            "party",
+            "PARTY",
             ZoneKind.AREA,
             0,
             (
@@ -500,8 +500,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'pit',
-            'PIT',
+            "pit",
+            "PIT",
             ZoneKind.AREA,
             0,
             (
@@ -522,8 +522,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'rock',
-            'ROCK',
+            "rock",
+            "ROCK",
             ZoneKind.AREA,
             0,
             (
@@ -538,8 +538,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short_a',
-            'SHORT',
+            "short_a",
+            "SHORT",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -555,8 +555,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short_b',
-            'SHORT',
+            "short_b",
+            "SHORT",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -574,8 +574,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'sign',
-            'SIGN',
+            "sign",
+            "SIGN",
             ZoneKind.AREA,
             0,
             (
@@ -592,8 +592,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T SPAWN',
+            "t_spawn",
+            "T SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -608,8 +608,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'toilets',
-            'TOILETS',
+            "toilets",
+            "TOILETS",
             ZoneKind.AREA,
             0,
             (
@@ -630,8 +630,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'tracks',
-            'TRACKS',
+            "tracks",
+            "TRACKS",
             ZoneKind.AREA,
             0,
             (
@@ -650,8 +650,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'trash',
-            'TRASH',
+            "trash",
+            "TRASH",
             ZoneKind.AREA,
             0,
             (
@@ -666,8 +666,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'tree',
-            'TREE',
+            "tree",
+            "TREE",
             ZoneKind.AREA,
             0,
             (
@@ -685,8 +685,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'truck',
-            'TRUCK',
+            "truck",
+            "TRUCK",
             ZoneKind.AREA,
             0,
             (
@@ -712,8 +712,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'tunnel',
-            'TUNNEL',
+            "tunnel",
+            "TUNNEL",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -729,8 +729,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'van',
-            'VAN',
+            "van",
+            "VAN",
             ZoneKind.AREA,
             0,
             (
@@ -748,8 +748,8 @@ OVERPASS_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'water',
-            'WATER',
+            "water",
+            "WATER",
             ZoneKind.AREA,
             0,
             (

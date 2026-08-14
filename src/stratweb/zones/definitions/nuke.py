@@ -21,8 +21,7 @@ from stratweb.zones.models import (
 _MAP_NAME = "de_nuke"
 _MAP_REVISION = "cs2-1.41.7.1-d263aa1118fb"
 _SOURCE = (
-    "user-placed two-level layout from the overlay editor, "
-    "saved 2026-07-27T00:48:28.301595+00:00"
+    "user-placed two-level layout from the overlay editor, saved 2026-07-27T00:48:28.301595+00:00"
 )
 
 
@@ -56,8 +55,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'ramp',
-            'RAMP',
+            "ramp",
+            "RAMP",
             ZoneKind.AREA,
             0,
             MapLevel.DEFAULT,
@@ -71,8 +70,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'boost',
-            'BOOST',
+            "boost",
+            "BOOST",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -86,8 +85,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'radio',
-            'RADIO',
+            "radio",
+            "RADIO",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -101,8 +100,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'heaven',
-            'HEAVEN',
+            "heaven",
+            "HEAVEN",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -116,8 +115,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             MapLevel.UPPER,
@@ -131,8 +130,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'locker',
-            'LOCKER',
+            "locker",
+            "LOCKER",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -146,8 +145,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_box',
-            'CT BOX',
+            "ct_box",
+            "CT BOX",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -161,8 +160,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T-SPAWN',
+            "t_spawn",
+            "T-SPAWN",
             ZoneKind.SPAWN,
             10,
             MapLevel.DEFAULT,
@@ -176,8 +175,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'blue_box',
-            'BLUE BOX',
+            "blue_box",
+            "BLUE BOX",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -191,8 +190,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'main',
-            'MAIN',
+            "main",
+            "MAIN",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -206,8 +205,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'garage',
-            'GARAGE',
+            "garage",
+            "GARAGE",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -221,8 +220,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'outside',
-            'OUTSIDE',
+            "outside",
+            "OUTSIDE",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -236,8 +235,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'red',
-            'RED',
+            "red",
+            "RED",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -251,8 +250,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             MapLevel.LOWER,
@@ -266,8 +265,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'dark',
-            'DARK',
+            "dark",
+            "DARK",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -281,8 +280,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'control',
-            'CONTROL',
+            "control",
+            "CONTROL",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -296,8 +295,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'double',
-            'DOUBLE',
+            "double",
+            "DOUBLE",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -311,8 +310,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'single',
-            'SINGLE',
+            "single",
+            "SINGLE",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -326,8 +325,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'vents',
-            'VENTS',
+            "vents",
+            "VENTS",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -341,8 +340,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'back_vents',
-            'BACK VENTS',
+            "back_vents",
+            "BACK VENTS",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -356,8 +355,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'secret',
-            'SECRET',
+            "secret",
+            "SECRET",
             ZoneKind.AREA,
             0,
             MapLevel.LOWER,
@@ -371,8 +370,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'silo',
-            'SILO',
+            "silo",
+            "SILO",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -387,13 +386,11 @@ NUKE_ZONE_SET = ZoneSetDefinition(
                 (14.1, -1892.6),
                 (240.9, -1812.1),
                 (294.8, -1625.2),
-                (174.4, -1464.9),
-                (47.7, -1457.9),
             ),
         ),
         _zone(
-            'lobby',
-            'LOBBY',
+            "lobby",
+            "LOBBY",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -411,8 +408,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'hut',
-            'HUT',
+            "hut",
+            "HUT",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -425,12 +422,11 @@ NUKE_ZONE_SET = ZoneSetDefinition(
                 (321.4, -1131.0),
                 (328.4, -1197.5),
                 (461.4, -1197.5),
-                (461.4, -916.8),
             ),
         ),
         _zone(
-            'squeakly',
-            'SQUEAKLY',
+            "squeakly",
+            "SQUEAKLY",
             ZoneKind.AREA,
             0,
             MapLevel.UPPER,
@@ -445,8 +441,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn_upper',
-            'CT SPAWN',
+            "ct_spawn_upper",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             MapLevel.UPPER,
@@ -465,8 +461,8 @@ NUKE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn_lower',
-            'CT SPAWN',
+            "ct_spawn_lower",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             MapLevel.LOWER,
@@ -481,7 +477,6 @@ NUKE_ZONE_SET = ZoneSetDefinition(
                 (2639.8, -608.1),
                 (2792.4, -617.9),
                 (2811.3, -293.1),
-                (2019.6, -279.1),
             ),
         ),
     ),

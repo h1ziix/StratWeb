@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Opponents · StratWeb{% endblock %}
+{% block title %}Соперники · StratWeb{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><p class="eyebrow">Cross-match evidence scope</p><h1>Opponent workspaces</h1>
-  <p>Group completed demos by confirmed physical team before computing patterns.</p></div>
+  <div><p class="eyebrow">Анализ нескольких матчей</p><h1>Соперники</h1>
+  <p>Объединяйте завершённые демки одной команды, чтобы находить повторяющиеся паттерны.</p></div>
 </section>
 <form class="opponent-create" method="post" action="/api/opponents">
-  <label>Opponent name<input name="display_name" maxlength="100" placeholder="Example: Academy roster" required></label>
-  <button type="submit">Create workspace</button>
+  <label>Название соперника<input name="display_name" maxlength="100" placeholder="Например: Команда физика" required></label>
+  <button type="submit">Создать соперника</button>
 </form>
 {% if profiles %}
-<section class="opponent-grid" aria-label="Opponent profiles">
+<section class="opponent-grid" aria-label="Список соперников">
 {% for item in profiles %}
   <article class="opponent-card">
-    <p class="eyebrow">Opponent profile</p>
+    <p class="eyebrow">Профиль соперника</p>
     <h2>{{ item.profile.display_name }}</h2>
-    <div class="metric-row"><span><strong>{{ item.match_count }}</strong> matches</span><span><strong>{{ item.identified_player_count }}</strong> Steam identities</span></div>
-    <p class="muted">{{ item.map_names|join(', ') if item.map_names else 'No confirmed maps' }}</p>
-    {% if item.unresolved_occurrence_count %}<p class="warning">{{ item.unresolved_occurrence_count }} occurrence-only player identities</p>{% endif %}
-    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Open workspace</a>
+    <div class="metric-row"><span><strong>{{ item.match_count }}</strong> матчей</span><span><strong>{{ item.identified_player_count }}</strong> игроков со Steam ID</span></div>
+    <p class="muted">{% if item.map_names %}{% for map in item.map_names %}{{ map|map_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Подтверждённых карт пока нет{% endif %}</p>
+    {% if item.unresolved_occurrence_count %}<p class="warning">Игроков без подтверждённого Steam ID: {{ item.unresolved_occurrence_count }}</p>{% endif %}
+    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть</a>
   </article>
 {% endfor %}
 </section>
 {% else %}
-<section class="empty-state"><h2>No opponent profiles</h2><p>Create a workspace, then explicitly select the opponent team in each imported demo.</p></section>
+<section class="empty-state"><h2>Соперников пока нет</h2><p>Создайте профиль, затем явно выберите команду соперника в каждой загруженной демке.</p></section>
 {% endif %}
 {% endblock %}

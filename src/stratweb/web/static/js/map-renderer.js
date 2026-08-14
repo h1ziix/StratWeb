@@ -48,15 +48,15 @@
   }[kind] || "#icon-event");
 
   const eventLabel = (kind) => ({
-    shot: "Shot",
-    damage: "Damage",
-    grenade: "Utility",
-    death: "Death",
-    plant: "Plant",
-    defuse: "Defuse",
-    explosion: "Explosion",
-    trade: "Trade",
-    opening_duel: "Opening duel",
+    shot: "Выстрел",
+    damage: "Урон",
+    grenade: "Граната",
+    death: "Смерть",
+    plant: "Установка бомбы",
+    defuse: "Разминирование",
+    explosion: "Взрыв",
+    trade: "Размен",
+    opening_duel: "Первая дуэль",
   }[kind] || kind);
 
   function classifyMotion(previous, following) {
@@ -141,6 +141,33 @@
     return { node, use: glyph.use };
   }
 
+  function playerMarker() {
+    const node = document.createElement("button");
+    node.className = "player-marker";
+    node.type = "button";
+    node.tabIndex = -1;
+
+    const direction = document.createElement("span");
+    direction.className = "player-direction";
+    direction.setAttribute("aria-hidden", "true");
+
+    const disc = document.createElement("span");
+    disc.className = "player-disc";
+    disc.setAttribute("aria-hidden", "true");
+    const sideText = document.createElement("span");
+    sideText.className = "player-side-text";
+    sideText.append(document.createTextNode("?"));
+    disc.append(sideText);
+
+    node.append(direction, disc);
+    return {
+      node,
+      direction,
+      disc,
+      sideText,
+    };
+  }
+
   class MapRenderer {
     constructor(mapCanvas, eventCards, labelRoster = []) {
       this.mapCanvas = mapCanvas;
@@ -199,7 +226,9 @@
       this.eventCardSlots = this.createEventCards();
       this.bombSlot = marker("bomb-marker", "#icon-bomb");
       this.bombLayer.append(this.bombSlot.node);
-      this.selectionSlot = marker("selection-marker", "#icon-selection");
+      this.selectionSlot = { node: document.createElement("div") };
+      this.selectionSlot.node.className = "selection-marker";
+      this.selectionSlot.node.setAttribute("aria-hidden", "true");
       this.selectionLayer.append(this.selectionSlot.node);
       this.eventSignature = "";
       this.projectileSignature = "";
@@ -217,12 +246,7 @@
 
     createPlayerSlots() {
       return Array.from({ length: PLAYER_SLOTS }, () => {
-        const markerNode = marker("player-marker", "#icon-player", "button");
-        markerNode.node.type = "button";
-        markerNode.node.tabIndex = -1;
-        const direction = document.createElement("span");
-        direction.className = "direction-ray";
-        markerNode.node.append(direction);
+        const markerNode = playerMarker();
         const label = document.createElement("span");
         label.className = "player-label-node";
         label.setAttribute("aria-hidden", "true");
@@ -232,10 +256,10 @@
         this.labelsLayer.append(label);
         const slot = {
           ...markerNode,
-          direction,
           label,
           key: null,
           playerName: "",
+          zoneName: null,
           labelOffset: { x: 14, y: 4 },
         };
         markerNode.node.addEventListener("click", () => {
@@ -435,7 +459,8 @@
       this.trailSignature = "";
       this.mapCanvas.dataset.levelMode = mode;
       const badge = document.getElementById("levelBadge");
-      if (badge) this.setText(badge, mode === "automatic" ? "Automatic levels" : `${mode} level`);
+      const levelLabels = { upper: "Верхний этаж", lower: "Нижний этаж", both: "Оба этажа" };
+      if (badge) this.setText(badge, mode === "automatic" ? "Автовыбор этажа" : (levelLabels[mode] || mode));
       if (this.currentSample) this.renderExact(this.currentSample);
     }
 
@@ -493,21 +518,38 @@
         if (!slot) return;
         active.add(id);
         const dead = player.snapshot.alive === false;
-        this.setData(slot.node, "side", player.snapshot.side || "unknown");
+        const side = player.snapshot.side || "unknown";
+        const zone = player.zone_assignment?.status === "resolved"
+          ? player.zone_assignment.zone_name
+          : player.zone_assignment?.status === "unknown"
+            ? "зона неизвестна"
+            : player.zone_assignment?.status === "unavailable"
+              ? "зона недоступна"
+              : null;
+        this.setData(slot.node, "side", side);
+        this.setData(slot.label, "side", side);
         this.setData(slot.node, "state", dead ? "dead" : "alive");
-        this.setAttribute(slot.use, "href", dead ? "#icon-death" : "#icon-player");
-        if (slot.playerName !== player.player_name) {
+        this.setText(
+          slot.sideText,
+          dead ? "\u00d7" : side === "CT" ? "CT" : side === "T" ? "T" : "?",
+        );
+        if (slot.playerName !== player.player_name || slot.zoneName !== zone) {
           slot.playerName = player.player_name;
-          this.setTitle(slot.node, `${player.player_name} · authoritative position`);
+          slot.zoneName = zone;
+          this.setTitle(
+            slot.node,
+            `${player.player_name} · подтверждённая позиция${zone ? ` · ${zone}` : ""}`,
+          );
         }
         this.setAttribute(
           slot.node,
           "aria-label",
           [
             player.player_name,
-            player.snapshot.side || "unknown side",
-            dead ? "dead" : "alive",
-            player.snapshot.has_bomb ? "carrying C4" : "",
+            player.snapshot.side || "сторона неизвестна",
+            dead ? "погиб" : "жив",
+            player.snapshot.has_bomb ? "несёт C4" : "",
+            zone || "",
           ].filter(Boolean).join(", "),
         );
         this.setAttribute(slot.node, "aria-pressed", id === this.selectedPlayerId);
@@ -852,7 +894,7 @@
           this.setData(slot.node, "kind", event.kind);
           this.setAttribute(slot.use, "href", eventIcon(event.kind));
           this.setAttribute(slot.node, "href", event.temporal_url);
-          this.setTitle(slot.node, `${eventLabel(event.kind)} · tick ${event.tick}`);
+          this.setTitle(slot.node, `${eventLabel(event.kind)} · тик ${event.tick}`);
           if (visible) {
             const position = this.screenPosition(event.projection);
             this.setTransform(slot.node, position.x, position.y);
@@ -868,7 +910,7 @@
         this.setText(slot.icon, event.kind === "death" ? "×" : "•");
         this.setText(
           slot.text,
-          `${eventLabel(event.kind)} · ${event.player_name || "position unavailable"}`,
+          `${eventLabel(event.kind)} · ${event.player_name || "позиция недоступна"}`,
         );
       });
     }

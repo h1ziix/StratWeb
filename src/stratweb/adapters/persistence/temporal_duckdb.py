@@ -11,6 +11,7 @@ import duckdb
 from pydantic import BaseModel
 
 from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, TemporalIntegrityError
@@ -344,6 +345,15 @@ class DuckDBTemporalRepository:
                     if exists is None:
                         connection.execute("ROLLBACK")
                         return False
+                    run_ids = connection.execute(
+                        "SELECT temporal_run_id FROM temporal_runs WHERE match_id = ?",
+                        [match_id],
+                    ).fetchall()
+                    delete_dependent_feature_runs(
+                        connection,
+                        "temporal_run_id",
+                        [row[0] for row in run_ids],
+                    )
                     for table in _CHILD_TABLES:
                         connection.execute(f'DELETE FROM "{table}" WHERE match_id = ?', [match_id])
                     connection.execute("DELETE FROM temporal_runs WHERE match_id = ?", [match_id])
@@ -645,6 +655,7 @@ class DuckDBTemporalRepository:
         if row is None:
             return
         run_id = row[0]
+        delete_dependent_feature_runs(connection, "temporal_run_id", [run_id])
         for table in _CHILD_TABLES:
             connection.execute(f'DELETE FROM "{table}" WHERE temporal_run_id = ?', [run_id])
         connection.execute("DELETE FROM temporal_runs WHERE temporal_run_id = ?", [run_id])

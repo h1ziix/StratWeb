@@ -13,8 +13,9 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $databasePath = $DatabasePath
 $mapOverviewPath = $MapOverviewDir
+$appDirectory = Join-Path $projectRoot "src"
 
-foreach ($requiredPath in @($pythonPath, $databasePath, $mapOverviewPath)) {
+foreach ($requiredPath in @($pythonPath, $databasePath, $mapOverviewPath, $appDirectory)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
         throw "Required path does not exist: $requiredPath"
     }
@@ -33,6 +34,8 @@ $uvicornArguments = @(
     "-m",
     "uvicorn",
     "stratweb.main:app",
+    "--app-dir",
+    $appDirectory,
     "--host",
     "127.0.0.1",
     "--port",

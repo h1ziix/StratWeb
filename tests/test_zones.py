@@ -11,6 +11,7 @@ from stratweb.zones.definitions import (
     ALL_ZONE_SETS,
     ANCIENT_ZONE_SET,
     ANUBIS_ZONE_SET,
+    CACHE_ZONE_SET,
     DUST2_ZONE_SET,
     INFERNO_ZONE_SET,
     MIRAGE_ZONE_SET,
@@ -28,7 +29,11 @@ from stratweb.zones.models import (
     ZoneVerificationStatus,
 )
 from stratweb.zones.proposals import proposal_zone_set
-from stratweb.zones.validation import sampled_coverage, validate_zone_set
+from stratweb.zones.validation import (
+    ZONE_VALIDATION_RULE_VERSION,
+    sampled_coverage,
+    validate_zone_set,
+)
 
 _SQUARE = ((0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0))
 
@@ -174,6 +179,22 @@ def test_validate_zone_set_reports_structural_issues() -> None:
     assert "zone_revision_mismatch:foreign" in issues
 
 
+def test_validate_zone_set_rejects_non_simple_polygon_rings() -> None:
+    explicitly_closed = (*_SQUARE, _SQUARE[0])
+    crossing = ((0.0, 0.0), (100.0, 100.0), (0.0, 100.0), (100.0, 0.0))
+    zone_set = _zone_set(
+        _zone("explicitly_closed", explicitly_closed),
+        _zone("crossing", crossing),
+    )
+
+    issues = validate_zone_set(zone_set)
+
+    assert ZONE_VALIDATION_RULE_VERSION == "simple_polygon_v1"
+    assert "repeated_vertex:explicitly_closed:0:0:4" in issues
+    assert "zero_length_edge:explicitly_closed:0:4" in issues
+    assert "self_intersection:crossing:0:0:2" in issues
+
+
 def test_polygon_area_shoelace() -> None:
     assert polygon_area(_SQUARE) == 10000.0
     triangle = ((0.0, 0.0), (10.0, 0.0), (0.0, 10.0))
@@ -185,7 +206,7 @@ def test_mirage_zone_set_is_structurally_valid_and_registered() -> None:
     assert len(MIRAGE_ZONE_SET.fingerprint()) == 64
     assert zone_set_for("de_mirage", "cs2-1.41.7.1-d263aa1118fb") is MIRAGE_ZONE_SET
     assert zone_set_for("de_mirage", "other-revision") is None
-    assert zone_set_for("de_cache", "cs2-1.41.7.1-d263aa1118fb") is None
+    assert zone_set_for("de_cache", "cs2-1.41.7.1-d263aa1118fb") is CACHE_ZONE_SET
 
 
 def test_mirage_zones_resolve_known_evidence_points() -> None:
@@ -263,17 +284,63 @@ def test_overpass_zones_cover_only_walkable_space() -> None:
         )
 
 
-def test_inferno_and_anubis_zones_resolve_valve_anchors() -> None:
+def test_inferno_and_anubis_zones_resolve_verified_reference_points() -> None:
     # No local demos yet: Valve overview anchors only.
     assert resolve_zone(INFERNO_ZONE_SET, 2428.8, 2113.9, None).zone_id == "ct_spawn"
     assert resolve_zone(INFERNO_ZONE_SET, -1585.2, 508.2, None).zone_id == "t_spawn"
     assert resolve_zone(INFERNO_ZONE_SET, 1977.3, 407.9, None).zone_id == "bombsite_a"
     assert resolve_zone(INFERNO_ZONE_SET, 371.6, 2766.1, None).zone_id == "bombsite_b"
-    # Anubis zones are traced from walkable pixels, and Valve's CTSpawn icon
-    # anchor (0.61, 0.22) sits on void next to the spawn, so the check uses the
-    # walkable centroid of the spawn area instead.
-    assert resolve_zone(ANUBIS_ZONE_SET, 330.0, 2154.0, None).zone_id == "ct_spawn"
-    assert resolve_zone(ANUBIS_ZONE_SET, 304.3, -1643.1, None).zone_id == "t_spawn"
+    # Anubis has no site anchors in the pinned Valve metadata. These points are
+    # interior representatives of the user's accepted hand-placed polygons.
+    assert resolve_zone(ANUBIS_ZONE_SET, -523.4, 2132.4, None).zone_id == "ct_spawn"
+    assert resolve_zone(ANUBIS_ZONE_SET, -231.9, -1525.0, None).zone_id == "t_spawn"
+    assert resolve_zone(ANUBIS_ZONE_SET, 1231.4, 1984.4, None).zone_id == "bombsite_a"
+    assert resolve_zone(ANUBIS_ZONE_SET, -1054.0, 679.0, None).zone_id == "bombsite_b"
+
+
+def test_accepted_anubis_and_cache_zone_sets_are_pinned() -> None:
+    assert len(ANUBIS_ZONE_SET.zones) == 34
+    assert ANUBIS_ZONE_SET.fingerprint() == (
+        "229855ed871084178b2c95351816450818387496268ac615ec6bf26d1338b0eb"
+    )
+    assert len(CACHE_ZONE_SET.zones) == 36
+    assert CACHE_ZONE_SET.fingerprint() == (
+        "73aa9b028c38975284425041f544c1d65164d212628926b4d8e3362d3b7bc30c"
+    )
+    for zone_set in (ANUBIS_ZONE_SET, CACHE_ZONE_SET):
+        assert all(
+            zone.verification is ZoneVerificationStatus.OVERLAY_VERIFIED for zone in zone_set.zones
+        )
+
+
+def test_cache_zones_resolve_pinned_valve_anchors() -> None:
+    # Valve overview anchors converted through Cache calibration
+    # (-2000/3250, scale 5.5).
+    assert resolve_zone(CACHE_ZONE_SET, -1449.472, 586.064, None).zone_id == "ct_spawn"
+    assert resolve_zone(CACHE_ZONE_SET, 2995.584, -44.72, None).zone_id == "t_spawn"
+    assert resolve_zone(CACHE_ZONE_SET, -169.6, 1785.68, None).zone_id == "bombsite_a"
+    assert resolve_zone(CACHE_ZONE_SET, -56.96, -1199.28, None).zone_id == "bombsite_b"
+
+
+def test_anubis_and_cache_resolve_named_layout_anchors() -> None:
+    anubis_anchors = {
+        "mid": (210.1632, 1260.4624),
+        "a_main": (1613.0952, 1193.4847),
+        "b_long": (-1335.705, -135.1764),
+        "fountain": (1702.7578, 1773.7587),
+    }
+    cache_anchors = {
+        "mid": (260.4136, 215.9452),
+        "garage": (1184.1789, 230.4521),
+        "a_main": (697.9379, 1368.6584),
+        "b_main": (380.4820, -622.2187),
+        "heaven": (-589.3764, -732.8473),
+    }
+
+    for zone_id, (x, y) in anubis_anchors.items():
+        assert resolve_zone(ANUBIS_ZONE_SET, x, y, None).zone_id == zone_id
+    for zone_id, (x, y) in cache_anchors.items():
+        assert resolve_zone(CACHE_ZONE_SET, x, y, None).zone_id == zone_id
 
 
 def test_nuke_zones_split_levels_by_proven_altitude() -> None:
@@ -387,6 +454,18 @@ def test_zone_proposal_endpoint_is_gated_validated_and_persisted(tmp_path: Path)
                 ],
             },
         )
+        self_intersecting = client.post(
+            "/api/dev/zones/de_mirage/proposal",
+            json={
+                **valid,
+                "zones": [
+                    {
+                        "zone_id": "jungle",
+                        "polygon": [[0.0, 0.0], [100.0, 100.0], [0.0, 100.0], [100.0, 0.0]],
+                    }
+                ],
+            },
+        )
         mismatch = client.post(
             "/api/dev/zones/de_mirage/proposal",
             json={**valid, "revision_id": "other-revision"},
@@ -402,6 +481,8 @@ def test_zone_proposal_endpoint_is_gated_validated_and_persisted(tmp_path: Path)
     assert {zone["zone_id"] for zone in stored["zones"]} == {"jungle", "balkon"}
     assert nameless_new.status_code == 422
     assert bad_kind.status_code == 422
+    assert self_intersecting.status_code == 422
+    assert "self_intersection:jungle:0:0:2" in self_intersecting.text
     assert mismatch.status_code == 409
 
     # The saved layout replaces the authored set on the overlay endpoints.
@@ -489,6 +570,28 @@ def test_unusable_proposal_files_fall_back_with_issue(tmp_path: Path) -> None:
         )
         stale = client.get("/api/dev/zones/de_mirage")
 
+        proposal_file.write_text(
+            json.dumps(
+                {
+                    "map_name": "de_mirage",
+                    "revision_id": _MIRAGE_REVISION,
+                    "zones": [
+                        {
+                            "zone_id": "jungle",
+                            "polygon": [
+                                [0.0, 0.0],
+                                [100.0, 100.0],
+                                [0.0, 100.0],
+                                [100.0, 0.0],
+                            ],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        structurally_invalid = client.get("/api/dev/zones/de_mirage")
+
     corrupt_body = corrupt.json()
     assert corrupt.status_code == 200
     assert corrupt_body["proposal_active"] is False
@@ -500,6 +603,12 @@ def test_unusable_proposal_files_fall_back_with_issue(tmp_path: Path) -> None:
     assert stale_body["proposal_active"] is False
     assert "proposal_map_or_revision_mismatch" in stale_body["issues"]
     assert len(stale_body["zones"]) == len(MIRAGE_ZONE_SET.zones)
+
+    invalid_body = structurally_invalid.json()
+    assert structurally_invalid.status_code == 200
+    assert invalid_body["proposal_active"] is False
+    assert "self_intersection:jungle:0:0:2" in invalid_body["issues"]
+    assert len(invalid_body["zones"]) == len(MIRAGE_ZONE_SET.zones)
 
 
 def test_user_origin_zone_keeps_name_kind_and_priority_over_authored_id() -> None:
@@ -518,9 +627,7 @@ def test_user_origin_zone_keeps_name_kind_and_priority_over_authored_id() -> Non
         ],
     }
 
-    effective, issues = proposal_zone_set(
-        payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION
-    )
+    effective, issues = proposal_zone_set(payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION)
 
     assert effective is not None
     assert issues == ()
@@ -548,9 +655,7 @@ def test_proposal_zone_set_replaces_layout_and_reports_issues() -> None:
         ],
     }
 
-    effective, issues = proposal_zone_set(
-        payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION
-    )
+    effective, issues = proposal_zone_set(payload, MIRAGE_ZONE_SET, "de_mirage", _MIRAGE_REVISION)
 
     assert effective is not None
     assert [zone.zone_id for zone in effective.zones] == ["jungle"]

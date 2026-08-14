@@ -12,15 +12,31 @@ from starlette.types import Scope
 
 from stratweb import __version__
 from stratweb.config import get_settings
-from stratweb.exceptions import SpatialNotFoundError
+from stratweb.exceptions import (
+    AnalysisFindingNotFoundError,
+    CounterStrategyNotFoundError,
+    EconomyNotFoundError,
+    PatternNotFoundError,
+    RoundFeatureNotFoundError,
+    SpatialNotFoundError,
+    ZoneAssignmentNotFoundError,
+)
 from stratweb.maps.registry import MapRegistry
+from stratweb.web.counter_strategy import counter_strategy_router
+from stratweb.web.design_system import design_system_router
+from stratweb.web.economy import economy_router
+from stratweb.web.findings import finding_router
 from stratweb.web.maps import map_router
 from stratweb.web.opponents import opponent_router
+from stratweb.web.patterns import pattern_router
 from stratweb.web.rendering import render_template
+from stratweb.web.round_features import round_feature_router
 from stratweb.web.routers import product_router
+from stratweb.web.scouting_report import scouting_report_router
 from stratweb.web.spatial import spatial_ui_router
 from stratweb.web.spatial_explorer import spatial_explorer_router
 from stratweb.web.temporal import temporal_ui_router
+from stratweb.web.zones import zone_assignment_router
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +87,56 @@ def create_app(
             )
         return JSONResponse(status_code=404, content={"detail": str(exc)})
 
+    @application.exception_handler(ZoneAssignmentNotFoundError)
+    async def zone_assignment_not_found(
+        request: Request, exc: ZoneAssignmentNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
+    @application.exception_handler(EconomyNotFoundError)
+    async def economy_not_found(request: Request, exc: EconomyNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
+    @application.exception_handler(RoundFeatureNotFoundError)
+    async def round_feature_not_found(
+        request: Request, exc: RoundFeatureNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
+    @application.exception_handler(PatternNotFoundError)
+    async def pattern_not_found(request: Request, exc: PatternNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
+    @application.exception_handler(AnalysisFindingNotFoundError)
+    async def analysis_finding_not_found(
+        request: Request, exc: AnalysisFindingNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
+    @application.exception_handler(CounterStrategyNotFoundError)
+    async def counter_strategy_not_found(
+        request: Request, exc: CounterStrategyNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
     @application.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse | HTMLResponse:
         if request.url.path.startswith("/ui/"):
@@ -89,12 +155,15 @@ def create_app(
     @application.exception_handler(Exception)
     async def unexpected_error(request: Request, exc: Exception) -> JSONResponse | HTMLResponse:
         logger.exception("Unhandled request failure for %s", request.url.path, exc_info=exc)
-        detail = "An unexpected server error occurred. The process is still running; retry safely."
+        detail = (
+            "Произошла непредвиденная ошибка. Сервер продолжает работать; "
+            "запрос можно безопасно повторить."
+        )
         if request.url.path.startswith("/ui/"):
             return HTMLResponse(
                 render_template(
                     "errors/page.html",
-                    title="Unexpected server error",
+                    title="Непредвиденная ошибка сервера",
                     detail=detail,
                     error_id="internal_server_error",
                     match_context=None,
@@ -130,8 +199,16 @@ def create_app(
         )
     )
     application.include_router(opponent_router(selected_database))
+    application.include_router(design_system_router())
     application.include_router(temporal_ui_router(selected_database))
     application.include_router(spatial_ui_router(selected_database))
+    application.include_router(zone_assignment_router(selected_database))
+    application.include_router(economy_router(selected_database))
+    application.include_router(scouting_report_router(selected_database))
+    application.include_router(round_feature_router(selected_database))
+    application.include_router(counter_strategy_router(selected_database))
+    application.include_router(pattern_router(selected_database))
+    application.include_router(finding_router(selected_database))
     application.include_router(
         spatial_explorer_router(
             selected_database,

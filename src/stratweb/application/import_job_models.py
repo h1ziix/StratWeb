@@ -13,9 +13,12 @@ class ImportJobStage(StrEnum):
     QUEUED = "queued"
     CANONICALIZING = "canonicalizing"
     IMPORTING = "importing"
+    ECONOMY = "economy"
     ANALYTICS = "analytics"
     TEMPORAL = "temporal"
     SPATIAL = "spatial"
+    ZONES = "zones"
+    FEATURES = "features"
     COMPLETE = "complete"
     FAILED = "failed"
 
@@ -28,9 +31,12 @@ _STAGE_PROGRESS = {
     ImportJobStage.QUEUED: 0,
     ImportJobStage.CANONICALIZING: 10,
     ImportJobStage.IMPORTING: 45,
-    ImportJobStage.ANALYTICS: 60,
-    ImportJobStage.TEMPORAL: 75,
-    ImportJobStage.SPATIAL: 85,
+    ImportJobStage.ECONOMY: 55,
+    ImportJobStage.ANALYTICS: 65,
+    ImportJobStage.TEMPORAL: 77,
+    ImportJobStage.SPATIAL: 87,
+    ImportJobStage.ZONES: 93,
+    ImportJobStage.FEATURES: 97,
     ImportJobStage.COMPLETE: 100,
     ImportJobStage.FAILED: 0,
 }

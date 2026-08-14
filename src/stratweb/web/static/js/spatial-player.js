@@ -34,7 +34,8 @@
     "metricDom", "metricSvg", "metricSidebar", "metricEventList", "metricUpdatedNodes",
     "metricRecreatedNodes", "metricActivePlayers", "metricActiveProjectiles", "autoFocus",
     "metricClockCrossed", "metricClockMaxCrossed", "metricLabelPlans", "metricAnchorFlips",
-    "selectedPlayerStatus", "currentEventStatus", "mapViewport",
+    "selectedPlayerStatus", "currentEventStatus", "mapViewport", "selectedZoneBadge",
+    "playerPathLink",
   ];
   const elements = Object.fromEntries(
     elementIds.map((id) => [id, document.getElementById(id)]),
@@ -139,7 +140,7 @@
   function addChunk(chunk, retentionIndex = state.index) {
     if (chunk.spatial_run_id !== config.spatial_run_id
         || chunk.temporal_run_id !== config.temporal_run_id) {
-      throw new Error("Playback run changed. Reload after replacing a run.");
+      throw new Error("Расчёт воспроизведения изменился. Обновите страницу после замены расчёта.");
     }
     chunk.samples.forEach((sample) => state.samples.set(sample.sample_index, sample));
     (chunk.projectiles || []).forEach((item) => state.projectiles.set(item.projectile_id, item));
@@ -441,7 +442,7 @@
     if (!state.playing && historyMode) updateUrl(sample.tick, historyMode);
     if (elements.diagnosticsDrawer.hidden) return;
     setText(elements.tickStatus, `tick ${sample.tick} · exact stored sample`);
-    if (!state.playing) setText(elements.frameStatus, "Exact stored sample");
+    if (!state.playing) setText(elements.frameStatus, "Точный сохранённый снимок");
     setAttribute(
       elements.temporalLink,
       "href",
@@ -648,21 +649,21 @@
 
   function setPlaybackStatus(status) {
     const labels = {
-      playing: "❚❚ Pause",
-      paused: "▶ Play",
-      buffering: "Buffering…",
-      "buffering-error": "Retry buffer",
-      end: "Replay",
-      unavailable: "No next reliable sample",
+      playing: "❚❚ Пауза",
+      paused: "▶ Пуск",
+      buffering: "Загрузка…",
+      "buffering-error": "Повторить загрузку",
+      end: "Сначала",
+      unavailable: "Нет следующего достоверного снимка",
     };
     setText(elements.playPause, labels[status] || labels.paused);
     setAttribute(elements.playPause, "aria-label", status);
     elements.playPause.dataset.status = status;
     if (status === "playing") {
-      setText(elements.frameStatus, "Relative demo-tick clock · visual interpolation");
+      setText(elements.frameStatus, "Относительное время демки · визуальная интерполяция");
     }
-    if (status === "buffering") setText(elements.frameStatus, "Buffering · playback clock paused");
-    if (status === "end") setText(elements.frameStatus, "End of round · exact final sample");
+    if (status === "buffering") setText(elements.frameStatus, "Загрузка · время воспроизведения остановлено");
+    if (status === "end") setText(elements.frameStatus, "Конец раунда · точный финальный снимок");
   }
 
   function eventIndex(direction) {
@@ -762,7 +763,7 @@
     const now = performance.now();
     state.apiRequestTimes = state.apiRequestTimes.filter((item) => now - item <= 60000);
     setText(elements.developerBuffered, state.samples.size);
-    setText(elements.developerPending, state.pendingStarts.size || "none");
+    setText(elements.developerPending, state.pendingStarts.size || "нет");
     setText(elements.developerRendered, state.renderedFrames);
     setText(
       elements.developerMaxRender,
@@ -797,13 +798,41 @@
   function showError(message) { setText(elements.errorMessage, message); setHidden(elements.errorState, false); }
   function hideError() { setHidden(elements.errorState, true); }
   function updateRealtimeStatus(sample) {
-    const selected = elements.playerFilter.selectedOptions[0]?.textContent || "All players";
+    let selected = elements.playerFilter.selectedOptions[0]?.textContent || "Все игроки";
+    const selectedId = elements.playerFilter.value || null;
+    const selectedPlayer = selectedId
+      ? (sample.players || []).find((item) => item.snapshot.participant_id === selectedId)
+      : null;
+    if (selectedPlayer?.zone_assignment?.status === "resolved") {
+      selected += ` · ${selectedPlayer.zone_assignment.zone_name}`;
+    } else if (selectedPlayer?.zone_assignment?.status === "unknown") {
+      selected += " · зона неизвестна";
+    } else if (selectedPlayer?.zone_assignment?.status === "unavailable") {
+      selected += " · зона недоступна";
+    }
     setText(elements.selectedPlayerStatus, selected);
+    const zoneLabel = selectedPlayer?.zone_assignment?.status === "resolved"
+      ? selectedPlayer.zone_assignment.zone_name
+      : selectedPlayer?.zone_assignment?.status === "unknown"
+        ? "Зона неизвестна"
+        : selectedPlayer?.zone_assignment?.status === "unavailable"
+          ? "Зона недоступна"
+          : null;
+    setText(elements.selectedZoneBadge, zoneLabel || "");
+    setHidden(elements.selectedZoneBadge, !selectedId || !zoneLabel);
+    if (selectedId) {
+      setAttribute(
+        elements.playerPathLink,
+        "href",
+        `/ui/spatial/${config.match_id}/rounds/${config.round_number}/players/${selectedId}/path?run_id=${config.spatial_run_id}`,
+      );
+    }
+    setHidden(elements.playerPathLink, !selectedId);
     const labels = (sample.events || []).slice(0, 3).map((event) => {
       const kind = event.kind.replaceAll("_", " ");
       return event.player_name ? `${kind}: ${event.player_name}` : kind;
     });
-    setText(elements.currentEventStatus, labels.length ? labels.join(" · ") : "No current event");
+    setText(elements.currentEventStatus, labels.length ? labels.join(" · ") : "Нет текущего события");
     renderer.setSelectedPlayer(elements.playerFilter.value || null);
   }
 
@@ -971,7 +1000,8 @@
     if (sample && elements.autoFocus.checked) applyAutoFocus(evidenceForSample(sample));
   });
   window.addEventListener("stratweb:player", (event) => {
-    window.location.href = `/ui/spatial/${config.match_id}/rounds/${config.round_number}/players/${event.detail}/path`;
+    elements.playerFilter.value = event.detail;
+    void resetFilters();
   });
   window.addEventListener("pageshow", () => { elements.roundSelect.value = String(config.round_number); });
   window.addEventListener("popstate", async () => {

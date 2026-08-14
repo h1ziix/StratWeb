@@ -18,7 +18,9 @@ from stratweb.contracts import (
     StoredDemoFile,
     UploadReceipt,
 )
-from stratweb.domain.models import AnalysisFinding, DemoFile
+from stratweb.domain.enums import Side
+from stratweb.domain.models import DemoFile
+from stratweb.findings.models import AnalysisFinding
 
 if TYPE_CHECKING:
     from stratweb.analytics.models import (
@@ -54,6 +56,53 @@ if TYPE_CHECKING:
         RoundEvents,
         StoredMatch,
     )
+    from stratweb.application.team_names import TeamDisplayLabel, TeamNameSource
+    from stratweb.counter_strategy.models import (
+        CounterStrategyCategory,
+        CounterStrategyRecommendation,
+        CounterStrategyRun,
+        CounterStrategyRunRecord,
+        CounterStrategyRunSummary,
+        CounterStrategySaveResult,
+        SkippedStrategyFinding,
+    )
+    from stratweb.economy.models import (
+        BuyType,
+        EconomyExtraction,
+        EconomyRunRecord,
+        EconomyRunSummary,
+        EconomySaveResult,
+        EconomyState,
+        PlayerEquipmentSnapshot,
+        TeamEconomySnapshot,
+    )
+    from stratweb.features.models import (
+        FeatureAvailability,
+        RoundFeature,
+        RoundFeatureRunRecord,
+        RoundFeatureRunSummary,
+        RoundFeatureSaveResult,
+        RoundFeatureState,
+        RoundFeatureType,
+    )
+    from stratweb.findings.models import (
+        AnalysisRun,
+        AnalysisRunRecord,
+        AnalysisRunSummary,
+        AnalysisSaveResult,
+        EvidenceReference,
+        FindingCategory,
+    )
+    from stratweb.patterns.models import (
+        CrossMatchPattern,
+        PatternAvailability,
+        PatternRunInputRecord,
+        PatternRunRecord,
+        PatternRunSummary,
+        PatternSaveResult,
+        PatternState,
+        PatternType,
+    )
     from stratweb.spatial.models import (
         BombPositionSnapshot,
         SpatialExtraction,
@@ -80,6 +129,14 @@ if TYPE_CHECKING:
         TemporalRunSummary,
         TemporalSaveResult,
         TemporalTransition,
+    )
+    from stratweb.zones.assignment_models import (
+        ZoneAssignment,
+        ZoneAssignmentRunRecord,
+        ZoneAssignmentRunSummary,
+        ZoneAssignmentSaveResult,
+        ZoneAssignmentState,
+        ZoneAssignmentStatus,
     )
 
 
@@ -138,6 +195,19 @@ class SpatialExtractor(Protocol):
         *,
         expected_sha256: str,
     ) -> SpatialExtraction: ...
+
+
+@runtime_checkable
+class EconomyExtractor(Protocol):
+    """Extract documented equipment fields at canonical freeze-end ticks."""
+
+    def extract(
+        self,
+        demo_path: Path,
+        ticks: tuple[int, ...],
+        *,
+        expected_sha256: str,
+    ) -> EconomyExtraction: ...
 
 
 @runtime_checkable
@@ -206,6 +276,25 @@ class MatchRepository(Protocol):
 
 
 @runtime_checkable
+class TeamNameRepository(Protocol):
+    """User-facing aliases, separate from immutable canonical team identity."""
+
+    def list_for_match(self, match_id: UUID) -> tuple[TeamDisplayLabel, ...]: ...
+
+    def save(
+        self,
+        match_id: UUID,
+        team_id: UUID,
+        display_name: str,
+        *,
+        source: TeamNameSource,
+        source_reference: str | None = None,
+    ) -> TeamDisplayLabel: ...
+
+    def delete(self, match_id: UUID, team_id: UUID) -> bool: ...
+
+
+@runtime_checkable
 class ImportJobRepository(Protocol):
     """Durable checkpoint store for the local completed-demo import queue."""
 
@@ -268,6 +357,13 @@ class AnalyticsRepository(Protocol):
 
     def get_round_analytics(
         self, match_id: UUID, round_number: int
+    ) -> RoundAnalyticsView | None: ...
+
+    def get_round_analytics_for_run(
+        self,
+        match_id: UUID,
+        analytics_fingerprint: str,
+        round_number: int,
     ) -> RoundAnalyticsView | None: ...
 
     def list_opening_duels(self, match_id: UUID) -> tuple[OpeningDuel, ...]: ...
@@ -370,6 +466,7 @@ class SpatialRepository(Protocol):
         participant_id: UUID | None = None,
         limit: int = 1000,
         offset: int = 0,
+        spatial_run_id: UUID | None = None,
     ) -> tuple[SpatialSnapshot, ...]: ...
 
     def list_round_ticks(
@@ -476,6 +573,269 @@ class SpatialRepository(Protocol):
     def list_validation_issues(self, match_id: UUID) -> tuple[SpatialValidationIssue, ...]: ...
 
     def delete_spatial(self, match_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class ZoneAssignmentRepository(Protocol):
+    """Persistence boundary for versioned point-to-zone evidence."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_zone_assignments(
+        self, state: ZoneAssignmentState, *, replace: bool = False
+    ) -> ZoneAssignmentSaveResult: ...
+
+    def get_summary(self, match_id: UUID) -> ZoneAssignmentRunSummary | None: ...
+
+    def get_summary_for_spatial_run(
+        self, match_id: UUID, spatial_run_id: UUID
+    ) -> ZoneAssignmentRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, match_id: UUID, zone_assignment_run_id: UUID
+    ) -> ZoneAssignmentRunSummary | None: ...
+
+    def list_runs(self, match_id: UUID) -> tuple[ZoneAssignmentRunRecord, ...]: ...
+
+    def list_assignments(
+        self,
+        match_id: UUID,
+        *,
+        zone_assignment_run_id: UUID | None = None,
+        round_number: int | None = None,
+        status: ZoneAssignmentStatus | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[ZoneAssignment, ...]: ...
+
+    def get_assignments(
+        self,
+        zone_assignment_run_id: UUID,
+        spatial_snapshot_ids: tuple[UUID, ...],
+    ) -> tuple[ZoneAssignment, ...]: ...
+
+    def delete_zone_assignments(self, match_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class EconomyRepository(Protocol):
+    """Persistence boundary for immutable freeze-end economy evidence."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_economy(self, state: EconomyState, *, replace: bool = False) -> EconomySaveResult: ...
+
+    def get_summary(self, match_id: UUID) -> EconomyRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, match_id: UUID, economy_run_id: UUID
+    ) -> EconomyRunSummary | None: ...
+
+    def list_runs(self, match_id: UUID) -> tuple[EconomyRunRecord, ...]: ...
+
+    def list_team_snapshots(
+        self,
+        match_id: UUID,
+        *,
+        economy_run_id: UUID | None = None,
+        round_number: int | None = None,
+        side: Side | None = None,
+        buy_type: BuyType | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[TeamEconomySnapshot, ...]: ...
+
+    def list_player_snapshots(
+        self,
+        match_id: UUID,
+        *,
+        economy_run_id: UUID | None = None,
+        round_number: int | None = None,
+        participant_id: UUID | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[PlayerEquipmentSnapshot, ...]: ...
+
+    def delete_economy(self, match_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class RoundFeatureRepository(Protocol):
+    """Persistence boundary for immutable, version-pinned per-round facts."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_features(
+        self, state: RoundFeatureState, *, replace: bool = False
+    ) -> RoundFeatureSaveResult: ...
+
+    def get_summary(self, match_id: UUID) -> RoundFeatureRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, match_id: UUID, feature_run_id: UUID
+    ) -> RoundFeatureRunSummary | None: ...
+
+    def list_runs(self, match_id: UUID) -> tuple[RoundFeatureRunRecord, ...]: ...
+
+    def list_features(
+        self,
+        match_id: UUID,
+        *,
+        feature_run_id: UUID | None = None,
+        round_number: int | None = None,
+        team_id: UUID | None = None,
+        side: Side | None = None,
+        feature_type: RoundFeatureType | None = None,
+        availability: FeatureAvailability | None = None,
+        buy_type: BuyType | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[RoundFeature, ...]: ...
+
+    def delete_features(self, match_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class PatternRepository(Protocol):
+    """Persistence boundary for immutable cross-match pattern runs."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_patterns(self, state: PatternState, *, replace: bool = False) -> PatternSaveResult: ...
+
+    def get_summary(self, profile_id: UUID) -> PatternRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, profile_id: UUID, pattern_run_id: UUID
+    ) -> PatternRunSummary | None: ...
+
+    def list_runs(self, profile_id: UUID) -> tuple[PatternRunRecord, ...]: ...
+
+    def list_inputs(
+        self, profile_id: UUID, pattern_run_id: UUID
+    ) -> tuple[PatternRunInputRecord, ...]: ...
+
+    def list_patterns(
+        self,
+        profile_id: UUID,
+        *,
+        pattern_run_id: UUID | None = None,
+        map_name: str | None = None,
+        side: Side | None = None,
+        buy_type: BuyType | None = None,
+        pattern_type: PatternType | None = None,
+        availability: PatternAvailability | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[CrossMatchPattern, ...]: ...
+
+    def delete_patterns(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class AnalysisRepository(Protocol):
+    """Persistence boundary for immutable Stage 8.6 findings."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_analysis(self, state: AnalysisRun, *, replace: bool = False) -> AnalysisSaveResult: ...
+
+    def get_summary(
+        self, profile_id: UUID, *, source_pattern_run_id: UUID
+    ) -> AnalysisRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, profile_id: UUID, analysis_run_id: UUID
+    ) -> AnalysisRunSummary | None: ...
+
+    def list_runs(
+        self, profile_id: UUID, *, current_pattern_run_id: UUID | None
+    ) -> tuple[AnalysisRunRecord, ...]: ...
+
+    def list_findings(
+        self,
+        profile_id: UUID,
+        *,
+        analysis_run_id: UUID,
+        map_name: str | None = None,
+        side: Side | None = None,
+        category: FindingCategory | None = None,
+        pattern_type: PatternType | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[AnalysisFinding, ...]: ...
+
+    def get_finding(
+        self, profile_id: UUID, analysis_run_id: UUID, finding_id: UUID
+    ) -> AnalysisFinding | None: ...
+
+    def list_evidence(
+        self, analysis_run_id: UUID, finding_id: UUID
+    ) -> tuple[EvidenceReference, ...]: ...
+
+    def delete_analysis(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class CounterStrategyRepository(Protocol):
+    """Persistence boundary for immutable Stage 8.7 recommendation runs."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_strategy(
+        self, state: CounterStrategyRun, *, replace: bool = False
+    ) -> CounterStrategySaveResult: ...
+
+    def get_summary(
+        self, profile_id: UUID, *, source_analysis_run_id: UUID
+    ) -> CounterStrategyRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, profile_id: UUID, strategy_run_id: UUID
+    ) -> CounterStrategyRunSummary | None: ...
+
+    def list_runs(
+        self, profile_id: UUID, *, current_analysis_run_id: UUID | None
+    ) -> tuple[CounterStrategyRunRecord, ...]: ...
+
+    def list_recommendations(
+        self,
+        profile_id: UUID,
+        *,
+        strategy_run_id: UUID,
+        map_name: str | None = None,
+        side: Side | None = None,
+        buy_type: BuyType | None = None,
+        category: CounterStrategyCategory | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[CounterStrategyRecommendation, ...]: ...
+
+    def get_recommendation(
+        self, profile_id: UUID, strategy_run_id: UUID, recommendation_id: UUID
+    ) -> CounterStrategyRecommendation | None: ...
+
+    def list_skipped(self, strategy_run_id: UUID) -> tuple[SkippedStrategyFinding, ...]: ...
+
+    def delete_strategies(self, profile_id: UUID) -> int: ...
 
 
 @runtime_checkable

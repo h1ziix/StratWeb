@@ -94,41 +94,41 @@ def test_ui_exposes_group_snapshots_without_inventing_event_order(
     assert all(
         label in overview.text
         for label in (
-            "Tick-group state",
-            "Per-event state",
-            "Intermediate ordering",
-            "Final alive state",
-            "Schema 1.1.0",
+            "Состояние группы тика",
+            "Состояние отдельных событий",
+            "Промежуточный порядок",
+            "Финальное число живых",
+            "Схема 1.1.0",
         )
     )
     assert round_page.status_code == 200
-    assert "low-value" in round_page.text
-    assert "Show raw events" in round_page.text
+    assert "Малозначимых событий свёрнуто" in round_page.text
+    assert "Показать все исходные события" in round_page.text
     assert raw_round_page.status_code == 200
-    assert "Hide raw events" in raw_round_page.text
+    assert "Скрыть все исходные события" in raw_round_page.text
     assert raw_round_page.text.count('class="event-row') >= round_page.text.count(
         'class="event-row'
     )
-    assert "Simultaneous group" in round_page.text
-    assert "ordering: ambiguous_order" in round_page.text
-    assert "intermediate: ambiguous" in round_page.text
-    assert "final: deterministic" in round_page.text
-    assert "Possible intermediate states" in round_page.text
+    assert "Одновременная группа" in round_page.text
+    assert "порядок: порядок неоднозначен" in round_page.text
+    assert "промежуточное: неоднозначно" in round_page.text
+    assert "финальное: детерминировано" in round_page.text
+    assert "Возможные промежуточные состояния" in round_page.text
     assert "Alpha" in round_page.text and "Bravo" in round_page.text
-    assert "Their physical order is not inferred from event ID" in round_page.text
+    assert "физический порядок не определяется по event ID" in round_page.text
     assert group_page.status_code == 200
-    assert "Before tick-group" in group_page.text
-    assert "After tick-group" in group_page.text
-    assert "Порядок событий внутри tick не доказан" in group_page.text
-    assert "first death candidate" in group_page.text
+    assert "До группы тика" in group_page.text
+    assert "После группы тика" in group_page.text
+    assert "Порядок событий внутри тика не доказан" in group_page.text
+    assert "кандидат на первую смерть" in group_page.text
     assert event_page.status_code == 200
-    assert "Before event" in event_page.text and "After event" in event_page.text
-    assert event_page.text.count("state: ambiguous") >= 2
+    assert "До события" in event_page.text and "После события" in event_page.text
+    assert event_page.text.count("состояние: неоднозначно") >= 2
     assert tick_page.status_code == 200
-    assert "Snapshot at tick means state after the complete tick-group" in tick_page.text
+    assert "Снимок на тике означает состояние после всей группы" in tick_page.text
     assert "0T" in tick_page.text and "0CT" in tick_page.text
     assert final_page.status_code == 200
-    assert "Final round state" in final_page.text
+    assert "Финальное состояние раунда" in final_page.text
 
 
 def test_victimless_death_and_diagnostics_use_evidence_safe_wording(
@@ -148,16 +148,16 @@ def test_victimless_death_and_diagnostics_use_evidence_safe_wording(
     payload = client.get(f"/api/temporal/{dataset.match.match_id}/diagnostics").json()
 
     assert event_page.status_code == 200
-    assert "World / unknown-victim death" in event_page.text
-    assert "Victim not proven" in event_page.text
-    assert "does not change alive counts" in event_page.text
-    assert "death effect</dt><dd>unavailable" in event_page.text
+    assert "Смерть от мира / жертва не установлена" in event_page.text
+    assert "Жертва не установлена" in event_page.text
+    assert "не изменяет число живых" in event_page.text
+    assert "влияние смерти</dt><dd>unavailable" in event_page.text
     assert "unknown player died" not in event_page.text.lower()
     assert diagnostics.status_code == 200
-    assert "Deaths without victim" in diagnostics.text
+    assert "Смерти без установленной жертвы" in diagnostics.text
     assert "death_effect_unavailable" in diagnostics.text
     assert victimless_list.status_code == 200
-    assert "Round 1" in victimless_list.text
+    assert "Раунд 1" in victimless_list.text
     assert str(victimless_id) in victimless_list.text
     assert payload["counters"] == {
         "simultaneous_groups": 1,
@@ -240,18 +240,18 @@ def test_latest_current_run_wins_over_newer_legacy_run_and_pages_pin_run_id(
     )
 
     assert default_page.status_code == 200
-    assert "Schema 1.1.0 · rule 1.1.0" in default_page.text
+    assert "Схема 1.1.0 · правило 1.1.0" in default_page.text
     assert f"?run_id={current.temporal_run_id}" in default_page.text
     assert str(legacy_run_id) in default_page.text
     assert legacy_page.status_code == 200
-    assert "Legacy Temporal 1.0 run" in legacy_page.text
-    assert "does not mix data from Temporal 1.1" in legacy_page.text
-    assert "Tick-group state</span><strong>unavailable" in legacy_page.text
+    assert "Устаревший расчёт Temporal 1.0" in legacy_page.text
+    assert "данные Temporal 1.1 на этой странице не смешиваются" in legacy_page.text
+    assert "Состояние группы тика</span><strong>unavailable" in legacy_page.text
     assert legacy_round.status_code == 200
-    assert "Simultaneous group" not in legacy_round.text
+    assert "Одновременная группа" not in legacy_round.text
     assert legacy_event.status_code == 200
-    assert legacy_event.text.count("state: unavailable") >= 2
-    assert "does not prove Temporal 1.1" in legacy_event.text
-    assert legacy_tick.status_code == 200 and "state: unavailable" in legacy_tick.text
-    assert legacy_final.status_code == 200 and "state: unavailable" in legacy_final.text
+    assert legacy_event.text.count("состояние: недоступно") >= 2
+    assert "Temporal 1.0 не подтверждает" in legacy_event.text
+    assert legacy_tick.status_code == 200 and "состояние: недоступно" in legacy_tick.text
+    assert legacy_final.status_code == 200 and "состояние: недоступно" in legacy_final.text
     assert unknown_page.status_code == 404

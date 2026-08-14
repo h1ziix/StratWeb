@@ -1,69 +1,77 @@
 {% extends "base.html" %}
-{% block title %}Match library · StratWeb{% endblock %}
+{% block title %}Матчи · StratWeb{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><p class="eyebrow">Completed demos only</p><h1>Match library</h1>
-  <p>Open an imported match without copying a UUID. No live game data is read.</p></div>
+  <div><p class="eyebrow">Только завершённые демо</p><h1>Библиотека матчей</h1>
+  <p>Здесь хранятся импортированные матчи для офлайн-разбора. StratWeb не читает данные активной игры.</p></div>
 </section>
+
 <form class="library-tools" method="get" action="/ui" role="search">
-  <label>Search matches<input name="search" value="{{ search }}" placeholder="Map, team or source"></label>
-  <label>Sort<select name="sort">
-    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
-    <option value="map" {% if sort == 'map' %}selected{% endif %}>Map</option>
-    <option value="rounds" {% if sort == 'rounds' %}selected{% endif %}>Rounds</option>
+  <label>Поиск<input name="search" value="{{ search }}" placeholder="Карта или команда"></label>
+  <label>Сортировка<select name="sort">
+    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Сначала новые</option>
+    <option value="map" {% if sort == 'map' %}selected{% endif %}>По карте</option>
+    <option value="rounds" {% if sort == 'rounds' %}selected{% endif %}>По раундам</option>
   </select></label>
-  <button type="submit">Apply</button>
+  <button type="submit">Применить</button>
 </form>
-<details class="import-panel"><summary>Import completed .dem</summary>
+
+<details class="import-panel"><summary>Загрузить завершённую демку</summary>
   <form action="/api/import-jobs" method="post" enctype="multipart/form-data">
-    <label>Completed CS2 demo<input type="file" name="demo" accept=".dem" required></label>
-    <p class="muted">Localhost only. The file receives a safe internal name; its original name is stored as metadata.</p>
-    <button type="submit">Import and analyze</button>
+    <label>Файл CS2 demo<input type="file" name="demo" accept=".dem" required></label>
+    <p class="muted">Файл обрабатывается только на этом компьютере и получает безопасное внутреннее имя.</p>
+    <button type="submit">Загрузить и обработать</button>
   </form>
 </details>
+
 {% if recent_jobs %}
-<section class="recent-jobs" aria-label="Recent imports">
-  <div class="section-heading"><h2>Recent imports</h2><span>Durable pipeline status</span></div>
+<section class="recent-jobs" aria-label="Последние загрузки">
+  <div class="section-heading"><h2>Последние загрузки</h2><span>Состояние обработки</span></div>
   <div class="recent-job-list">
   {% for job in recent_jobs %}
     <article class="recent-job">
-      <div><strong>{{ job.original_name }}</strong><small>{{ job.message }}</small></div>
-      <span class="status {{ 'unavailable' if job.stage == 'failed' else ('available' if job.stage == 'complete' else 'partial') }}">{{ job.stage }}</span>
-      <span>{{ job.progress_percent }}% · attempt {{ job.attempt_count }}</span>
-      <a class="button secondary" href="/ui/import-jobs/{{ job.job_id }}">Details</a>
+      <div><strong>Демо CS2</strong><small>{{ job.message|warning_label }}</small></div>
+      <span class="status {{ 'unavailable' if job.stage == 'failed' else ('available' if job.stage == 'complete' else 'partial') }}">{{ ('available' if job.stage == 'complete' else ('unavailable' if job.stage == 'failed' else 'partial'))|status_label }}</span>
+      <span>{% if job.stage == 'complete' %}Обработка завершена{% else %}{{ job.progress_percent }}%{% endif %}</span>
+      <a class="button secondary" href="/ui/import-jobs/{{ job.job_id }}">Подробнее</a>
     </article>
   {% endfor %}
   </div>
 </section>
 {% endif %}
+
 {% if matches %}
-<section class="match-grid" aria-label="Persisted matches">
+<section class="match-grid" aria-label="Сохранённые матчи">
 {% for item in matches %}
   <article class="match-card">
-    {% set thumbnail = map_thumbnails.get(item.match_id) %}<div class="match-map-thumbnail">{% if thumbnail and thumbnail.image_url %}<img src="{{ thumbnail.image_url }}" alt="{{ thumbnail.display_name or item.map_name }} radar thumbnail" loading="lazy">{% else %}<div class="map-thumbnail-placeholder" role="img" aria-label="Map asset unavailable"></div>{% endif %}<span>{{ thumbnail.display_name if thumbnail and thumbnail.display_name else item.map_name }}</span></div>
-    <div class="match-card__top"><span class="map-chip">{{ item.map_name }}</span>
-      <time datetime="{{ item.imported_at.isoformat() }}">{{ item.imported_at.strftime('%Y-%m-%d %H:%M') }}</time></div>
-    <h2>{% for team in item.teams %}{{ team.name }}{% if not loop.last %} <span>vs</span> {% endif %}{% endfor %}</h2>
-    <p class="scoreline">
-      {% if item.score_available %}{% for team in item.teams %}<strong>{{ team.score }}</strong>{% if not loop.last %}<span>:</span>{% endif %}{% endfor %}
-      {% else %}<span>Final score unavailable</span>{% endif %}
-    </p>
-    <p class="muted">{{ item.round_count }} rounds · {{ item.source_name }} · {{ item.short_id }}</p>
-    <div class="health-row" aria-label="Data health">
-      <span class="status {{ item.canonical_status }}">Canonical</span>
-      <span class="status {{ item.analytics_status }}">Analytics</span>
-      <span class="status {{ item.temporal_status }}">Temporal</span>
-      <span class="status {{ item.spatial_status }}">Spatial</span>
+    {% set thumbnail = map_thumbnails.get(item.match_id) %}
+    <div class="match-map-thumbnail">
+      {% if thumbnail and thumbnail.image_url %}<img src="{{ thumbnail.image_url }}" alt="Карта {{ thumbnail.display_name or item.map_name }}" loading="lazy">
+      {% else %}<div class="map-thumbnail-placeholder" role="img" aria-label="Изображение карты недоступно"></div>{% endif %}
+      <span>{{ thumbnail.display_name if thumbnail and thumbnail.display_name else item.map_name|map_name }}</span>
     </div>
-    <div class="card-actions"><a class="button" href="/ui/matches/{{ item.match_id }}">Open match</a>
-      {% if item.warning_count %}<span class="warning-count">{{ item.warning_count }} notices</span>{% endif %}</div>
+    <div class="match-card__top"><span class="map-chip">{{ item.map_name|map_name }}</span><time datetime="{{ item.imported_at.isoformat() }}">{{ item.imported_at.strftime('%d.%m.%Y') }}</time></div>
+    <h2>{% for team in item.teams %}{{ team.name|team_name }}{% if not loop.last %} <span>против</span> {% endif %}{% endfor %}</h2>
+    <p class="scoreline">{% if item.score_available %}{% for team in item.teams %}<strong>{{ team.score }}</strong>{% if not loop.last %}<span>:</span>{% endif %}{% endfor %}{% else %}<span>Итоговый счёт недоступен</span>{% endif %}</p>
+    <p class="muted">{{ item.round_count }} раундов</p>
+    <div class="card-actions">
+      <a class="button" href="/ui/matches/{{ item.match_id }}">Открыть матч</a>
+      {% if item.warning_count %}<span class="status partial">Есть ограничения</span>{% else %}<span class="status available">Данные готовы</span>{% endif %}
+    </div>
+    <details class="match-card__technical">
+      <summary>Технические сведения</summary>
+      <dl><dt>Исходный файл</dt><dd><code>{{ item.source_name }}</code></dd><dt>ID матча</dt><dd><code>{{ item.match_id }}</code></dd></dl>
+      <div class="health-row" aria-label="Состояние слоёв данных">
+        <span class="status {{ item.canonical_status }}">Исходные данные</span><span class="status {{ item.analytics_status }}">Аналитика</span><span class="status {{ item.temporal_status }}">Хронология</span><span class="status {{ item.spatial_status }}">Позиции</span>
+      </div>
+    </details>
   </article>
 {% endfor %}
 </section>
 {% else %}
-<section class="empty-state"><h2>No matches found</h2>
-  <p>{% if search %}Clear the search or import another completed demo.{% else %}Import a completed .dem through the CLI to populate this local library.{% endif %}</p>
-  {% if search %}<a class="button secondary" href="/ui">Clear search</a>{% endif %}
+<section class="empty-state"><h2>Матчи не найдены</h2>
+  <p>{% if search %}Измените поиск или загрузите другую завершённую демку.{% else %}Загрузите завершённый файл .dem, чтобы добавить первый матч.{% endif %}</p>
+  {% if search %}<a class="button secondary" href="/ui">Очистить поиск</a>{% endif %}
 </section>
 {% endif %}
 {% endblock %}

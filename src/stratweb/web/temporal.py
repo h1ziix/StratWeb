@@ -32,12 +32,12 @@ from stratweb.web.context import build_match_context
 from stratweb.web.rendering import render_legacy_content
 
 _DIAGNOSTIC_KINDS = {
-    "simultaneous_groups": "Simultaneous groups",
-    "ambiguous_order_groups": "Ambiguous-order groups",
-    "ambiguous_intermediate_groups": "Ambiguous-intermediate groups",
-    "ambiguous_final_groups": "Ambiguous-final groups",
-    "conflicting_groups": "Conflicting groups",
-    "deaths_without_victim": "Deaths without victim",
+    "simultaneous_groups": "Одновременные группы",
+    "ambiguous_order_groups": "Группы с неоднозначным порядком",
+    "ambiguous_intermediate_groups": "Группы с неоднозначным промежуточным состоянием",
+    "ambiguous_final_groups": "Группы с неоднозначным финальным состоянием",
+    "conflicting_groups": "Конфликтующие группы",
+    "deaths_without_victim": "Смерти без установленной жертвы",
 }
 
 
@@ -69,24 +69,24 @@ def temporal_ui_router(database_path: Path) -> APIRouter:
         capabilities = _capability_cards(summary)
         rounds = "".join(
             f'<a class="round-link" href="/ui/temporal/{match_id}/rounds/{number}{run_query}">'
-            f"Round {number}</a>"
+            f"Раунд {number}</a>"
             for number in range(1, summary.summary.rounds + 1)
         )
         content = f"""
-        {_breadcrumbs(("Temporal matches", "/ui"), (str(match_id), None))}
+        {_breadcrumbs(("Матчи", "/ui"), ("Хронология", None))}
         {_run_banner(summary)}
         <section class="hero compact">
-          <p class="eyebrow">Match</p><h1>{escape(str(match_id))}</h1>
-          <p class="mono">fingerprint {escape(summary.temporal_fingerprint)}</p>
+          <p class="eyebrow">Хронология матча</p><h1>Раунды</h1>
+          <p class="mono">отпечаток {escape(summary.temporal_fingerprint)}</p>
           <div class="actions">
-            <a class="button" href="/ui/temporal/{match_id}/diagnostics{run_query}">Diagnostics</a>
-            <a class="button" href="/ui/spatial/{match_id}">Spatial table</a>
+            <a class="button" href="/ui/temporal/{match_id}/diagnostics{run_query}">Диагностика</a>
+            <a class="button" href="/ui/spatial/{match_id}">Позиционные данные</a>
             <a class="button ghost" href="/api/temporal/{match_id}/summary{run_query}">JSON</a>
           </div>
         </section>
-        <h2>Capabilities</h2>{capabilities}
-        <h2>Rounds</h2><div class="round-grid">{rounds}</div>
-        <h2>Temporal runs</h2>{_runs_table(runs, match_id)}
+        <h2>Возможности</h2>{capabilities}
+        <h2>Раунды</h2><div class="round-grid">{rounds}</div>
+        <h2>Расчёты хронологии</h2>{_runs_table(runs, match_id)}
         """
         return HTMLResponse(_page(f"Temporal match {match_id}", content, match_context(match_id)))
 
@@ -188,16 +188,16 @@ def temporal_ui_router(database_path: Path) -> APIRouter:
         query = service()
         summary = _summary(query, match_id, run_id)
         if _is_legacy(summary):
-            snapshot_html = _legacy_snapshot_card("Post-tick state")
+            snapshot_html = _legacy_snapshot_card("Состояние после тика")
         else:
             snapshot = query.get_tick_snapshot(
                 match_id, round_number, tick, summary.temporal_run_id
             )
-            snapshot_html = _snapshot_card("Post-tick state", snapshot)
+            snapshot_html = _snapshot_card("Состояние после тика", snapshot)
         content = f"""
-        {_round_breadcrumbs(summary, round_number, f"Snapshot tick {tick}")}
-        {_run_banner(summary)}<h1>Snapshot at tick {tick}</h1>
-        <p class="notice">Snapshot at tick means state after the complete tick-group.</p>
+        {_round_breadcrumbs(summary, round_number, f"Снимок на тике {tick}")}
+        {_run_banner(summary)}<h1>Снимок на тике {tick}</h1>
+        <p class="notice">Снимок на тике означает состояние после всей группы событий этого тика.</p>
         {snapshot_html}
         """
         return HTMLResponse(_page(f"Snapshot {tick}", content, match_context(match_id)))
@@ -215,13 +215,13 @@ def temporal_ui_router(database_path: Path) -> APIRouter:
         query = service()
         summary = _summary(query, match_id, run_id)
         if _is_legacy(summary):
-            snapshot_html = _legacy_snapshot_card("Final round state")
+            snapshot_html = _legacy_snapshot_card("Финальное состояние раунда")
         else:
             snapshot = query.get_final_snapshot(match_id, round_number, summary.temporal_run_id)
-            snapshot_html = _snapshot_card("Final round state", snapshot)
+            snapshot_html = _snapshot_card("Финальное состояние раунда", snapshot)
         content = f"""
-        {_round_breadcrumbs(summary, round_number, "Final snapshot")}
-        {_run_banner(summary)}<h1>Final round snapshot</h1>{snapshot_html}
+        {_round_breadcrumbs(summary, round_number, "Финальный снимок")}
+        {_run_banner(summary)}<h1>Финальный снимок раунда</h1>{snapshot_html}
         """
         return HTMLResponse(
             _page(
@@ -381,23 +381,22 @@ def _round_page(
         for tick, events in sorted(displayed_by_tick.items())
     )
     fallback = (
-        '<span class="badge warning">fallback end</span>'
+        '<span class="badge warning">резервное завершение</span>'
         if timeline.end_source and timeline.end_source.startswith("fallback:")
         else ""
     )
     return f"""
     {_round_breadcrumbs(summary, timeline.round_number, None)}
     {_run_banner(summary)}
-    <section class="hero compact"><p class="eyebrow">Round timeline</p>
-      <h1>Round {timeline.round_number} {fallback}</h1>
-      <p>start {timeline.start_tick} · live {timeline.live_start_tick} · end
-      {timeline.effective_end_tick} · source {escape(str(timeline.end_source))}</p>
-      <div class="actions"><a class="button" href="/ui/temporal/{summary.match_id}/rounds/{timeline.round_number}/final{run_query}">Final snapshot</a></div>
+    <section class="hero compact"><p class="eyebrow">Хронология раунда</p>
+      <h1>Раунд {timeline.round_number} {fallback}</h1>
+      <p>начало {timeline.start_tick} · live {timeline.live_start_tick} · конец
+      {timeline.effective_end_tick} · источник {escape(str(timeline.end_source))}</p>
+      <div class="actions"><a class="button" href="/ui/temporal/{summary.match_id}/rounds/{timeline.round_number}/final{run_query}">Финальный снимок</a></div>
     </section>
-    <div class="notice">Showing significant evidence by default. {hidden_count} low-value
-    event(s) are collapsed, not deleted.
+    <div class="notice">По умолчанию показаны значимые события. Малозначимых событий свёрнуто: {hidden_count}; они не удалены.
     <a href="/ui/temporal/{summary.match_id}/rounds/{timeline.round_number}{run_query}{"&" if "?" in run_query else "?"}show_raw_events={"false" if show_raw_events else "true"}">
-    {"Hide raw events" if show_raw_events else "Show raw events"}</a></div>
+    {"Скрыть все исходные события" if show_raw_events else "Показать все исходные события"}</a></div>
     <div class="timeline">{buckets}</div>
     """
 
@@ -438,15 +437,15 @@ def _tick_bucket(
     )
     if group is None:
         bucket_note = (
-            '<span class="muted">Same-tick evidence bucket; no state ambiguity group.</span>'
+            '<span class="muted">События одного тика; неоднозначности состояния нет.</span>'
             if len(events) > 1
             else ""
         )
         return f"""
-        <section class="tick-bucket"><div class="tick-marker">tick {tick}</div>
-          <div class="tick-card"><div class="tick-heading"><strong>{len(events)} event(s)</strong>
-          <span><a href="{snapshot_link}">post-tick snapshot</a> ·
-          <a href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={tick}">spatial map</a></span></div>{bucket_note}
+        <section class="tick-bucket"><div class="tick-marker">тик {tick}</div>
+          <div class="tick-card"><div class="tick-heading"><strong>событий: {len(events)}</strong>
+          <span><a href="{snapshot_link}">снимок после тика</a> ·
+          <a href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={tick}">2D-карта</a></span></div>{bucket_note}
           <div class="events">{event_rows}</div></div></section>
         """
     group_link = (
@@ -455,23 +454,23 @@ def _tick_bucket(
     )
     intermediate = _possible_states(group, player_labels)
     return f"""
-    <section class="tick-bucket group"><div class="tick-marker">tick {tick}</div>
+    <section class="tick-bucket group"><div class="tick-marker">тик {tick}</div>
       <div class="tick-card group-card">
-        <div class="tick-heading"><strong>Simultaneous group · {len(events)} tick events · {group.event_count} state events</strong>
-          <a href="{group_link}">open group</a></div>
+        <div class="tick-heading"><strong>Одновременная группа · событий тика: {len(events)} · событий состояния: {group.event_count}</strong>
+          <a href="{group_link}">открыть группу</a></div>
         <div class="status-row">
           {_status_badge("ordering", group.ordering_status.value)}
           {_status_badge("intermediate", group.intermediate_state_status.value)}
           {_status_badge("final", group.final_state_status.value)}
         </div>
-        <p><b>Players:</b> {", ".join(_player_label(item, player_labels) for item in group.involved_player_ids) or "none proven"}</p>
-        <p><b>Ambiguity:</b> {", ".join(map(escape, group.ambiguity_reasons)) or "none"}</p>
+        <p><b>Игроки:</b> {", ".join(_player_label(item, player_labels) for item in group.involved_player_ids) or "не подтверждены"}</p>
+        <p><b>Причины неоднозначности:</b> {", ".join(map(escape, group.ambiguity_reasons)) or "нет"}</p>
         {_projection_pair(group)}
         {intermediate}
-        <p class="notice">Events share one tick. Their physical order is not inferred from event ID.</p>
+        <p class="notice">События произошли в одном тике. Их физический порядок не определяется по event ID.</p>
         <div class="events simultaneous">{event_rows}</div>
-        <a href="{snapshot_link}">Snapshot after complete group</a> ·
-        <a href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={tick}">Spatial map</a>
+        <a href="{snapshot_link}">Снимок после всей группы</a> ·
+        <a href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={tick}">2D-карта</a>
       </div></section>
     """
 
@@ -492,21 +491,21 @@ def _event_row(
         and event.death_effect_status is DeathEffectStatus.UNAVAILABLE
     )
     if victimless:
-        label = "World / unknown-victim death — victim not proven"
+        label = "Смерть от мира / жертва не установлена"
     else:
         label = event.event_type
     badges = []
     if opening:
-        badges.append('<span class="badge accent">opening event</span>')
+        badges.append('<span class="badge accent">первое событие</span>')
     if victimless:
-        badges.append('<span class="badge warning">diagnostic: no victim</span>')
+        badges.append('<span class="badge warning">диагностика: нет жертвы</span>')
     if event.kind is TemporalEventKind.BOMB and event.event_type == "bomb:planted":
-        badges.append('<span class="badge bomb">plant</span>')
+        badges.append('<span class="badge bomb">установка</span>')
     return f"""
     <a class="event-row {"victimless" if victimless else ""}" href="{link}">
       <span><b>{escape(label)}</b> {"".join(badges)}</span>
-      <span class="mono">{escape(str(event.event_id))}</span>
-      <span>actor {_optional_player_label(event.actor_player_id, player_labels)} · victim
+      <details><summary>Технические данные</summary><code>{escape(str(event.event_id))}</code></details>
+      <span>участник {_optional_player_label(event.actor_player_id, player_labels)} · жертва
       {_optional_player_label(event.victim_player_id, player_labels)}</span>
     </a>
     """
@@ -524,33 +523,33 @@ def _event_page(
         event.kind is TemporalEventKind.DEATH
         and event.death_effect_status is DeathEffectStatus.UNAVAILABLE
     )
-    heading = "World / unknown-victim death" if victimless else event.event_type
+    heading = "Смерть от мира / жертва не установлена" if victimless else event.event_type
     diagnostic = (
         """
-        <div class="notice warning"><b>Victim not proven.</b> This event remains evidence,
-        is not attached to a player, does not change alive counts, and leads to diagnostics.
-        No victim is inferred.</div>
+        <div class="notice warning"><b>Жертва не установлена.</b> Событие остаётся доказательством,
+        не привязывается к игроку, не изменяет число живых и попадает в диагностику.
+        Жертва не додумывается.</div>
         """
         if victimless
         else ""
     )
     snapshots = (
-        f"{_snapshot_card('Before event', before)}{_snapshot_card('After event', after)}"
+        f"{_snapshot_card('До события', before)}{_snapshot_card('После события', after)}"
         if before is not None and after is not None
-        else f"{_legacy_snapshot_card('Before event')}{_legacy_snapshot_card('After event')}"
+        else f"{_legacy_snapshot_card('До события')}{_legacy_snapshot_card('После события')}"
     )
     return f"""
-    {_round_breadcrumbs(summary, timeline.round_number, f"Event {event.event_id}")}
+    {_round_breadcrumbs(summary, timeline.round_number, "Событие")}
     {_run_banner(summary)}<h1>{escape(heading)}</h1>{diagnostic}
     <dl class="facts">
-      <dt>tick</dt><dd>{event.time.tick}</dd><dt>source</dt><dd>{escape(event.source_event)}</dd>
-      <dt>actor</dt><dd>{_optional_player_label(event.actor_player_id, player_labels)}</dd>
-      <dt>victim</dt><dd>{_optional_player_label(event.victim_player_id, player_labels)}</dd>
-      <dt>combat classification</dt><dd>{escape(str(event.combat_death_classification or "n/a"))}</dd>
-      <dt>death effect</dt><dd>{escape(str(event.death_effect_status or "n/a"))}</dd>
-      <dt>simultaneous group</dt><dd>{escape(str(event.simultaneous_group_id or "none"))}</dd>
+      <dt>тик</dt><dd>{event.time.tick}</dd><dt>источник</dt><dd>{escape(event.source_event)}</dd>
+      <dt>участник</dt><dd>{_optional_player_label(event.actor_player_id, player_labels)}</dd>
+      <dt>жертва</dt><dd>{_optional_player_label(event.victim_player_id, player_labels)}</dd>
+      <dt>классификация боя</dt><dd>{escape(str(event.combat_death_classification or "нет"))}</dd>
+      <dt>влияние смерти</dt><dd>{escape(str(event.death_effect_status or "нет"))}</dd>
+      <dt>одновременная группа</dt><dd>{escape(str(event.simultaneous_group_id or "нет"))}</dd>
     </dl>
-    <p><a class="button" href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={event.time.tick}">Open spatial map at tick {event.time.tick}</a></p>
+    <p><a class="button" href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={event.time.tick}">Открыть 2D-карту на тике {event.time.tick}</a></p>
     <div class="snapshot-grid">{snapshots}</div>
     """
 
@@ -569,17 +568,17 @@ def _group_page(
         for event_id in group.ordered_event_ids
     )
     return f"""
-    {_round_breadcrumbs(summary, timeline.round_number, f"Group tick {group.tick}")}
-    {_run_banner(summary)}<h1>Simultaneous group · tick {group.tick}</h1>
+    {_round_breadcrumbs(summary, timeline.round_number, f"Группа на тике {group.tick}")}
+    {_run_banner(summary)}<h1>Одновременная группа · тик {group.tick}</h1>
     <div class="status-row">{_status_badge("ordering", group.ordering_status.value)}
     {_status_badge("intermediate", group.intermediate_state_status.value)}
     {_status_badge("final", group.final_state_status.value)}</div>
-    <p><b>{group.event_count} events.</b> Players: {", ".join(_player_label(item, player_labels) for item in group.involved_player_ids)}</p>
-    <p>Ambiguity reasons: {", ".join(map(escape, group.ambiguity_reasons)) or "none"}</p>
-    <div class="snapshot-grid">{_snapshot_card("Before tick-group", before)}{_snapshot_card("After tick-group", after)}</div>
+    <p><b>Событий: {group.event_count}.</b> Игроки: {", ".join(_player_label(item, player_labels) for item in group.involved_player_ids)}</p>
+    <p>Причины неоднозначности: {", ".join(map(escape, group.ambiguity_reasons)) or "нет"}</p>
+    <div class="snapshot-grid">{_snapshot_card("До группы тика", before)}{_snapshot_card("После группы тика", after)}</div>
     {_possible_states(group, player_labels)}
-    <h2>Events in the same tick (unordered evidence set)</h2>
-    <p class="notice">Порядок событий внутри tick не доказан. No single intermediate order is drawn.</p>
+    <h2>События одного тика — без выдуманного порядка</h2>
+    <p class="notice">Порядок событий внутри тика не доказан. Единственный промежуточный порядок не рисуется.</p>
     <div class="events simultaneous">{events}</div>
     """
 
@@ -588,9 +587,9 @@ def _snapshot_card(title: str, snapshot: RoundSnapshot) -> str:
     possible = ""
     if snapshot.possible_states:
         possible = (
-            '<div class="possible"><b>Possible states</b>'
+            '<div class="possible"><b>Возможные состояния</b>'
             + "".join(
-                f"<span>{item.t_alive}T / {item.ct_alive}CT · dead {len(item.dead_players)}</span>"
+                f"<span>{item.t_alive}T / {item.ct_alive}CT · погибло {len(item.dead_players)}</span>"
                 for item in snapshot.possible_states
             )
             + "</div>"
@@ -600,7 +599,7 @@ def _snapshot_card(title: str, snapshot: RoundSnapshot) -> str:
     <article class="snapshot {escape(snapshot.state_status.value)}"><h3>{escape(title)}</h3>
       {_status_badge("state", snapshot.state_status.value)}
       <p class="alive-count"><strong>{snapshot.t_alive}T</strong> / <strong>{snapshot.ct_alive}CT</strong></p>
-      <p>phase {escape(snapshot.phase.value)} · bomb {escape(snapshot.bomb_state.value)}</p>
+      <p>фаза {escape(snapshot.phase.value)} · бомба {escape(snapshot.bomb_state.value)}</p>
       {f'<p class="warning-text">{escape(reasons)}</p>' if reasons else ""}{possible}
     </article>
     """
@@ -610,43 +609,43 @@ def _legacy_snapshot_card(title: str) -> str:
     return f"""
     <article class="snapshot unavailable"><h3>{escape(title)}</h3>
       {_status_badge("state", "unavailable")}
-      <p class="warning-text">Temporal 1.0 does not prove Temporal 1.1 tick-group or
-      per-event snapshot semantics. Recompute this match with Temporal 1.1.</p>
+      <p class="warning-text">Temporal 1.0 не подтверждает семантику групп тика и снимков отдельных событий Temporal 1.1.
+      Пересчитайте матч с Temporal 1.1.</p>
     </article>
     """
 
 
 def _possible_states(group: SimultaneousEventGroup, player_labels: dict[UUID, str]) -> str:
     if group.intermediate_state_status is IntermediateStateStatus.DETERMINISTIC:
-        return '<p class="notice good">Intermediate state is deterministic.</p>'
+        return '<p class="notice good">Промежуточное состояние детерминировано.</p>'
     if not group.possible_intermediate_states:
         return '<p class="notice warning">Порядок событий внутри tick не доказан.</p>'
     cards = "".join(
-        f"<article><b>Variant {index}</b><span>{state.t_alive}T / {state.ct_alive}CT</span>"
-        f"<small>first death candidate: "
-        f"{', '.join(_player_label(item, player_labels) for item in state.dead_players if item not in group.pre_group_state.dead_players) or 'not proven'}"
+        f"<article><b>Вариант {index}</b><span>{state.t_alive}T / {state.ct_alive}CT</span>"
+        f"<small>кандидат на первую смерть: "
+        f"{', '.join(_player_label(item, player_labels) for item in state.dead_players if item not in group.pre_group_state.dead_players) or 'не подтверждено'}"
         f"</small></article>"
         for index, state in enumerate(group.possible_intermediate_states, start=1)
     )
-    return f'<div class="possible-states"><h3>Possible intermediate states</h3>{cards}</div>'
+    return f'<div class="possible-states"><h3>Возможные промежуточные состояния</h3>{cards}</div>'
 
 
 def _projection_pair(group: SimultaneousEventGroup) -> str:
     pre = group.pre_group_state
     if group.post_group_state is None:
-        post = '<span class="unavailable-text">post-group state not deterministic</span>'
+        post = '<span class="unavailable-text">состояние после группы не детерминировано</span>'
     else:
         post = f"<strong>{group.post_group_state.t_alive}T / {group.post_group_state.ct_alive}CT</strong>"
-    return f'<div class="state-flow"><strong>{pre.t_alive}T / {pre.ct_alive}CT</strong><span>→ whole group →</span>{post}</div>'
+    return f'<div class="state-flow"><strong>{pre.t_alive}T / {pre.ct_alive}CT</strong><span>→ вся группа →</span>{post}</div>'
 
 
 def _capability_cards(summary: TemporalRunSummary) -> str:
     availability = summary.summary.availability
     selected = (
-        ("Tick-group state", availability.tick_group_state),
-        ("Per-event state", availability.per_event_state),
-        ("Intermediate ordering", availability.intermediate_ordering),
-        ("Final alive state", availability.final_alive_state),
+        ("Состояние группы тика", availability.tick_group_state),
+        ("Состояние отдельных событий", availability.per_event_state),
+        ("Промежуточный порядок", availability.intermediate_ordering),
+        ("Финальное число живых", availability.final_alive_state),
     )
     return (
         '<div class="capability-grid">'
@@ -731,13 +730,13 @@ def _diagnostics_page(
         f"<strong>{len(items[kind])}</strong></a>"
         for kind, label in _DIAGNOSTIC_KINDS.items()
     )
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in summary.warnings) or "<li>None</li>"
+    warnings = "".join(f"<li>{escape(item)}</li>" for item in summary.warnings) or "<li>Нет</li>"
     return f"""
-    {_breadcrumbs(("Temporal match", f"/ui/temporal/{summary.match_id}{_run_query(summary.temporal_run_id)}"), ("Diagnostics", None))}
-    {_run_banner(summary)}<h1>Diagnostics</h1>{_capability_cards(summary)}
+    {_breadcrumbs(("Хронология матча", f"/ui/temporal/{summary.match_id}{_run_query(summary.temporal_run_id)}"), ("Диагностика", None))}
+    {_run_banner(summary)}<h1>Диагностика</h1>{_capability_cards(summary)}
     <div class="counter-grid">{counters}</div>
-    <h2>Warnings</h2><ul class="warnings">{warnings}</ul>
-    <h2>Runs</h2>{_runs_table(runs, summary.match_id)}
+    <h2>Предупреждения</h2><ul class="warnings">{warnings}</ul>
+    <h2>Расчёты</h2>{_runs_table(runs, summary.match_id)}
     """
 
 
@@ -747,17 +746,17 @@ def _diagnostic_list_page(
     rows = (
         "".join(
             f'<a class="diagnostic-row" href="{escape(str(item["href"]))}">'
-            f"<strong>Round {item['round_number']} · tick {item['tick']}</strong>"
+            f"<strong>Раунд {item['round_number']} · тик {item['tick']}</strong>"
             f"<span>{escape(str(item['label']))}</span>"
             f"<small>{escape(', '.join(item['event_ids']))}</small></a>"
             for item in items
         )
-        or '<p class="notice good">No matching diagnostics in this run.</p>'
+        or '<p class="notice good">В этом расчёте таких диагностических записей нет.</p>'
     )
     return f"""
-    {_breadcrumbs(("Diagnostics", f"/ui/temporal/{summary.match_id}/diagnostics{_run_query(summary.temporal_run_id)}"), (_DIAGNOSTIC_KINDS[kind], None))}
+    {_breadcrumbs(("Диагностика", f"/ui/temporal/{summary.match_id}/diagnostics{_run_query(summary.temporal_run_id)}"), (_DIAGNOSTIC_KINDS[kind], None))}
     {_run_banner(summary)}<h1>{escape(_DIAGNOSTIC_KINDS[kind])}</h1>
-    <p>{len(items)} item(s) in the selected run.</p><div class="diagnostic-list">{rows}</div>
+    <p>Записей в выбранном расчёте: {len(items)}.</p><div class="diagnostic-list">{rows}</div>
     """
 
 
@@ -770,20 +769,20 @@ def _runs_table(runs: tuple[TemporalRunRecord, ...], match_id: UUID) -> str:
         f"<td>{_run_link(item, match_id)}</td></tr>"
         for item in runs
     )
-    return f'<div class="table-wrap"><table><thead><tr><th>Schema</th><th>Rule</th><th>Run ID</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>'
+    return f'<div class="table-wrap"><table><thead><tr><th>Схема</th><th>Правило</th><th>ID расчёта</th><th>Создан</th><th>Статус</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>'
 
 
 def _run_banner(summary: TemporalRunSummary) -> str:
     legacy = summary.temporal_schema_version == "1.0.0"
     message = (
-        "Legacy Temporal 1.0 run. Simultaneous-group classifications are unavailable; "
-        "this page does not mix data from Temporal 1.1."
+        "Устаревший расчёт Temporal 1.0. Классификация одновременных групп недоступна; "
+        "данные Temporal 1.1 на этой странице не смешиваются."
         if legacy
-        else "Temporal 1.1 run selected. Every page and link is pinned to this run ID."
+        else "Выбран расчёт Temporal 1.1. Все страницы и ссылки закреплены за этим ID расчёта."
     )
     return f"""
     <div class="run-banner {"legacy" if legacy else "current"}">
-      <b>Schema {escape(summary.temporal_schema_version)} · rule {escape(summary.temporal_rule_version)}</b>
+      <b>Схема {escape(summary.temporal_schema_version)} · правило {escape(summary.temporal_rule_version)}</b>
       <span>{escape(message)}</span><code>{escape(str(summary.temporal_run_id))}</code>
     </div>
     """
@@ -791,16 +790,16 @@ def _run_banner(summary: TemporalRunSummary) -> str:
 
 def _run_status(run: TemporalRunRecord) -> str:
     if run.selected_by_default:
-        return "current default" if not run.legacy else "legacy fallback"
+        return "текущий по умолчанию" if not run.legacy else "резервный устаревший"
     if run.legacy:
-        return "legacy compatible"
-    return "compatible" if run.compatible else "incompatible"
+        return "совместимый устаревший"
+    return "совместимый" if run.compatible else "несовместимый"
 
 
 def _run_link(run: TemporalRunRecord, match_id: UUID) -> str:
     if not run.compatible:
-        return '<span class="muted">not viewable by this build</span>'
-    return f'<a href="/ui/temporal/{match_id}?run_id={run.temporal_run_id}">view isolated run</a>'
+        return '<span class="muted">нельзя открыть в этой версии</span>'
+    return f'<a href="/ui/temporal/{match_id}?run_id={run.temporal_run_id}">открыть отдельно</a>'
 
 
 def _is_legacy(summary: TemporalRunSummary) -> bool:
@@ -810,12 +809,12 @@ def _is_legacy(summary: TemporalRunSummary) -> bool:
 def _player_label(player_id: UUID, labels: dict[UUID, str]) -> str:
     name = labels.get(player_id)
     if name is None:
-        return f'<span class="mono">{escape(str(player_id))}</span>'
-    return f'{escape(name)} <span class="mono">({escape(str(player_id))})</span>'
+        return "Игрок без подтверждённого имени"
+    return escape(name)
 
 
 def _optional_player_label(player_id: UUID | None, labels: dict[UUID, str]) -> str:
-    return _player_label(player_id, labels) if player_id is not None else "not proven"
+    return _player_label(player_id, labels) if player_id is not None else "не подтверждено"
 
 
 def _status_badge(label: str, value: str) -> str:
@@ -824,17 +823,19 @@ def _status_badge(label: str, value: str) -> str:
         if value in {"conflicting", "unresolved", "unavailable"}
         else ("warn" if value in {"ambiguous", "ambiguous_order", "partial"} else "good")
     )
-    return f'<span class="status {css}">{escape(label)}: {escape(value)}</span>'
+    labels = {"ordering": "порядок", "intermediate": "промежуточное", "final": "финальное", "state": "состояние"}
+    values = {"available": "доступно", "partial": "частично", "unavailable": "недоступно", "deterministic": "детерминировано", "ambiguous": "неоднозначно", "ambiguous_order": "порядок неоднозначен", "conflicting": "конфликт", "unresolved": "не разрешено"}
+    return f'<span class="status {css}">{escape(labels.get(label, label))}: {escape(values.get(value, value))}</span>'
 
 
 def _round_breadcrumbs(summary: TemporalRunSummary, round_number: int, leaf: str | None) -> str:
     values: list[tuple[str, str | None]] = [
         (
-            "Temporal match",
+            "Хронология матча",
             f"/ui/temporal/{summary.match_id}{_run_query(summary.temporal_run_id)}",
         ),
         (
-            f"Round {round_number}",
+            f"Раунд {round_number}",
             None
             if leaf is None
             else f"/ui/temporal/{summary.match_id}/rounds/{round_number}{_run_query(summary.temporal_run_id)}",

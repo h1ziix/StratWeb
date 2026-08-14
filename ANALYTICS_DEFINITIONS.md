@@ -118,6 +118,12 @@ First advantage — первое ненулевое signed difference после
 nullable value без valid lineup или authoritative winner. Opening conversion и first
 advantage conversion хранятся отдельно.
 
+Stage 8.4 не пересчитывает эту шкалу и не меняет её смысл. Feature
+`lost_man_advantage` повторно использует закреплённый Analytics transition, поэтому
+суицид, teamkill и world death могут изменить численное состояние, хотя сами не
+считаются ordinary enemy kill. Классификация события сохраняется как evidence; факт
+потери преимущества не является утверждением о причине ошибки команды.
+
 ## Bomb metrics
 
 V1 учитывает assigned live `planted`, `defused`, `exploded`. Player plants/defuses

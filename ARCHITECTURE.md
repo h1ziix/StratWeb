@@ -247,8 +247,8 @@ immutable данных.
 ### ReportGenerator
 
 Рендерит только поля готовых findings и evidence. Он не пересчитывает метрики и не
-добавляет новые тактические утверждения. Первый формат MVP — Markdown/JSON; PDF/HTML
-можно добавить позднее отдельным adapter-ом.
+добавляет новые тактические утверждения. Stage 8.9 предоставляет отдельные JSON,
+printable HTML и PDF adapters над одним versioned export contract.
 
 ## 5. Контракты портов
 
@@ -394,7 +394,8 @@ Malformed raw row может быть пропущен с non-fatal issue и н�
 
 Статистическая семантика:
 
-- `sample_size` — число независимых матчей, реально внёсших вклад;
+- `sample_size` — denominator конкретного finding; число матчей хранится отдельно в
+  `numerator_match_count`/`denominator_match_count`;
 - `numerator` — число возможностей, где правило сработало;
 - `denominator` — число eligible opportunities по definition конкретного rule;
 - `frequency = numerator / denominator` проверяется моделью;
@@ -1070,3 +1071,322 @@ Canonical match deletion removes dependent opponent selections in the same trans
 and leaves the profile intact. Versioned rules and the complete contract are documented
 in [OPPONENT_MODEL.md](OPPONENT_MODEL.md). No analysis finding, tactical label,
 recommendation or LLM behavior is introduced.
+
+## Stage 8.2B architectural decision — materialized zone evidence
+
+Named zones are persisted in a separate layer after Spatial computation. The
+dependency direction is:
+
+```text
+authored ZoneSetDefinition + exact SpatialRunSummary + SpatialSnapshots
+    → pure ZoneAssignmentEngine
+    → ZoneAssignmentRepository port
+    → DuckDBZoneAssignmentRepository
+    → read-only CLI/API/playback views
+```
+
+The layer does not mutate `spatial_runs`. A `zone_assignment_run` pins the exact
+Spatial fingerprint/run, canonical map revision, map-definition fingerprint,
+zone-set SHA-256, every zone rule version and config hash. Assignments copy the
+resolved zone identity and link back to the exact Spatial snapshot. Consequently,
+editing zone source code creates a new fingerprint and cannot silently reinterpret
+historical results.
+
+`unknown` means a valid world coordinate did not fall inside proven geometry.
+`unavailable` means resolution could not be attempted. Neither becomes a nearest-zone
+guess. An unproven map revision is allowed only by an explicit fingerprinted config and
+forces `partial` capability plus a warning; strict callers can block it.
+`proposed` polygons are excluded from persisted evidence; an entirely proposed set is
+typed `unavailable` until it is manually overlay-verified.
+
+Migration 017 stores compact typed columns rather than duplicating each full Spatial
+payload. API/playback joins assignments in batches by snapshot ID and only selects a
+zone run whose `spatial_run_id` exactly matches the page's Spatial run. Spatial/match
+deletion is application-managed child-first because the project's DuckDB version does
+not provide reliable transactional FK cascade semantics.
+
+## Stage 8.3 architectural decision — freeze-end economy evidence
+
+Economy is a parser-isolated sibling of Spatial, not a field added to canonical events:
+
+```text
+canonical rounds/memberships + exact source .dem
+    → Demoparser2EconomyExtractor at freeze_end ticks
+    → pure EconomyEngine
+    → EconomyRepository port
+    → DuckDB economy run/player/team snapshots
+    → read-only CLI/API filters
+    → typed Economy view models → server-rendered read-only UI
+```
+
+Each `EvidenceValue` carries availability, source and coverage. Complete team totals
+require complete player evidence; partial totals are visible but cannot silently become
+definitive classifications. The engine uses parser-provided equipment/spend values and
+does not reconstruct prices from item IDs.
+
+An Economy run pins canonical dataset fingerprint, source demo SHA-256, parser
+name/version, schema/rule/item-category/value-policy versions, config hash, actual
+source columns and deterministic input fingerprint. Migration 018 stores filterable
+round/side/buy columns and full typed payload JSON. The default repository selection is
+the newest compatible run, and rows from different runs are never mixed.
+
+Economy computation is a durable import checkpoint after canonical persistence. It
+does not alter Analytics V1 results; Stage 8.4+ consumers can explicitly filter their
+round population using `team_economy_snapshots.buy_type`.
+
+The Stage 8.3.1 UI pins the selected Economy run before reading team and player rows,
+so one page cannot combine snapshots from different rule versions. Presentation models
+format only known values; unavailable evidence is rendered as unavailable, not zero.
+Filtering is performed by the repository query and player rows are joined only to the
+visible `(round_number, side)` team snapshots. The UI remains a read-only projection and
+does not reclassify buys or calculate new analytical facts.
+
+## Stage 8.4 architectural decision — immutable per-round facts
+
+Stage 8.4 is a materialization layer over compatible persisted evidence, not another
+parser adapter:
+
+```text
+Canonical rounds/events + pinned Analytics + pinned Temporal
+    + pinned Spatial + pinned Zone Assignment + optional pinned Economy
+    → pure RoundFeatureEngine
+    → immutable RoundFeatureState
+    → RoundFeatureRepository
+    → DuckDB migration 019
+    → read-only CLI/API
+```
+
+One feature run pins every input fingerprint and rule version. Default reads select the
+newest compatible run, explicit run reads remain version-visible, and records from two
+runs are never joined. Replacing or deleting Analytics, Temporal, Spatial, Zones, or
+Economy removes dependent feature runs child-first so stale facts cannot masquerade as
+current evidence.
+
+Each atomic feature stores physical team and round identity, side, availability,
+rule version, known tick/zone, typed payload, evidence IDs and limitations. Same-tick
+alternatives remain alternatives; event UUID ordering is never promoted to physical
+truth. The engine reuses Temporal participant state and pinned Analytics facts instead
+of creating a third participant resolver or silently changing earlier semantics.
+
+V1 emits observed round facts only. General rotation detection, save intent, tactic
+names, cross-match frequency, causality, recommendations and LLM text are outside this
+layer. Their absence is represented explicitly rather than filled by heuristics.
+
+### Stage 8.4.1 presentation boundary
+
+The Round Facts page pins one feature run before querying rows. Filters execute in the
+repository and pages are capped at 100 rows plus one look-ahead record; the browser is
+not handed the full 1073-row real run at once. Typed view models turn known payload
+fields into short observation text, while the original typed payload, full evidence
+IDs, limitations, warnings, schema/rule version and fingerprint remain inspectable.
+
+The UI performs no pattern aggregation and does not upgrade partial or unavailable
+records. Map and timeline links navigate to the stored round/tick evidence. Rendering
+uses Jinja autoescape and a dedicated stylesheet; no client-side analytical logic or
+LLM is introduced.
+
+## Stage 8.5 architectural decision — cross-match aggregates, not findings
+
+Stage 8.5 consumes only a user-confirmed Opponent Workspace and compatible immutable
+Stage 8.4 feature runs:
+
+```text
+OpponentProfile + confirmed (match_id, physical team_id) selections
+    + latest compatible RoundFeature run for each selected match
+    -> application input composition
+    -> pure CrossMatchPatternEngine
+    -> immutable PatternState
+    -> PatternRepository port
+    -> DuckDB migration 020
+    -> CLI and JSON API
+```
+
+The aggregation key is exact `(profile_id, map_name, side, buy_type,
+feature_rule_version)`. Warmup and incomplete rounds are excluded. Missing buy type is
+retained as a separate partial scope rather than guessed or mixed with `unknown` economy
+classification. A selected match without a compatible feature run remains a typed
+excluded run input and contributes a visible warning.
+
+Every materialized value is a binomial record. It stores numerator, denominator,
+frequency, sample size, contributing-match count, eligible-match count, the configured
+minimum, a small-sample flag and a Wilson 95% interval computed by pure Python. The
+conservative lower bound is exposed as `confidence.score`; it is not a causal
+probability. Positive evidence and the entire denominator are both persisted, while
+unusable rounds are stored as typed exclusions. Evidence preserves feature, canonical
+event, Spatial snapshot and Economy snapshot IDs whenever the upstream fact supplies
+them.
+
+Player aggregation uses Steam ID only. A player without Steam ID has a match-scoped
+occurrence identity and any resulting record is partial; nickname equality never joins
+two occurrences. Multi-value facts such as early-zone presence may contribute to more
+than one value in the same round, but each value still has at most one numerator entry
+for that round.
+
+Pattern run identity pins schema/rule/config, the complete confirmed workspace and every
+input feature fingerprint. Default reads choose only a current compatible run; explicit
+historical reads remain possible, and data from two runs are never combined. Changes to
+the workspace or deletion/replacement of an upstream feature/match invalidate or remove
+the dependent run child-first.
+
+`early_rotation`, negative `retake_frequency` and `save_frequency` remain capability
+`unavailable`, because the Stage 8.4 evidence does not prove rotation semantics,
+non-attempts or player intent. Stage 8.5 emits neither `AnalysisFinding` nor tactical
+interpretation/recommendation/LLM text. Those are separate later stages and cannot alter
+the persisted Stage 8.5 statistics.
+
+## Stage 8.6 architectural decision — immutable evidence presentation contract
+
+Stage 8.6 is a deterministic materialization boundary, not a coaching rules engine:
+
+```text
+latest compatible Stage 8.5 PatternRun + exact persisted match/demo provenance
+    -> pure AnalysisFindingEngine
+    -> immutable AnalysisRun + AnalysisFinding + EvidenceReference
+    -> AnalysisRepository port
+    -> DuckDB migration 021
+    -> CLI and JSON evidence API
+```
+
+Each finding pins exactly one source pattern and copies its numerator, denominator,
+frequency, match counts, minimum sample size, small-sample flag and Wilson confidence
+without recomputation. The evidence collection preserves the complete denominator;
+`contributed_to_numerator` distinguishes positive rounds from denominator-only rounds.
+Every reference carries demo SHA-256, match, round, nullable tick, upstream IDs and
+deterministic exact map/timeline navigation.
+
+Observation text is a deterministic rendering of the stored scope and statistics.
+`tactical_implication`, `recommended_response` and `avoid` are independent typed values
+and remain `unavailable: stage_8_7_counter_strategy_rules_not_computed`. Stage 8.6 does
+not infer intent, causality or counterplay. Zero-frequency bins are excluded by default
+instead of being presented as affirmative findings; this choice is versioned config.
+
+Default reads require the analysis run to pin the currently selected compatible pattern
+run. Historical runs remain explicitly addressable and never mix. Pattern deletion or
+upstream invalidation removes dependent analysis rows child-first. Run/finding/evidence
+IDs are UUIDv5 over canonical content; database creation time is not part of equality.
+
+## Stage 8.6.1 architectural decision — derived recommendation-readiness gate
+
+Stage 8.6.1 is a pure, read-only policy evaluation over exactly one immutable
+`AnalysisRun`. It never changes finding statistics and never generates tactical text:
+
+```text
+pinned AnalysisRun + all findings + versioned FindingReadinessConfig
+    -> pure FindingReadinessEngine
+    -> ready | limited | blocked per finding + explicit reasons
+    -> CLI / JSON API
+```
+
+The default gate requires a 20-match corpus, at least two evidence matches for an
+individual finding, a non-partial source pattern, a known buy type, and no upstream
+small-sample warning. Missing evidence ticks remain typed limitations unless strict
+tick coverage is explicitly requested. Only `ready` findings are eligible inputs for
+Stage 8.7.
+
+The audit is derived rather than stored: the source Analysis run is immutable and the
+audit UUIDv5/fingerprint includes its fingerprint, schema/rule versions, full config,
+and sorted per-finding results. This keeps the result reproducible without creating a
+new persistence hierarchy before the Stage 8.7 consumer contract exists.
+
+## Stage 8.7 architectural decision — rules after readiness, never before
+
+Stage 8.7 adds a separate immutable materialization boundary:
+
+```text
+pinned AnalysisRun + derived readiness audit
+    -> pure CounterStrategyEngine
+    -> recommendation OR explicit skipped finding
+    -> CounterStrategyRepository
+    -> DuckDB migration 022
+    -> CLI / JSON API
+```
+
+The engine cannot consume findings from another Analysis run and requires the audit to
+cover every source finding exactly once. Only readiness `ready` can reach a rule.
+Observation and all numeric/evidence fields are copied unchanged; deterministic rules
+produce only tactical interpretation, response and avoid text. Every response is a
+historical pre-match hypothesis, never a causal or intent claim.
+
+The persisted run pins both the full readiness config and strategy config alongside
+their fingerprints and upstream versions. Repository preflight verifies complete
+one-time classification of every source finding and equality of the source observation,
+statistics, confidence and evidence IDs before commit. Analysis invalidation deletes
+dependent strategy rows child-first. Stage 8.8 renders these records but may not
+recalculate or silently filter them.
+
+## Stage 8.7.1 architectural decision — derived acceptance, not new facts
+
+Stage 8.7.1 reopens one immutable Strategy run and its exact upstream Analysis run,
+reproduces the pinned readiness audit, and evaluates a pure acceptance policy. It does
+not persist another run or modify recommendations. Its SHA-256/UUIDv5 identity covers
+the upstream fingerprints, validation versions/configuration, computed coverage, and
+ordered checks.
+
+Integrity failures and product blockers are separate. Broken provenance, mismatched
+manifest counts, incomplete finding classification, readiness bypass, changed
+statistics/evidence, evidence outside the confirmed corpus, duplicate recommendations,
+or prohibited causal language produce `failed`. A sound run with fewer than 20 confirmed
+matches, missing side coverage, or no publishable recommendation produces `blocked`.
+Only a run with neither failures nor blockers produces `passed`.
+
+This audit remains read-only at the CLI/API boundary. The Stage 8.8 UI may show
+its status and checks but may not reinterpret `blocked` as accepted or combine data from
+different Strategy runs. The normative contract is
+[COUNTER_STRATEGY_VALIDATION.md](COUNTER_STRATEGY_VALIDATION.md).
+
+## Stage 8.8 architectural decision — presentation pins facts, never derives them
+
+The scouting report composes exactly one compatible immutable Counter-Strategy run,
+its exact Analysis run, a reproduced readiness audit, and a Stage 8.7.1 validation
+audit. A typed server-side view model is the only input to autoescaped Jinja templates.
+The UI has no parser, statistical aggregation, tactical rule, or LLM dependency.
+
+Filters select existing findings by map, side, buy type, pattern, sample size, and
+Wilson conservative score. They cannot select arbitrary matches because that would
+change the denominator and require a new Analysis run. Pagination, JSON navigation,
+and evidence links always preserve the resolved Strategy run ID; historical and current
+runs are never mixed.
+
+Observation, tactical interpretation, response, and avoid remain separate values.
+Evidence detail renders the complete denominator and its numerator flags, exact
+match/round/nullable tick references, limitations, and upstream IDs, with direct map
+and timeline navigation. A blocked audit remains visibly blocked even when observations
+exist. The versioned presentation contract is documented in
+[SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md).
+
+## Stage 8.8.1a architectural decision — a versioned presentation contract
+
+The global UI is split into tokens, layout, reusable components and feature-level CSS.
+Semantic tokens are the stable boundary: feature pages may consume them, but must not
+assign new meanings to evidence states. Compatibility aliases keep specialized map and
+playback styles working while they are migrated incrementally.
+
+The Jinja environment publishes one design-system version into every page. A read-only
+style guide exercises the shared primitives and serves as a visual-regression target.
+This layer receives already-computed view models and contains no statistical or tactical
+logic. See [UI_DESIGN_SYSTEM.md](UI_DESIGN_SYSTEM.md).
+
+Stage 8.8.1b keeps navigation state client-side and evidence-neutral. Exact paths,
+route prefixes and explicit anchors determine only `aria-current` and visual emphasis.
+The shell does not fetch, filter, aggregate or reinterpret match data. Match identity is
+still provided by the existing physical-team-aware `match_context`.
+
+Stage 8.8.1c treats progressive disclosure as a presentation boundary, not a data
+boundary. Stored statistics, capability states and warnings remain server-rendered from
+typed view models. Templates can format labels and group existing values, but cannot
+derive new tactical claims or quality states. UUIDs, fingerprints, schemas and raw API
+links remain accessible inside technical disclosures.
+
+## Stage 8.8.2 architectural decision — presentation identity is not canonical identity
+
+Russian UI labels are resolved in the web presentation boundary. The localization layer
+does not enter analytics, persistence validation, fingerprints, or tactical rules.
+Canonical placeholders `TeamAlpha` and `TeamBravo` therefore remain stable internally but
+are rendered as neutral teams when no stronger source exists.
+
+Verified user-facing names are stored by migration 023 in `team_display_labels`, keyed by
+the immutable `(match_id, team_id)` pair. The row records a typed source and optional source
+reference. Product and opponent query services overlay this label after all evidence queries;
+they never mutate `teams.display_name`, roster membership, scores, or analysis manifests.
+FACEIT-style `team_<captain>` names are never inferred from nicknames because the inspected
+demo metadata does not prove them. See [UI_LOCALIZATION.md](UI_LOCALIZATION.md).

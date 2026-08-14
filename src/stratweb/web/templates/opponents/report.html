@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Отчёт: {{ workspace.profile.display_name }} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% endblock %}
+{% block content_class %}report-shell{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Отчёт</nav>
+{% if not report %}
+<section class="page-heading report-heading"><div><p class="eyebrow">Stage 8.8</p><h1>Отчёт недоступен</h1><p>{{ unavailable_reason }}</p></div></section>
+<div class="empty-state"><p>Сначала рассчитайте совместимые паттерны, наблюдения, готовность и контрстратегии.</p><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">К сопернику</a></div>
+{% else %}
+<section class="page-heading report-heading">
+  <div><p class="eyebrow">Доказательный отчёт о сопернике</p><h1>{{ report.display_name }}</h1><p>Исторические наблюдения по завершённым демкам. Без live-данных, причинных утверждений и статистики от LLM.</p></div>
+  <div class="report-acceptance {{ report.acceptance_css_class }}"><span>Готовность</span><strong>{{ report.acceptance_label }}</strong><small>подтверждено матчей: {{ report.included_matches }} / {{ report.required_matches }}</small></div>
+</section>
+
+<section class="acceptance-banner {{ report.acceptance_css_class }}" aria-labelledby="acceptance-title">
+  <div><p class="eyebrow">Проверка отчёта</p><h2 id="acceptance-title">{{ report.acceptance_label }}</h2><p>{{ report.acceptance_message }}</p></div>
+  <div class="button-row"><a class="button" href="#observations">Смотреть наблюдения</a><a class="button secondary" href="#data-quality">Проверить качество данных</a></div>
+</section>
+
+<section class="report-metrics" aria-label="Покрытие отчёта">
+  <article><span>Подтверждённый корпус</span><strong>{{ report.included_matches }}/{{ report.required_matches }}</strong><small>{{ report.maps|map('map_name')|join(', ') or 'Нет покрытия карт' }}</small></article>
+  <article><span>Наблюдения</span><strong>{{ report.source_findings }}</strong><small>прошли проверку: {{ report.ready_findings }}</small></article>
+  <article class="{{ 'unavailable' if report.recommendations_suppressed else ('available' if report.recommendations_count else 'partial') }}"><span>Рекомендации</span><strong>{{ report.recommendations_count }}</strong><small>{% if report.recommendations_suppressed %}скрыты из-за ошибки целостности{% else %}пропущено наблюдений: {{ report.skipped_findings }}{% endif %}</small></article>
+  <article><span>Доказательства</span><strong>{{ report.evidence_references }}</strong><small>ссылок в исходных наблюдениях</small></article>
+</section>
+
+<nav class="report-index" aria-label="Разделы отчёта">
+  <a href="#data-quality">Качество данных</a><a href="#observations">Наблюдения</a><a href="#recommendations">Ответы</a><a href="#corpus">Корпус</a><a href="#provenance">Версии</a>
+</nav>
+
+<section id="data-quality" class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Сначала надёжность</p><h2>Качество данных</h2></div><span>детерминированных проверок: {{ report.checks|length }}</span></div>
+  {% if report.warnings %}<div class="report-warning-list">{% for warning in report.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div>{% endif %}
+  <details class="product-disclosure quality-disclosure">
+  <summary>Показать все проверки ({{ report.checks|length }})</summary>
+  <div class="product-disclosure__content quality-grid">
+  {% for check in report.checks %}
+    <article class="quality-check {{ check.css_class }}"><header><span class="status {{ check.css_class }}">{{ check.status|status_label }}</span><strong>{{ check.label }}</strong></header><p>{{ check.message }}</p>{% if check.observed is not none or check.required is not none %}<small>Получено: <b>{{ check.observed if check.observed is not none else '—' }}</b> · Нужно: <b>{{ check.required if check.required is not none else '—' }}</b></small>{% endif %}</article>
+  {% endfor %}
+  </div></details>
+</section>
+
+<section id="observations" class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Сохранённые наблюдения</p><h2>Наблюдения с доказательствами</h2></div><span>по фильтрам: {{ report.filtered_findings }} · на странице: {{ report.visible_findings }}</span></div>
+  <p class="section-copy">Фильтры только показывают или скрывают готовые наблюдения. Числитель, знаменатель, уверенность и корпус доказательств не пересчитываются.</p>
+  <form class="report-filters" method="get" action="/ui/opponents/{{ report.profile_id }}/report">
+    <input type="hidden" name="run_id" value="{{ report.strategy_run_id }}">
+    <label>Карта<select name="map"><option value="">Все карты</option>{% for value in report.filter_options.maps %}<option value="{{ value }}" {% if report.filters.map_name == value %}selected{% endif %}>{{ value|map_name }}</option>{% endfor %}</select></label>
+    <label>Сторона<select name="side"><option value="">T + CT</option>{% for value in ['T', 'CT'] %}<option value="{{ value }}" {% if report.filters.side and report.filters.side.value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+    <label>Закуп<select name="buy_type"><option value="">Все закупы</option>{% for value in report.filter_options.buy_types %}<option value="{{ value }}" {% if report.filters.buy_type and report.filters.buy_type.value == value %}selected{% endif %}>{{ value|buy_type }}</option>{% endfor %}</select></label>
+    <label>Паттерн<select name="pattern_type"><option value="">Все паттерны</option>{% for value, label in report.filter_options.pattern_types %}<option value="{{ value }}" {% if report.filters.pattern_type and report.filters.pattern_type.value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Минимальная выборка<input type="number" name="minimum_sample_size" min="1" value="{{ report.filters.minimum_sample_size }}"></label>
+    <label>Минимальная оценка Уилсона<input type="number" name="minimum_confidence" min="0" max="1" step="0.01" value="{{ report.filters.minimum_confidence }}"></label>
+    <button type="submit">Применить</button><a class="button secondary" href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}">Сбросить</a>
+  </form>
+  {% if report.finding_groups %}
+    {% for group in report.finding_groups %}
+    <section class="finding-group" aria-labelledby="group-{{ group.key }}"><header><div><h3 id="group-{{ group.key }}">{{ group.title }}</h3><p>{{ group.subtitle }}</p></div><span>{{ group.findings|length }}</span></header>
+      <div class="finding-grid">
+      {% for finding in group.findings %}
+      <article class="finding-card">
+        <div class="finding-card__top"><span class="side-chip {{ finding.side|lower }}">{{ finding.side }}</span><span class="buy-chip">{{ finding.buy_type|buy_type }}</span><span>{{ finding.map_name|map_name }}</span><span class="status {{ finding.readiness_css_class }}">{{ finding.readiness_status|status_label }}</span></div>
+        <h4>{{ finding.title }}</h4><p class="finding-observation">{{ finding.observation }}</p>
+        <dl class="finding-stats"><div><dt>Частота</dt><dd>{{ finding.frequency_percent }}</dd></div><div><dt>Доля</dt><dd>{{ finding.numerator }}/{{ finding.denominator }}</dd></div><div><dt>Выборка</dt><dd>{{ finding.sample_size }}</dd></div><div><dt>Матчи</dt><dd>{{ finding.evidence_matches }}</dd></div><div><dt>Оценка Уилсона</dt><dd>{{ finding.confidence_score_percent }}</dd></div></dl>
+        <div class="finding-meta"><span>{{ finding.pattern_label }}</span><span>{{ finding.value_label }}</span>{% if finding.small_sample_warning %}<span class="badge warn">малая выборка</span>{% endif %}</div>
+        {% if finding.readiness_reasons %}<p class="finding-reason">{{ finding.readiness_reasons|join(' · ') }}</p>{% endif %}
+        <footer><span>доказательств: {{ finding.evidence_count }} · {{ finding.strategy_reason }}</span><a class="button secondary" href="{{ finding.detail_href }}">Доказательства</a></footer>
+      </article>
+      {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  {% else %}<div class="empty-state"><p>Сохранённых наблюдений по этим фильтрам нет. Неизвестные данные не превращались в отрицательные выводы.</p></div>{% endif %}
+  <nav class="report-pagination" aria-label="Страницы наблюдений">{% if report.previous_href %}<a class="button secondary" href="{{ report.previous_href }}">Назад</a>{% else %}<span></span>{% endif %}<span>Страница {{ report.page }} из {{ report.page_count }}</span>{% if report.next_href %}<a class="button secondary" href="{{ report.next_href }}">Вперёд</a>{% endif %}</nav>
+</section>
+
+<section id="recommendations" class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Правила контрстратегии</p><h2>Рекомендуемые ответы</h2></div><span>показано: {{ report.recommendations|length }}</span></div>
+  {% if report.recommendations %}<div class="recommendation-list">{% for item in report.recommendations %}<article class="recommendation-card"><header><div><span class="side-chip {{ item.side|lower }}">{{ item.side }}</span><span>{{ item.map_name|map_name }} · {{ item.buy_type|buy_type }}</span></div><span class="badge good">{{ item.category_label }}</span></header><h3>{{ item.title }}</h3><div class="recommendation-columns"><div><h4>Наблюдение</h4><p>{{ item.observation }}</p></div><div><h4>Тактическая интерпретация</h4><p>{{ item.tactical_interpretation }}</p></div><div class="response"><h4>Рекомендуемый ответ</h4><p>{{ item.recommended_response }}</p></div><div class="avoid"><h4>Чего избегать</h4><p>{{ item.avoid }}</p></div></div><footer><span>{{ item.ratio }} · {{ item.frequency_percent }} · матчей: {{ item.evidence_matches }} · уверенность {{ item.confidence_score_percent }}</span><a href="{{ item.detail_href }}">Все доказательства</a></footer></article>{% endfor %}</div>
+  {% else %}<div class="empty-state report-empty">{% if report.recommendations_suppressed %}<strong>Рекомендации скрыты.</strong><p>Выбранный расчёт не прошёл проверку целостности. Исправьте или пересчитайте исходные данные перед использованием тактических советов.</p>{% else %}<strong>Пока нет рекомендации, пригодной для публикации.</strong><p>Наблюдения видны выше, но проверки готовности и размера корпуса пока не позволяют считать тактические советы принятыми.</p>{% if report.skip_reason_counts %}<div class="skip-counts">{% for reason, count in report.skip_reason_counts.items() %}<span><b>{{ count }}</b> {{ reason|replace('_', ' ') }}</span>{% endfor %}</div>{% endif %}{% endif %}</div>{% endif %}
+</section>
+
+<section id="corpus" class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Выбор владельца</p><h2>Корпус доказательств</h2></div><span>матчей: {{ report.corpus_matches|length }}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Карта</th><th>Команда соперника</th><th>Раунды</th><th>Статус</th><th></th></tr></thead><tbody>{% for match in report.corpus_matches %}<tr><td><strong>{{ match.map_name|map_name }}</strong></td><td>{{ match.team_name|team_name }}</td><td>{{ match.round_count }}</td><td><span class="status {{ 'available' if match.input_status == 'included' else 'unavailable' }}">{{ match.input_status|status_label }}</span></td><td><a href="{{ match.href }}">Открыть матч</a></td></tr>{% else %}<tr><td colspan="5">Зафиксированный состав корпуса недоступен.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+
+<details id="provenance" class="product-disclosure"><summary>Воспроизводимость, версии и исходные данные</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>Схема / представление</dt><dd><code>{{ report.report_schema_version }} / {{ report.report_view_rule_version }}</code></dd><dt>Расчёт стратегии</dt><dd><code>{{ report.strategy_run_id }}</code></dd><dt>Отпечаток стратегии</dt><dd><code>{{ report.strategy_fingerprint }}</code></dd><dt>Расчёт анализа</dt><dd><code>{{ report.source_analysis_run_id }}</code></dd><dt>Проверка</dt><dd><code>{{ report.validation_id }}</code></dd><dt>Отпечаток проверки</dt><dd><code>{{ report.validation_fingerprint }}</code></dd><dt>Охват</dt><dd>{{ report.maps|join(', ') or 'нет' }} · {{ report.sides|join(', ') or 'нет' }} · {{ report.buy_types|join(', ') or 'нет' }}</dd></dl><div class="button-row"><a class="button" href="{{ report.report_export_json_href }}">Скачать отчёт JSON</a><a class="button secondary" href="{{ report.report_print_href }}">Версия для печати</a><a class="button secondary" href="{{ report.report_pdf_href }}">Скачать PDF</a><a class="button secondary" href="{{ report.report_json_href }}">JSON текущего представления</a></div></div></details>
+{% endif %}
+{% endblock %}

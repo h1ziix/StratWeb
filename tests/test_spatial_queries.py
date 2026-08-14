@@ -333,21 +333,21 @@ def test_spatial_explorer_ui_api_and_temporal_links(
     assert all(
         text in page.text
         for text in (
-            "Match viewer",
+            "Просмотр матча",
             "scrubber",
-            "Play",
-            "Jump",
-            "Diagnostics",
-            "Smooth",
-            "Exact",
-            "Auto focus",
-            "Medium",
-            "Hidden",
+            "Пуск",
+            "Переход к событию",
+            "Диагностика",
+            "Плавный",
+            "Точный",
+            "Автофокус",
+            "Обычные",
+            "Скрыты",
         )
     )
     assert path.status_code == 200
-    assert "Lines connect consecutive stored samples" in path.text
-    assert "no route inference" in path.text
+    assert "Линии соединяют последовательные сохранённые снимки" in path.text
+    assert "маршрут не додумывается" in path.text
     assert all(
         response.status_code == 200
         for response in (tick_api, map_api, team_api, path_api, nearest_api)
@@ -361,7 +361,7 @@ def test_spatial_explorer_ui_api_and_temporal_links(
     assert playback.status_code == 200
     assert playback.json()["visual_interpolation_included"] is False
     assert playback.json()["evidence_semantics"] == "authoritative_spatial_samples"
-    assert playback.json()["schema_version"] == "1.2.0"
+    assert playback.json()["schema_version"] == "1.3.0"
     assert "player_samples" not in playback.json()
     assert "event_markers" not in playback.json()
     assert playback.json()["clock"] == {

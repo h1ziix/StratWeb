@@ -29,7 +29,7 @@ from stratweb.exceptions import (
     OpponentNotFoundError,
     OpponentSelectionError,
 )
-from stratweb.ports import MatchRepository, OpponentRepository
+from stratweb.ports import MatchRepository, OpponentRepository, TeamNameRepository
 
 
 @dataclass(slots=True)
@@ -45,9 +45,15 @@ class _RosterAccumulator:
 class OpponentWorkspaceService:
     """Keep inferred overlap separate from explicit persisted team selection."""
 
-    def __init__(self, opponents: OpponentRepository, matches: MatchRepository) -> None:
+    def __init__(
+        self,
+        opponents: OpponentRepository,
+        matches: MatchRepository,
+        team_names: TeamNameRepository | None = None,
+    ) -> None:
         self._opponents = opponents
         self._matches = matches
+        self._team_names = team_names
 
     def create_profile(self, display_name: str) -> OpponentProfile:
         normalized = _normalized_profile_name(display_name)
@@ -105,8 +111,7 @@ class OpponentWorkspaceService:
         confirmed_steam_ids = {
             item.steam_id
             for item in roster
-            if item.identity_status is RosterIdentityStatus.STEAM_ID
-            and item.steam_id is not None
+            if item.identity_status is RosterIdentityStatus.STEAM_ID and item.steam_id is not None
         }
         candidates = tuple(
             self._candidate_match(match, confirmed_steam_ids)
@@ -263,10 +268,11 @@ class OpponentWorkspaceService:
             raise MatchNotFoundError(f"Match not found: {selection.match_id}")
         team = self._team(selection.match_id, selection.team_id)
         players = self._team_players(selection.match_id, selection.team_id)
+        display_names = self._display_names(selection.match_id)
         alternates = tuple(
             AlternateTeamOption(
                 team_id=other.team_id,
-                team_name=_team_name(other),
+                team_name=_team_name(other, display_names),
                 player_names=tuple(
                     player.current_name
                     for player in self._team_players(selection.match_id, other.team_id)
@@ -281,7 +287,7 @@ class OpponentWorkspaceService:
             map_name=stored.map_name or "Unknown map",
             source_name=stored.source_original_name or stored.server_name or "Completed demo",
             round_count=stored.round_count,
-            team_name=_team_name(team),
+            team_name=_team_name(team, display_names),
             player_names=tuple(player.current_name for player in players),
             identified_player_count=sum(player.steam_id is not None for player in players),
             unresolved_player_count=sum(player.steam_id is None for player in players),
@@ -292,13 +298,19 @@ class OpponentWorkspaceService:
         stored: StoredMatch,
         confirmed_steam_ids: set[str],
     ) -> CandidateMatch:
+        display_names = self._display_names(stored.match_id)
         return CandidateMatch(
             match_id=stored.match_id,
             map_name=stored.map_name or "Unknown map",
             source_name=stored.source_original_name or stored.server_name or "Completed demo",
             round_count=stored.round_count,
             teams=tuple(
-                self._candidate_team(stored.match_id, team, confirmed_steam_ids)
+                self._candidate_team(
+                    stored.match_id,
+                    team,
+                    confirmed_steam_ids,
+                    display_names,
+                )
                 for team in self._matches.get_teams(stored.match_id)
             ),
         )
@@ -308,6 +320,7 @@ class OpponentWorkspaceService:
         match_id: UUID,
         team: CanonicalTeam,
         confirmed_steam_ids: set[str],
+        display_names: dict[UUID, str],
     ) -> CandidateTeam:
         players = self._team_players(match_id, team.team_id)
         steam_to_name = {
@@ -329,7 +342,7 @@ class OpponentWorkspaceService:
             strength = OverlapStrength.WEAK
         return CandidateTeam(
             team_id=team.team_id,
-            team_name=_team_name(team),
+            team_name=_team_name(team, display_names),
             player_names=tuple(player.current_name for player in players),
             steam_ids=tuple(sorted(steam_ids)),
             missing_steam_id_count=sum(player.steam_id is None for player in players),
@@ -363,9 +376,17 @@ class OpponentWorkspaceService:
                 return team
         raise OpponentSelectionError("Selected physical team is unavailable.")
 
+    def _display_names(self, match_id: UUID) -> dict[UUID, str]:
+        if self._team_names is None:
+            return {}
+        return {
+            item.team_id: item.display_name
+            for item in self._team_names.list_for_match(match_id)
+        }
 
-def _team_name(team: CanonicalTeam) -> str:
-    return team.display_name or team.internal_name
+
+def _team_name(team: CanonicalTeam, display_names: dict[UUID, str]) -> str:
+    return display_names.get(team.team_id) or team.display_name or team.internal_name
 
 
 def _normalized_profile_name(display_name: str) -> str:

@@ -5,16 +5,22 @@ StratWeb — локальное backend-приложение для доказа
 командные и индивидуальные паттерны, но каждый вывод обязан ссылаться на конкретные
 демки, матчи и раунды.
 
-Реализованы этапы 1–8.1: inspection и canonical dataset (`demoparser2==0.41.4`
-за портом), DuckDB persistence (миграции 001–016), `Gameplay Analytics Engine V1`
+Реализованы этапы 1–8.8.2: inspection и canonical dataset (`demoparser2==0.41.4`
+за портом), DuckDB persistence (миграции 001–023), `Gameplay Analytics Engine V1`
 (opening/trade/KAST/multikill/advantage/bomb метрики), `Temporal Round State
 Engine 1.1.0` (immutable timeline, snapshots — [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)),
 Spatial Engine с playback viewer ([SPATIAL_MODEL.md](SPATIAL_MODEL.md),
 [PLAYBACK_MODEL.md](PLAYBACK_MODEL.md)), карты с версионированными overview
-([MAP_MODEL.md](MAP_MODEL.md)), локальный upload `.dem` с durable import jobs
-и Opponent Workspace ([OPPONENT_MODEL.md](OPPONENT_MODEL.md)). Все движки
+([MAP_MODEL.md](MAP_MODEL.md)), локальный upload `.dem` с durable import jobs,
+Opponent Workspace ([OPPONENT_MODEL.md](OPPONENT_MODEL.md)), versioned Zone
+Assignment Runs ([ZONE_MODEL.md](ZONE_MODEL.md)), Economy Context и детерминированные
+per-round tactical facts ([ROUND_FEATURE_MODEL.md](ROUND_FEATURE_MODEL.md)) и
+cross-match patterns ([PATTERN_MODEL.md](PATTERN_MODEL.md)) и воспроизводимые findings
+([FINDING_MODEL.md](FINDING_MODEL.md)). Основные продуктовые страницы имеют русский
+presentation-слой, а проверенные вручную названия команд хранятся отдельно от canonical
+identity ([UI_LOCALIZATION.md](UI_LOCALIZATION.md)). Все движки
 parser-independent и детерминированы; tick — authoritative единица времени.
-Дальнейшие этапы (zones, economy, features, patterns, findings, отчёты) — в
+Дальнейшие этапы (рекомендации и отчёты) — в
 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Безопасная область продукта
@@ -43,9 +49,15 @@ src/stratweb/
 ├── analytics/         # pure Gameplay Analytics Engine V1 и validation
 ├── temporal/          # pure Temporal Round State Engine и snapshots
 ├── spatial/           # pure Spatial Engine, projectiles и map overview queries
+├── economy/           # freeze-end equipment evidence и buy classification
+├── features/          # pure deterministic Stage 8.4 per-round facts
+├── patterns/          # pure deterministic Stage 8.5 cross-match aggregates
+├── findings/          # pure deterministic Stage 8.6 findings + evidence
+├── readiness/         # Stage 8.6.1 quality gate before recommendations
+├── counter_strategy/  # Stage 8.7 deterministic recommendation rules
 ├── maps/              # версионированные map definitions, transforms и registry
 ├── application/       # inspection, normalization, import/query, playback,
-│                      # opponents и import jobs use cases
+│                      # opponents, economy, features, patterns и import jobs use cases
 ├── web/               # FastAPI routers, Jinja templates, static JS/CSS viewer
 ├── domain/            # parser-independent модели и enum
 ├── reporting/         # будущие renderer-ы отчётов
@@ -53,7 +65,7 @@ src/stratweb/
 ├── contracts.py       # DTO между портами
 ├── exceptions.py      # typed inspection/import/persistence errors
 ├── cli.py             # inspect/normalize/db/import/matches/rounds/analytics/
-│                      # temporal/spatial commands
+│                      # temporal/spatial/features/patterns commands
 ├── main.py            # FastAPI-приложение и composition root
 └── ports.py           # интерфейсы модулей
 tests/                 # 36 модулей: unit, integration, UI и frontend tests
@@ -398,16 +410,27 @@ Git. Отдельный сервер БД не нужен: DuckDB являетс
 ## Текущие ограничения
 
 Реализованы локальный upload `.dem` с durable import jobs (Stage 7.2/8.0),
-playback viewer и Opponent Workspace (Stage 8.1); write-действия ограничены
-loopback. Нет LLM и генератора тактических отчётов. Не реализованы economy,
-equipment value, clutch, heatmaps, zones, path clustering, spacing,
-execute/default/tactical pattern detection и counter-strategy generation —
-это Stage 8.2+ по [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
-`parse_ticks` вызывается только Spatial extractor-ом для заранее выбранных Temporal ticks.
+playback viewer, Opponent Workspace (Stage 8.1) и детерминированное ядро Map
+Zone Engine; write-действия ограничены loopback. Принятые ручные наборы
+Anubis, Cache и Mirage закреплены в коде. Stage 8.2B материализует точный
+`resolved|unknown|unavailable` для каждого Spatial snapshot в отдельном
+versioned run; playback показывает сохранённую зону выбранного игрока. Stage 8.3
+добавляет versioned freeze-end Economy runs: equipment/spend/inventory evidence и
+консервативные `pistol|eco|force|semi|full|unknown` labels отдельно для T/CT. Stage 8.4
+сохраняет атомарные факты каждого раунда: расстановки и раннее присутствие по зонам,
+первые контакты/utility, opening duel, путь бомбы, plant/post-plant, потерю
+преимущества и непротрейженные смерти. Stage 8.5 находит только доказательные
+повторения и не называет их execute/default, не объясняет причины и не рекомендует
+контрстратегию. Stage 8.6 сохраняет observation/findings и полный evidence, но не
+добавляет coaching semantics. Stage 8.7 формирует только прошедшие readiness gate
+контрстратегии, а Stage 8.8 показывает pinned evidence-first отчёт. LLM отсутствует.
+Не реализованы clutch, heatmaps, path clustering и spacing; tactical interpretation
+появляется только у опубликованной deterministic recommendation.
+`parse_ticks` вызывается Spatial extractor-ом для заранее выбранных Temporal ticks и
+Economy extractor-ом только для canonical freeze-end ticks.
 DuckDB workflow рассчитан на одного локального writer process. FACEIT fixture
 проверена; полноценные Valve/HLTV/POV fixtures остаются ограничением corpus.
-Тактическая аналитика (Stage 8.2+) не начата и требует отдельного
-подтверждения.
+Полноценные Stage 8.5 corpus-проверки на 20+ матчах одного соперника ещё требуются.
 
 ### Spatial Engine Foundation
 
@@ -423,6 +446,161 @@ stratweb spatial validate MATCH_ID --db .\data\stratweb.duckdb --pretty
 stratweb spatial runs MATCH_ID --db .\data\stratweb.duckdb --pretty
 stratweb spatial delete MATCH_ID --yes --db .\data\stratweb.duckdb
 ```
+
+### Versioned Zone Assignment Runs
+
+После Spatial run детерминированный слой назначает каждой сохранённой позиции
+доказанную именованную зону либо сохраняет `unknown`/`unavailable`:
+
+```powershell
+stratweb zones compute MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb zones status MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb zones runs MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb zones show MATCH_ID --round 1 --status unknown --limit 100 --db .\data\stratweb.duckdb --pretty
+```
+
+`zones compute` выбирает последний совместимый Spatial run. Для точного
+исторического запуска используйте `--spatial-run UUID`. Флаг
+`--require-proven-map-revision` запрещает назначения, если ревизия карты не
+доказана метаданными демки. По умолчанию такие назначения разрешены, но run
+маркируется `partial` и сохраняет warning — это не скрытая догадка.
+
+JSON API: `GET /api/zones/{match_id}/summary`, `/runs`, `/assignments`.
+
+### Economy and Equipment Context
+
+Экономический слой требует точную исходную демку с тем же SHA-256 и сохраняет
+доказательный снимок закупа отдельно для каждой стороны:
+
+```powershell
+stratweb economy compute MATCH_ID "C:\path\to\match.dem" --db .\data\stratweb.duckdb --pretty
+stratweb economy status MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb economy teams MATCH_ID --buy-type full --side CT --db .\data\stratweb.duckdb --pretty
+stratweb economy players MATCH_ID --round 1 --db .\data\stratweb.duckdb --pretty
+```
+
+Семантика, provenance и ограничения описаны в
+[ECONOMY_MODEL.md](ECONOMY_MODEL.md); проверенный API парсера — в
+[ECONOMY_PARSER_AUDIT.md](ECONOMY_PARSER_AUDIT.md).
+
+Визуальная Economy-страница: `/ui/matches/MATCH_ID/economy`. Она показывает coverage,
+закупы T/CT по раундам, деньги и раскрываемую экипировку игроков; фильтры не смешивают
+разные Economy runs. JSON остаётся доступен через `/api/economy/{match_id}/summary`,
+`/teams` и `/players`.
+
+### Per-Round Tactical Features
+
+Stage 8.4 объединяет только совместимые сохранённые Analytics, Temporal, Spatial,
+Zone Assignment и optional Economy runs. Он не распознаёт названия тактик и не
+сравнивает матчи:
+
+```powershell
+stratweb features compute MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb features status MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb features runs MATCH_ID --db .\data\stratweb.duckdb --pretty
+stratweb features show MATCH_ID --round 10 --side T --type first_contact --db .\data\stratweb.duckdb --pretty
+stratweb features delete MATCH_ID --yes --db .\data\stratweb.duckdb
+```
+
+Read-only JSON API: `/api/features/{match_id}/summary`, `/runs` и `/records`.
+`records` фильтруется по `round`, `team_id`, `side`, `type`, `availability` и
+`buy_type`. Семантика и честные ограничения V1 описаны в
+[ROUND_FEATURE_MODEL.md](ROUND_FEATURE_MODEL.md).
+
+Визуальная Stage 8.4.1 страница: `/ui/matches/MATCH_ID/features`. Она показывает
+карточки coverage, таблицу по раундам, фильтры, раскрываемые typed payload/evidence и
+переходы на map/timeline. Страница закрепляет один feature run и выводит не более 100
+записей за раз. Она не вычисляет паттерны — данные предназначены для следующего
+cross-match слоя.
+
+### Cross-Match Opponent Patterns
+
+Stage 8.5 агрегирует только матчи и физические команды, которые пользователь явно
+закрепил в одном Opponent Workspace. Он не объединяет соперника по названию команды
+или nickname и не смешивает map, сторону, тип закупа или версии feature rules:
+
+```powershell
+stratweb patterns compute PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb patterns status PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb patterns runs PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb patterns show PROFILE_ID --map de_mirage --side T --buy-type full `
+  --type site_preference --db .\data\stratweb.duckdb --pretty
+stratweb patterns delete PROFILE_ID --yes --db .\data\stratweb.duckdb
+```
+
+По умолчанию предупреждение о маленьком корпусе действует до 20 включённых матчей,
+а для отдельной частоты — при denominator меньше 5. Каждая запись возвращает
+numerator/denominator/frequency, Wilson 95% interval, полный denominator и точные
+evidence-ссылки для числителя. Неизвестное не превращается в отрицательный факт.
+
+JSON API: `POST /api/opponents/{profile_id}/patterns/compute` (только localhost),
+`GET /api/opponents/{profile_id}/patterns/summary`, `/runs` и `/patterns`. У list API
+есть фильтры `map`, `side`, `buy_type`, `type` и `availability`. Отдельного pattern UI
+нет: patterns представлены через evidence-first report Stage 8.8.
+Точные denominators и ограничения описаны в [PATTERN_MODEL.md](PATTERN_MODEL.md).
+
+### Reproducible Analysis Findings
+
+Stage 8.6 закрепляет один совместимый pattern run и материализует observation вместе с
+полным evidence appendix. Эти исходные findings остаются неизменными и
+typed-unavailable; Stage 8.7 хранит рекомендации отдельным run:
+
+```powershell
+stratweb findings compute PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb findings status PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb findings runs PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb findings show PROFILE_ID --side T --type site_preference `
+  --db .\data\stratweb.duckdb --pretty
+stratweb findings evidence PROFILE_ID FINDING_ID --db .\data\stratweb.duckdb --pretty
+```
+
+Stage 8.6.1 проверяет, какие findings вообще допустимо передавать будущим правилам
+рекомендаций. По умолчанию нужны 20 матчей в корпусе, минимум два матча в evidence,
+неpartial источник и известный buy type:
+
+```powershell
+stratweb readiness audit PROFILE_ID --db .\data\stratweb.duckdb --summary-only --pretty
+```
+
+Результат `ready|limited|blocked` и каждая причина вычисляются детерминированно;
+Stage 8.6.1 не создаёт рекомендаций. Контракт: [FINDING_READINESS.md](FINDING_READINESS.md).
+
+Stage 8.7 публикует рекомендации только для `ready` findings и сохраняет каждый
+непройденный finding с точной причиной:
+
+```powershell
+stratweb strategies compute PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb strategies status PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb strategies show PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb strategies skipped PROFILE_ID --db .\data\stratweb.duckdb --pretty
+stratweb strategies validate PROFILE_ID --db .\data\stratweb.duckdb --pretty
+```
+
+Текущий профиль содержит один матч, поэтому правильный production-результат — ноль
+рекомендаций и `blocked` acceptance с явными причинами: корпус 1/20 и 0 готовых
+рекомендаций. Контракты: [COUNTER_STRATEGY_MODEL.md](COUNTER_STRATEGY_MODEL.md) и
+[COUNTER_STRATEGY_VALIDATION.md](COUNTER_STRATEGY_VALIDATION.md).
+
+JSON API находится под `/api/opponents/{profile_id}/analysis`: `/summary`, `/runs`,
+`/findings`, `/findings/{finding_id}` и `/findings/{finding_id}/evidence`; compute —
+localhost-only `POST /compute`. Контракт описан в
+[FINDING_MODEL.md](FINDING_MODEL.md).
+
+### Evidence-First Scouting Report
+
+Stage 8.8 показывает один pinned Strategy run как предматчевый отчёт:
+
+```text
+/ui/opponents/PROFILE_ID/report
+/api/opponents/PROFILE_ID/report
+```
+
+В отчёте есть acceptance/data quality, T-side и CT-side observations, individual и
+risk signals, отдельные tactical interpretation/recommended response/avoid,
+подтверждённый corpus manifest и полный evidence drill-down до match/round/tick/map/
+timeline. Фильтры не пересчитывают статистику. Если corpus gate не пройден, UI явно
+показывает `blocked`, а не маскирует результат под готовую рекомендацию. Контракт:
+[SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md).
 
 UI table: `/ui/spatial/MATCH_ID`; JSON: `/api/spatial/{match_id}/summary`,
 `/api/spatial/{match_id}/snapshots` и `/api/spatial/{match_id}/validation`. Таблица
@@ -695,3 +873,50 @@ POST /api/opponents/{profile_id}/matches/{match_id}/remove
 
 The contract is documented in [OPPONENT_MODEL.md](OPPONENT_MODEL.md). Stage 8.1 does
 not add zones, tactical patterns, findings, recommendations, reports or LLM behavior.
+
+### Stage 8.8.1a visual foundation
+
+All server-rendered pages now share a versioned visual foundation for typography,
+semantic colors, surfaces, controls, tables, statuses, focus and responsive behavior.
+Open `http://127.0.0.1:8000/ui/style-guide` to inspect the component reference. The
+contract and extension rules are documented in [UI_DESIGN_SYSTEM.md](UI_DESIGN_SYSTEM.md).
+This presentation-only stage does not change evidence or analytics.
+
+Stage 8.8.1b adds a two-level application shell. Product navigation and current-match
+tools no longer compete in one crowded row, the active destination is visible, and the
+match navigation remains usable on narrow screens.
+
+Stage 8.8.1c gives diagnostics, economy and scouting reports a product-first reading
+order: summary and warnings first, supporting details next, raw runs and JSON exports
+on demand. No evidence or deterministic calculation is hidden or changed.
+
+Stage 8.8.3 completes the Russian presentation pass for the main analytical workflow:
+round facts, 2D playback, temporal timelines and evidence-first opponent reports. Raw
+codes and identifiers remain available in diagnostics, while stored calculations and
+evidence are unchanged. See [STAGE_8_8_3.md](STAGE_8_8_3.md).
+
+Stage 8.8.4 upgrades the shared visual contract to 1.1.0 and finishes the product-wide
+polish pass. Reports, cards, filters, tables and technical disclosures now remain readable
+on narrow screens; keyboard focus, long-value wrapping and reduced-motion behavior are
+consistent across the application. This stage changes presentation only. See
+[STAGE_8_8_4.md](STAGE_8_8_4.md).
+
+### Stage 8.9 evidence report export
+
+The opponent report now exports one complete pinned source bundle in three formats:
+stable JSON, printable HTML and a generated PDF. Export does not apply screen filters or
+pagination and does not recalculate findings. It includes persisted run dates, every rule
+version, the demo manifest with original names and SHA-256 values, quality checks, sample
+limitations, findings, recommendations and the complete evidence denominator.
+
+Open an opponent report and expand the reproducibility section, or use:
+
+```text
+GET /api/opponents/{profile_id}/report/export.json?run_id={strategy_run_id}
+GET /ui/opponents/{profile_id}/report/print?run_id={strategy_run_id}
+GET /api/opponents/{profile_id}/report/export.pdf?run_id={strategy_run_id}
+```
+
+The generated attachment name uses internal UUIDs rather than the original demo or opponent
+name. JSON and PDF responses expose the same export fingerprint through `ETag`. See
+[REPORT_EXPORT.md](REPORT_EXPORT.md).

@@ -6,13 +6,13 @@ such as coordinates, but parser-specific column names must not leak into this mo
 
 from __future__ import annotations
 
-import math
 from typing import Annotated
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from stratweb.domain.enums import BombAction, DemoStatus, FindingSide, GrenadeAction, Side
+from stratweb.domain.enums import BombAction, DemoStatus, GrenadeAction, Side
+from stratweb.findings.models import AnalysisFinding, AnalysisRun, EvidenceReference
 
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 SteamId = Annotated[str, Field(pattern=r"^[0-9]+$", min_length=1, max_length=32)]
@@ -238,91 +238,6 @@ class PositionSample(GameEvent):
     velocity_y: float | None = Field(default=None, allow_inf_nan=False)
     velocity_z: float | None = Field(default=None, allow_inf_nan=False)
     is_alive: bool | None = None
-
-
-class EvidenceReference(DomainModel):
-    """A stable pointer from a conclusion to source demo/match/round data."""
-
-    id: UUID
-    finding_id: UUID
-    demo_file_id: UUID
-    demo_sha256: Sha256
-    match_id: UUID
-    round_id: UUID
-    round_number: int = Field(ge=1)
-    start_tick: int = Field(ge=0)
-    end_tick: int | None = Field(default=None, ge=0)
-    event_table: str = Field(min_length=1)
-    event_id: UUID | None = None
-    description: str = Field(min_length=1)
-    metrics_snapshot: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def validate_tick_range(self) -> EvidenceReference:
-        if self.end_tick is not None and self.end_tick < self.start_tick:
-            raise ValueError("end_tick must be greater than or equal to start_tick")
-        return self
-
-
-class AnalysisRun(DomainModel):
-    """Provenance for one immutable dataset/configuration analysis execution."""
-
-    id: UUID
-    analysis_version: str = Field(min_length=1)
-    configuration_hash: Sha256
-    dataset_fingerprint: Sha256
-    match_ids: tuple[UUID, ...] = Field(min_length=1)
-    opponent_team_ids: tuple[UUID, ...] = Field(min_length=1)
-    map_names: tuple[str, ...] = Field(min_length=1)
-    scope_description: str = Field(min_length=1)
-    created_at: AwareDatetime
-
-
-class AnalysisFinding(DomainModel):
-    """A deterministic observation, its interpretation, and auditable evidence."""
-
-    id: UUID
-    analysis_run_id: UUID
-    rule_id: str = Field(min_length=1)
-    rule_version: str = Field(min_length=1)
-    analysis_version: str = Field(min_length=1)
-    configuration_hash: Sha256
-    title: str = Field(min_length=1)
-    category: str = Field(min_length=1)
-    side: FindingSide
-    map_name: str = Field(min_length=1)
-    observation: str = Field(min_length=1)
-    tactical_implication: str = Field(min_length=1)
-    recommended_response: str = Field(min_length=1)
-    avoid: str = Field(min_length=1)
-    sample_size: int = Field(ge=1)
-    minimum_sample_size: int = Field(ge=1)
-    numerator: int = Field(ge=0)
-    denominator: int = Field(ge=1)
-    frequency: float = Field(ge=0, le=1, allow_inf_nan=False)
-    confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
-    confidence_method: str = Field(min_length=1)
-    evidence_references: tuple[EvidenceReference, ...] = Field(min_length=1)
-    limitations: tuple[str, ...] = Field(min_length=1)
-    small_sample_warning: str | None = None
-    created_at: AwareDatetime
-
-    @model_validator(mode="after")
-    def validate_statistics_and_evidence(self) -> AnalysisFinding:
-        if self.numerator > self.denominator:
-            raise ValueError("numerator must not exceed denominator")
-
-        expected_frequency = self.numerator / self.denominator
-        if not math.isclose(self.frequency, expected_frequency, rel_tol=0.0, abs_tol=1e-9):
-            raise ValueError("frequency must equal numerator / denominator")
-
-        if self.sample_size < self.minimum_sample_size and not self.small_sample_warning:
-            raise ValueError("small_sample_warning is required below minimum_sample_size")
-
-        if any(reference.finding_id != self.id for reference in self.evidence_references):
-            raise ValueError("every evidence reference must point to this finding")
-
-        return self
 
 
 __all__ = [

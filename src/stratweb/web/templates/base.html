@@ -1,45 +1,53 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ ui_locale }}" data-design-system-version="{{ design_system_version }}" data-locale-schema-version="{{ ui_locale_schema_version }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070a0f">
   <title>{% block title %}StratWeb{% endblock %}</title>
   <link rel="icon" href="{{ static_asset('favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ static_asset('css/tokens.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/layout.css') }}">
   <link rel="stylesheet" href="{{ static_asset('css/components.css') }}">
   {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ static_asset('css/polish.css') }}">
 </head>
 <body>
-  <a class="skip-link" href="#content">Skip to content</a>
+  <a class="skip-link" href="#content">Перейти к содержимому</a>
   <header class="app-bar">
-    <a class="brand" href="/ui" aria-label="StratWeb match library">STRAT<span>WEB</span></a>
-    <nav class="top-nav" aria-label="Primary">
-      <a href="/ui">Matches</a>
-      <a href="/ui/opponents">Opponents</a>
-      {% if match_context %}
-      <a href="/ui/matches/{{ match_context.match_id }}">Overview</a>
-      <a href="/ui/matches/{{ match_context.match_id }}#rounds">Rounds</a>
-      <a href="/ui/temporal/{{ match_context.match_id }}">Timeline</a>
-      <a href="/ui/spatial/{{ match_context.match_id }}/rounds/1">Map</a>
-      <a href="/ui/matches/{{ match_context.match_id }}/players">Players</a>
-      <a href="/ui/matches/{{ match_context.match_id }}/diagnostics">Diagnostics</a>
-      {% endif %}
+    <a class="brand" href="/ui" aria-label="Библиотека матчей StratWeb">STRAT<span>WEB</span></a>
+    <nav class="primary-nav" aria-label="Основная навигация">
+      <a href="/ui" data-nav-exact="/ui">{{ t('nav.matches') }}</a>
+      <a href="/ui/opponents" data-nav-prefix="/ui/opponents">{{ t('nav.opponents') }}</a>
     </nav>
-    <span class="offline-badge">Offline evidence</span>
+    <span class="offline-badge">{{ t('app.offline_evidence') }}</span>
   </header>
   {% if match_context %}
-  <section class="match-bar" aria-label="Current match">
-    <strong>{{ match_context.map_name }}</strong>
-    <span>{{ match_context.team_names|join(' vs ') }}</span>
-    <span>{{ match_context.score }}</span>
-    <code title="Full match identifier">{{ match_context.short_id }}</code>
+  <section class="match-shell" aria-label="Текущий матч">
+    <div class="match-shell__context">
+      <a class="match-identity" href="/ui/matches/{{ match_context.match_id }}">
+        <span class="match-identity__map">{{ match_context.map_name|map_name }}</span>
+        <span class="match-identity__teams">{% for name in match_context.team_names %}{{ name|team_name }}{% if not loop.last %} против {% endif %}{% endfor %}</span>
+        <strong class="match-identity__score">{{ match_context.score }}</strong>
+      </a>
+    </div>
+    <nav class="match-nav" aria-label="Навигация матча">
+      <a href="/ui/matches/{{ match_context.match_id }}" data-nav-exact="/ui/matches/{{ match_context.match_id }}" data-nav-empty-hash>{{ t('nav.overview') }}</a>
+      <a href="/ui/matches/{{ match_context.match_id }}#rounds" data-nav-exact="/ui/matches/{{ match_context.match_id }}" data-nav-hash="#rounds">{{ t('nav.rounds') }}</a>
+      <a href="/ui/spatial/{{ match_context.match_id }}/rounds/1" data-nav-prefix="/ui/spatial/{{ match_context.match_id }}">{{ t('nav.map') }}</a>
+      <a href="/ui/temporal/{{ match_context.match_id }}" data-nav-prefix="/ui/temporal/{{ match_context.match_id }}">{{ t('nav.timeline') }}</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/economy" data-nav-prefix="/ui/matches/{{ match_context.match_id }}/economy">{{ t('nav.economy') }}</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/features" data-nav-prefix="/ui/matches/{{ match_context.match_id }}/features">{{ t('nav.facts') }}</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/players" data-nav-exact="/ui/matches/{{ match_context.match_id }}" data-nav-hash="#players">{{ t('nav.players') }}</a>
+      <a href="/ui/matches/{{ match_context.match_id }}/diagnostics" data-nav-prefix="/ui/matches/{{ match_context.match_id }}/diagnostics">{{ t('nav.diagnostics') }}</a>
+    </nav>
   </section>
   {% endif %}
   <main id="content" class="app-content {% block content_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ static_asset('js/shell-nav.js') }}" defer></script>
   <script src="{{ static_asset('js/api-client.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>

@@ -6,17 +6,20 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from stratweb.adapters.persistence import (
     DuckDBAnalyticsRepository,
     DuckDBMatchRepository,
     DuckDBSpatialRepository,
+    DuckDBTeamNameRepository,
     DuckDBTemporalRepository,
+    DuckDBZoneAssignmentRepository,
 )
 from stratweb.application.import_jobs import LocalImportJobManager
 from stratweb.application.product import ProductQueryService
+from stratweb.application.team_names import TeamNameSource, normalize_team_display_name
 from stratweb.exceptions import (
     ImportJobNotFoundError,
     ImportJobNotRetryableError,
@@ -41,11 +44,14 @@ def product_router(
     router = APIRouter()
     match_repository = DuckDBMatchRepository(database_path)
     spatial_repository = DuckDBSpatialRepository(database_path)
+    zone_repository = DuckDBZoneAssignmentRepository(database_path)
+    team_name_repository = DuckDBTeamNameRepository(database_path)
     service = ProductQueryService(
         match_repository,
         DuckDBAnalyticsRepository(database_path),
         DuckDBTemporalRepository(database_path),
         spatial_repository,
+        team_name_repository,
     )
     jobs = LocalImportJobManager(
         database_path,
@@ -105,6 +111,47 @@ def product_router(
         _overview(service, match_id)
         return RedirectResponse(f"/ui/matches/{match_id}#players", status_code=303)
 
+    @router.post(
+        "/api/matches/{match_id}/teams/{team_id}/display-name",
+        tags=["match-presentation"],
+        response_model=None,
+    )
+    def set_team_display_name(
+        request: Request,
+        match_id: UUID,
+        team_id: UUID,
+        display_name: Annotated[str, Form(min_length=1, max_length=100)],
+        source_reference: Annotated[str | None, Form(max_length=500)] = None,
+    ) -> Response:
+        require_localhost(request, "Изменение названия команды")
+        try:
+            normalized = normalize_team_display_name(display_name)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        normalized_reference = source_reference.strip() if source_reference else None
+        label = team_name_repository.save(
+            match_id,
+            team_id,
+            normalized,
+            source=TeamNameSource.MANUAL,
+            source_reference=normalized_reference or None,
+        )
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/matches/{match_id}", status_code=303)
+        return JSONResponse(content=label.model_dump(mode="json"))
+
+    @router.post(
+        "/api/matches/{match_id}/teams/{team_id}/display-name/reset",
+        tags=["match-presentation"],
+        response_model=None,
+    )
+    def reset_team_display_name(request: Request, match_id: UUID, team_id: UUID) -> Response:
+        require_localhost(request, "Сброс названия команды")
+        deleted = team_name_repository.delete(match_id, team_id)
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/matches/{match_id}", status_code=303)
+        return JSONResponse(content={"deleted": deleted})
+
     @router.get(
         "/ui/matches/{match_id}/diagnostics",
         response_class=HTMLResponse,
@@ -119,11 +166,18 @@ def product_router(
             definitions,
             map_assets,
         )
+        spatial_summary = spatial_repository.get_summary(match_id)
+        zone_summary = (
+            zone_repository.get_summary_for_spatial_run(match_id, spatial_summary.spatial_run_id)
+            if spatial_summary is not None
+            else None
+        )
         return HTMLResponse(
             render_template(
                 "matches/diagnostics.html",
                 overview=overview,
                 map_overview=map_overview,
+                zone_summary=zone_summary,
                 map_revisions=(
                     definitions.revisions(overview.match.map_name)
                     if definitions.canonicalize(overview.match.map_name) is not None
@@ -230,7 +284,7 @@ def _overview(service: ProductQueryService, match_id: UUID) -> MatchOverviewView
 
 
 def _match_context(match: MatchLibraryItemView) -> dict[str, Any]:
-    score = "Score unavailable"
+    score = "Счёт недоступен"
     if match.score_available:
         score = ":".join(str(team.score) for team in match.teams)
     return {

@@ -15,6 +15,7 @@ from stratweb.adapters.persistence import (
     DuckDBMatchRepository,
     DuckDBSpatialRepository,
     DuckDBTemporalRepository,
+    DuckDBZoneAssignmentRepository,
 )
 from stratweb.application.spatial_queries import SpatialExplorerService
 from stratweb.exceptions import PlaybackIndexError, SpatialNotFoundError
@@ -45,6 +46,7 @@ def spatial_explorer_router(
         spatial,
         registry,
         analytics_repository=analytics,
+        zone_repository=DuckDBZoneAssignmentRepository(database_path),
     )
 
     @router.get(

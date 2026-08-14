@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Экономика · {{ match_context.map_name|map_name }} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/economy.css') }}">{% endblock %}
+
+{% macro team_summary(team) %}
+{% if team %}
+<div class="economy-team-card {{ team.side|lower }}">
+  <div class="economy-team-heading">
+    <div><span class="side-label">{{ team.side }}</span><strong>{{ team.team_name|team_name }}</strong></div>
+    <span class="buy-badge {{ team.buy_type }}">{{ {'pistol':'пистолетный','eco':'эко','force':'форс','semi':'неполный','full':'полный','unknown':'неизвестно'}[team.buy_type] }}</span>
+  </div>
+  <div class="economy-money-grid">
+    <span><small>Стоимость</small><strong>{{ team.equipment_value }}</strong></span>
+    <span><small>Потрачено</small><strong>{{ team.cash_spent }}</strong></span>
+    <span><small>Остаток</small><strong>{{ team.balance }}</strong></span>
+  </div>
+  <div class="economy-team-meta">
+    <span>Игроков: {{ team.player_count }}</span><span>Шлемов: {{ team.helmets }}</span>
+    {% if team.side == 'CT' %}<span>Наборов: {{ team.defuse_kits }}</span>{% endif %}
+    <span>Счёт до раунда: {{ team.score_before }}</span>
+  </div>
+  {% if team.reasons or team.warnings %}<p class="economy-reason">{% for reason in team.reasons + team.warnings %}{{ reason|replace('_', ' ') }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</div>
+{% else %}
+<div class="economy-team-card filtered"><span>Скрыто выбранным фильтром</span></div>
+{% endif %}
+{% endmacro %}
+
+{% macro player_list(team) %}
+{% if team %}
+<section class="economy-loadout-side">
+  <header><span class="side-label">{{ team.side }}</span><strong>{{ team.team_name|team_name }}</strong></header>
+  <div class="economy-player-grid">
+  {% for player in team.players %}
+    <article class="economy-player-card">
+      <div class="economy-player-heading"><strong>{{ player.name }}</strong><span class="status {{ player.evidence_status }}">{{ player.evidence_status }}</span></div>
+      <dl><dt>Стоимость</dt><dd>{{ player.equipment_value }}</dd><dt>Потрачено</dt><dd>{{ player.cash_spent }}</dd><dt>Остаток</dt><dd>{{ player.balance }}</dd><dt>Броня</dt><dd>{{ player.armor }}</dd><dt>Шлем</dt><dd>{{ player.helmet }}</dd>{% if team.side == 'CT' %}<dt>Набор</dt><dd>{{ player.defuse_kit }}</dd>{% endif %}</dl>
+      <div class="inventory-list">{% for item in player.inventory %}<span>{{ item }}</span>{% else %}<em>Состав инвентаря недоступен</em>{% endfor %}</div>
+      {% if player.warnings %}<small class="economy-reason">{% for warning in player.warnings %}{{ warning|replace('_', ' ') }}{% if not loop.last %} · {% endif %}{% endfor %}</small>{% endif %}
+    </article>
+  {% else %}<p class="muted">Снимки экипировки игроков этой стороны недоступны.</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="page-heading economy-heading"><div><p class="eyebrow">Состояние после freeze time</p><h1>Экономика раундов</h1>
+  <p>Тип закупки и экипировка игроков зафиксированы после окончания freeze time. Неизвестные значения не угадываются.</p></div>
+  {% if economy %}<div class="economy-coverage"><strong>{{ economy.coverage }}</strong><span>покрытие классификации</span></div>{% endif %}
+</section>
+
+{% if not economy %}
+<section class="empty-state"><h2>Данные экономики недоступны</h2><p>Для матча ещё нет совместимого расчёта экономики. Сам матч и остальные доказательства не изменены.</p><div class="button-row"><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}">К матчу</a><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}/diagnostics">Диагностика</a></div></section>
+{% else %}
+<section class="economy-summary-grid" aria-label="Сводка экономики">
+  <article><span>Покрытие</span><strong>{{ economy.coverage }}</strong><small>{{ economy.classified_team_rounds }} из {{ economy.eligible_team_rounds }} подходящих командо-раундов</small></article>
+  <article><span>Раунды</span><strong>{{ economy.round_count }}</strong><small>Снимков: {{ economy.team_snapshot_count }} командных · {{ economy.player_snapshot_count }} игроков</small></article>
+  <article class="{% if economy.unknown_team_rounds %}warn{% endif %}"><span>Неизвестно</span><strong>{{ economy.unknown_team_rounds }}</strong><small>Такие раунды не классифицируются предположением</small></article>
+</section>
+
+<div class="section-heading economy-subheading"><div><p class="eyebrow">Классификация</p><h2>Распределение закупок</h2></div><span>Сохранённые типы командо-раундов</span></div>
+<section class="buy-counts" aria-label="Количество типов закупа">
+{% for buy_type in buy_types %}<div><span class="buy-badge {{ buy_type }}">{{ {'pistol':'пистолетный','eco':'эко','force':'форс','semi':'неполный','full':'полный','unknown':'неизвестно'}[buy_type] }}</span><strong>{{ economy.buy_type_counts.get(buy_type, 0) }}</strong></div>{% endfor %}
+</section>
+
+<details class="product-disclosure economy-guide">
+  <summary>Как читать типы закупок</summary>
+  <div class="product-disclosure__content economy-guide-grid">
+    <div><span class="buy-badge pistol">Пистолетный</span><p>Экономика пистолетного раунда.</p></div>
+    <div><span class="buy-badge eco">Эко</span><p>Раунд с минимальными вложениями.</p></div>
+    <div><span class="buy-badge force">Форс</span><p>Заметная закупка без достижения порога полного закупа.</p></div>
+    <div><span class="buy-badge semi">Неполный</span><p>Смешанная или частичная экипировка.</p></div>
+    <div><span class="buy-badge full">Полный</span><p>Достигнут порог полного закупа.</p></div>
+    <div><span class="buy-badge unknown">Неизвестно</span><p>Данных недостаточно — тип не был угадан.</p></div>
+  </div>
+</details>
+
+<form class="economy-filters" method="get" action="/ui/matches/{{ economy.match_id }}/economy">
+  <input type="hidden" name="run_id" value="{{ economy.economy_run_id }}">
+  <label>Сторона<select name="side"><option value="">Все стороны</option><option value="T" {% if selected_side == 'T' %}selected{% endif %}>T</option><option value="CT" {% if selected_side == 'CT' %}selected{% endif %}>CT</option></select></label>
+  <label>Тип закупки<select name="buy_type"><option value="">Все закупки</option>{% for buy_type in buy_types %}<option value="{{ buy_type }}" {% if selected_buy_type == buy_type %}selected{% endif %}>{{ {'pistol':'Пистолетный','eco':'Эко','force':'Форс','semi':'Неполный','full':'Полный','unknown':'Неизвестно'}[buy_type] }}</option>{% endfor %}</select></label>
+  <label>Раунд<input type="number" name="round" min="1" value="{{ selected_round or '' }}" placeholder="Все раунды"></label>
+  <button type="submit">Применить</button><a class="button secondary" href="/ui/matches/{{ economy.match_id }}/economy?run_id={{ economy.economy_run_id }}">Сбросить</a>
+</form>
+
+{% if economy.warnings %}<section class="warnings"><h2>Предупреждения</h2><ul>{% for warning in economy.warnings %}<li>{{ warning|warning_label }}</li>{% endfor %}</ul></section>{% endif %}
+
+<section class="economy-rounds">
+  <div class="section-heading"><h2>По раундам</h2><span>Состояние после freeze time</span></div>
+  {% if economy.rounds %}<nav class="round-jump" aria-label="Экономика раундов">{% for round in economy.rounds %}<a href="#economy-round-{{ round.round_number }}">R{{ round.round_number }}</a>{% endfor %}</nav>{% endif %}
+  {% for round in economy.rounds %}
+  <article class="economy-round" id="economy-round-{{ round.round_number }}">
+    <header class="economy-round-number"><strong>Раунд {{ round.round_number }}</strong><span>тик {{ round.freeze_end_tick if round.freeze_end_tick is not none else 'недоступен' }}</span>{% if round.overtime %}<span class="badge">ОТ</span>{% endif %}</header>
+    {{ team_summary(round.t) }}
+    {{ team_summary(round.ct) }}
+    <details class="economy-loadouts"><summary>Экипировка игроков</summary><div class="economy-loadout-grid">{{ player_list(round.t) }}{{ player_list(round.ct) }}</div></details>
+  </article>
+  {% else %}<div class="empty-state"><h2>Нет раундов по выбранным фильтрам</h2><p>Сбросьте фильтры, чтобы вернуться ко всем раундам.</p></div>{% endfor %}
+</section>
+
+<details class="product-disclosure"><summary>Воспроизводимость и исходные данные</summary><div class="product-disclosure__content"><dl class="technical-facts">
+  <dt>Расчёт экономики</dt><dd><code>{{ economy.economy_run_id }}</code></dd>
+  <dt>Схема / правила</dt><dd><code>{{ economy.economy_schema_version }} / {{ economy.economy_rule_version }}</code></dd>
+  <dt>Предметы / цены</dt><dd><code>{{ economy.item_category_version }} / {{ economy.value_policy_version }}</code></dd>
+  <dt>Парсер</dt><dd><code>{{ economy.parser }}</code></dd>
+  <dt>Исходные данные</dt><dd><a href="/api/economy/{{ economy.match_id }}/summary?run_id={{ economy.economy_run_id }}">Сводка JSON</a> · <a href="/api/economy/{{ economy.match_id }}/teams?run_id={{ economy.economy_run_id }}">Командные снимки JSON</a> · <a href="/api/economy/{{ economy.match_id }}/players?run_id={{ economy.economy_run_id }}">Снимки игроков JSON</a></dd>
+</dl></div></details>
+{% endif %}
+{% endblock %}

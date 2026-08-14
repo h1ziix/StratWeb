@@ -279,27 +279,42 @@ def map_router(
                         detail=f"Non-finite polygon coordinate in {zone.zone_id!r}.",
                     )
         duplicate_ids = sorted(
-            {zone.zone_id for zone in proposal.zones if
-             sum(1 for other in proposal.zones if other.zone_id == zone.zone_id) > 1}
+            {
+                zone.zone_id
+                for zone in proposal.zones
+                if sum(1 for other in proposal.zones if other.zone_id == zone.zone_id) > 1
+            }
         )
         if duplicate_ids:
             raise HTTPException(
                 status_code=422,
                 detail=f"Duplicate zone ids: {', '.join(duplicate_ids)}.",
             )
+        saved_at = datetime.now(UTC).isoformat()
+        stored_payload = {
+            "map_name": canonical,
+            "revision_id": revision_id,
+            "saved_at": saved_at,
+            "zones": [zone.model_dump() for zone in proposal.zones],
+        }
+        effective, proposal_issues = proposal_zone_set(
+            stored_payload,
+            zone_set,
+            canonical,
+            revision_id,
+        )
+        validation_issues = validate_zone_set(effective) if effective is not None else ()
+        issues = (*proposal_issues, *validation_issues)
+        if effective is None or issues:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Zone proposal is not structurally valid.", "issues": issues},
+            )
         proposals_directory = asset_directory.parent / "zone_proposals"
         proposals_directory.mkdir(parents=True, exist_ok=True)
         target = proposals_directory / f"{canonical}.json"
         target.write_text(
-            json.dumps(
-                {
-                    "map_name": canonical,
-                    "revision_id": revision_id,
-                    "saved_at": datetime.now(UTC).isoformat(),
-                    "zones": [zone.model_dump() for zone in proposal.zones],
-                },
-                indent=2,
-            ),
+            json.dumps(stored_payload, indent=2),
             encoding="utf-8",
         )
         return {"saved": True, "file": target.name, "zone_count": len(proposal.zones)}

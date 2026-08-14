@@ -46,8 +46,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'garden',
-            'GARDEN',
+            "garden",
+            "GARDEN",
             ZoneKind.AREA,
             0,
             (
@@ -58,8 +58,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'dark',
-            'DARK',
+            "dark",
+            "DARK",
             ZoneKind.AREA,
             0,
             (
@@ -70,8 +70,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'coffins',
-            'COFFINS',
+            "coffins",
+            "COFFINS",
             ZoneKind.AREA,
             0,
             (
@@ -82,8 +82,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'church',
-            'CHURCH',
+            "church",
+            "CHURCH",
             ZoneKind.AREA,
             0,
             (
@@ -94,8 +94,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'pool',
-            'POOL',
+            "pool",
+            "POOL",
             ZoneKind.AREA,
             0,
             (
@@ -106,8 +106,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'fountain',
-            'FOUNTAIN',
+            "fountain",
+            "FOUNTAIN",
             ZoneKind.AREA,
             0,
             (
@@ -118,8 +118,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct',
-            'CT',
+            "ct",
+            "CT",
             ZoneKind.AREA,
             0,
             (
@@ -130,8 +130,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'third',
-            '3RD',
+            "third",
+            "3RD",
             ZoneKind.AREA,
             0,
             (
@@ -142,8 +142,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'second',
-            '2ND',
+            "second",
+            "2ND",
             ZoneKind.AREA,
             0,
             (
@@ -154,8 +154,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'first',
-            '1ST',
+            "first",
+            "1ST",
             ZoneKind.AREA,
             0,
             (
@@ -166,8 +166,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'boost',
-            'BOOST',
+            "boost",
+            "BOOST",
             ZoneKind.AREA,
             0,
             (
@@ -178,8 +178,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'speedway',
-            'SPEEDWAY',
+            "speedway",
+            "SPEEDWAY",
             ZoneKind.AREA,
             0,
             (
@@ -190,8 +190,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn',
-            'CT SPAWN',
+            "ct_spawn",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -202,8 +202,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'car',
-            'CAR',
+            "car",
+            "CAR",
             ZoneKind.AREA,
             0,
             (
@@ -214,8 +214,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'sandbag',
-            'SANDBAG',
+            "sandbag",
+            "SANDBAG",
             ZoneKind.AREA,
             0,
             (
@@ -226,8 +226,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'loggs',
-            'LOGGS',
+            "loggs",
+            "LOGGS",
             ZoneKind.AREA,
             0,
             (
@@ -238,8 +238,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long_corner',
-            'LONG CORNER',
+            "long_corner",
+            "LONG CORNER",
             ZoneKind.AREA,
             0,
             (
@@ -250,8 +250,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'arch',
-            'ARCH',
+            "arch",
+            "ARCH",
             ZoneKind.AREA,
             0,
             (
@@ -262,8 +262,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'long',
-            'LONG',
+            "long",
+            "LONG",
             ZoneKind.AREA,
             0,
             (
@@ -274,8 +274,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'library',
-            'LIBRARY',
+            "library",
+            "LIBRARY",
             ZoneKind.AREA,
             0,
             (
@@ -286,8 +286,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'cubby',
-            'CUBBY',
+            "cubby",
+            "CUBBY",
             ZoneKind.AREA,
             0,
             (
@@ -298,8 +298,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'moto',
-            'MOTO',
+            "moto",
+            "MOTO",
             ZoneKind.AREA,
             0,
             (
@@ -310,8 +310,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T SPAWN',
+            "t_spawn",
+            "T SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -322,8 +322,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ramp',
-            'RAMP',
+            "ramp",
+            "RAMP",
             ZoneKind.AREA,
             0,
             (
@@ -334,8 +334,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'underpass',
-            'UNDERPASS',
+            "underpass",
+            "UNDERPASS",
             ZoneKind.AREA,
             0,
             (
@@ -346,8 +346,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'mid',
-            'MID',
+            "mid",
+            "MID",
             ZoneKind.AREA,
             0,
             (
@@ -358,8 +358,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -370,8 +370,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'boiler',
-            'BOILER',
+            "boiler",
+            "BOILER",
             ZoneKind.AREA,
             0,
             (
@@ -382,8 +382,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short',
-            'SHORT',
+            "short",
+            "SHORT",
             ZoneKind.AREA,
             0,
             (
@@ -394,8 +394,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bridge',
-            'BRIDGE',
+            "bridge",
+            "BRIDGE",
             ZoneKind.AREA,
             0,
             (
@@ -406,8 +406,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'second_mid',
-            'SECOND MID',
+            "second_mid",
+            "SECOND MID",
             ZoneKind.AREA,
             0,
             (
@@ -418,8 +418,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bed_room',
-            'BED ROOM',
+            "bed_room",
+            "BED ROOM",
             ZoneKind.AREA,
             0,
             (
@@ -430,8 +430,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'patio',
-            'PATIO',
+            "patio",
+            "PATIO",
             ZoneKind.AREA,
             0,
             (
@@ -442,8 +442,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'pit',
-            'PIT',
+            "pit",
+            "PIT",
             ZoneKind.AREA,
             0,
             (
@@ -454,8 +454,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_apps',
-            'T APPS',
+            "t_apps",
+            "T APPS",
             ZoneKind.AREA,
             0,
             (
@@ -466,8 +466,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'halls',
-            'HALLS',
+            "halls",
+            "HALLS",
             ZoneKind.AREA,
             0,
             (
@@ -478,8 +478,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'balcony',
-            'BALCONY',
+            "balcony",
+            "BALCONY",
             ZoneKind.AREA,
             0,
             (
@@ -490,8 +490,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'mini_pit',
-            'MINI PIT',
+            "mini_pit",
+            "MINI PIT",
             ZoneKind.AREA,
             0,
             (
@@ -502,8 +502,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'back_alley',
-            'BACK ALLEY',
+            "back_alley",
+            "BACK ALLEY",
             ZoneKind.AREA,
             0,
             (
@@ -514,8 +514,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'banana',
-            'BANANA',
+            "banana",
+            "BANANA",
             ZoneKind.AREA,
             0,
             (
@@ -541,8 +541,8 @@ INFERNO_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             (

@@ -50,8 +50,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
     source=_SOURCE,
     zones=(
         _zone(
-            'bombsite_a',
-            'Bombsite A',
+            "bombsite_a",
+            "Bombsite A",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -62,8 +62,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'bombsite_b',
-            'Bombsite B',
+            "bombsite_b",
+            "Bombsite B",
             ZoneKind.BOMBSITE,
             10,
             (
@@ -74,8 +74,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_spawn',
-            'T Spawn',
+            "t_spawn",
+            "T Spawn",
             ZoneKind.SPAWN,
             10,
             (
@@ -86,8 +86,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            't_apps',
-            'T APPS',
+            "t_apps",
+            "T APPS",
             ZoneKind.AREA,
             0,
             (
@@ -127,12 +127,11 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
                 (117.5, 767.0),
                 (177.5, 761.0),
                 (529.5, 761.0),
-                (672.5, 755.0),
             ),
         ),
         _zone(
-            'bench',
-            'BENCH',
+            "bench",
+            "BENCH",
             ZoneKind.AREA,
             0,
             (
@@ -146,8 +145,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'car',
-            'CAR',
+            "car",
+            "CAR",
             ZoneKind.AREA,
             0,
             (
@@ -161,8 +160,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'main',
-            'MAIN',
+            "main",
+            "MAIN",
             ZoneKind.AREA,
             0,
             (
@@ -174,8 +173,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'kitchen',
-            'KITCHEN',
+            "kitchen",
+            "KITCHEN",
             ZoneKind.AREA,
             0,
             (
@@ -205,8 +204,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'short',
-            'SHORT',
+            "short",
+            "SHORT",
             ZoneKind.AREA,
             0,
             (
@@ -220,8 +219,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'under_b',
-            'UNDER B',
+            "under_b",
+            "UNDER B",
             ZoneKind.AREA,
             0,
             (
@@ -229,12 +228,11 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
                 (-974.5, 504.5),
                 (-986.5, 355.5),
                 (-353.5, 355.5),
-                (-353.5, 510.5),
             ),
         ),
         _zone(
-            'under_window',
-            'UNDER WINDOW',
+            "under_window",
+            "UNDER WINDOW",
             ZoneKind.AREA,
             0,
             (
@@ -246,8 +244,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'start_mid',
-            'START MID',
+            "start_mid",
+            "START MID",
             ZoneKind.AREA,
             0,
             (
@@ -265,8 +263,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct_spawn',
-            'CT SPAWN',
+            "ct_spawn",
+            "CT SPAWN",
             ZoneKind.SPAWN,
             10,
             (
@@ -285,8 +283,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'jungle',
-            'JUNGLE',
+            "jungle",
+            "JUNGLE",
             ZoneKind.AREA,
             0,
             (
@@ -311,12 +309,11 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
                 (-1337.5, -1190.0),
                 (-1338.5, -921.5),
                 (-1278.5, -909.5),
-                (-1272.5, -844.0),
             ),
         ),
         _zone(
-            'ramp',
-            'RAMP',
+            "ramp",
+            "RAMP",
             ZoneKind.AREA,
             0,
             (
@@ -332,8 +329,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'palace',
-            'PALACE',
+            "palace",
+            "PALACE",
             ZoneKind.AREA,
             0,
             (
@@ -354,8 +351,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'balcony',
-            'BALCONY',
+            "balcony",
+            "BALCONY",
             ZoneKind.AREA,
             0,
             (
@@ -367,8 +364,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'catwalk',
-            'CATWALK',
+            "catwalk",
+            "CATWALK",
             ZoneKind.AREA,
             0,
             (
@@ -383,8 +380,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ladder',
-            'LADDER',
+            "ladder",
+            "LADDER",
             ZoneKind.AREA,
             0,
             (
@@ -400,8 +397,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'window',
-            'WINDOW',
+            "window",
+            "WINDOW",
             ZoneKind.AREA,
             0,
             (
@@ -411,12 +408,11 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
                 (-1194.5, -826.0),
                 (-1205.0, -771.5),
                 (-1262.5, -765.0),
-                (-1259.5, -431.0),
             ),
         ),
         _zone(
-            'top_mid',
-            'TOP MID',
+            "top_mid",
+            "TOP MID",
             ZoneKind.AREA,
             0,
             (
@@ -433,8 +429,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'chair',
-            'CHAIR',
+            "chair",
+            "CHAIR",
             ZoneKind.AREA,
             0,
             (
@@ -446,8 +442,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'conector',
-            'CONECTOR',
+            "conector",
+            "CONECTOR",
             ZoneKind.AREA,
             0,
             (
@@ -466,8 +462,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ct',
-            'CT',
+            "ct",
+            "CT",
             ZoneKind.AREA,
             0,
             (
@@ -480,8 +476,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ticket',
-            'TICKET',
+            "ticket",
+            "TICKET",
             ZoneKind.AREA,
             0,
             (
@@ -497,8 +493,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'triple',
-            'TRIPLE',
+            "triple",
+            "TRIPLE",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -512,8 +508,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'ninja',
-            'NINJA',
+            "ninja",
+            "NINJA",
             ZoneKind.CHOKEPOINT,
             5,
             (
@@ -525,8 +521,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'shadow',
-            'SHADOW',
+            "shadow",
+            "SHADOW",
             ZoneKind.AREA,
             0,
             (
@@ -544,8 +540,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'firebox',
-            'FIREBOX',
+            "firebox",
+            "FIREBOX",
             ZoneKind.AREA,
             0,
             (
@@ -560,8 +556,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'stairs',
-            'STAIRS',
+            "stairs",
+            "STAIRS",
             ZoneKind.AREA,
             0,
             (
@@ -571,12 +567,11 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
                 (-387.5, -1497.0),
                 (-486.0, -1504.0),
                 (-479.0, -1286.0),
-                (-547.5, -1286.0),
             ),
         ),
         _zone(
-            'sandwhich',
-            'SANDWHICH',
+            "sandwhich",
+            "SANDWHICH",
             ZoneKind.AREA,
             0,
             (
@@ -588,8 +583,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'tetris',
-            'TETRIS',
+            "tetris",
+            "TETRIS",
             ZoneKind.AREA,
             0,
             (
@@ -601,8 +596,8 @@ MIRAGE_ZONE_SET = ZoneSetDefinition(
             ),
         ),
         _zone(
-            'corner',
-            'CORNER',
+            "corner",
+            "CORNER",
             ZoneKind.AREA,
             0,
             (

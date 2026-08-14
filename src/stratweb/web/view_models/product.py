@@ -22,6 +22,9 @@ class HealthItemView(ViewModel):
 class TeamScoreView(ViewModel):
     team_id: UUID
     name: str
+    name_source: str
+    name_source_reference: str | None = None
+    player_names: tuple[str, ...] = ()
     score: int | None = Field(default=None, ge=0)
 
 

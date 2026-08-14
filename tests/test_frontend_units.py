@@ -21,7 +21,41 @@ def _run_node(source: str, *scripts: Path) -> None:
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is optional; browser JS unit runtime unavailable")
-def test_label_layout_is_deterministic_and_separates_neighbours() -> None:
+def test_shell_navigation_selects_specific_route_and_hash_without_guessing() -> None:
+    source = r"""
+const fs = require("fs");
+global.window = { addEventListener: () => {} };
+eval(fs.readFileSync(process.argv[1], "utf8"));
+const link = (attributes) => ({
+  getAttribute: (name) => attributes[name] || null,
+  hasAttribute: (name) => Object.hasOwn(attributes, name),
+});
+const overview = link({ "data-nav-exact": "/ui/matches/m1", "data-nav-empty-hash": "" });
+const rounds = link({ "data-nav-exact": "/ui/matches/m1", "data-nav-hash": "#rounds" });
+const economy = link({ "data-nav-prefix": "/ui/matches/m1/economy" });
+const opponents = link({ "data-nav-prefix": "/ui/opponents" });
+const links = [overview, rounds, economy, opponents];
+const active = (pathname, hash = "") => (
+  window.StratWebShell.resolveActiveLink(links, { pathname, hash })
+);
+if (active("/ui/matches/m1") !== overview) {
+  throw new Error("overview was not selected");
+}
+if (active("/ui/matches/m1", "#rounds") !== rounds) {
+  throw new Error("round hash was not selected");
+}
+if (active("/ui/matches/m1/economy") !== economy) {
+  throw new Error("specific economy route was not selected");
+}
+if (active("/api/economy/m1") !== null) {
+  throw new Error("unrelated API route received an active navigation item");
+}
+"""
+    _run_node(source, STATIC_JS / "shell-nav.js")
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is optional; browser JS unit runtime unavailable")
+def test_label_layout_is_deterministic_and_pins_names_below_markers() -> None:
     source = r"""
 const fs = require("fs");
 global.window = {};
@@ -43,7 +77,10 @@ if (JSON.stringify(compact(first)) !== JSON.stringify(compact(second))) {
 }
 const a = first.get("a");
 const b = first.get("b");
-if (a.x === b.x && a.y === b.y) throw new Error("neighbouring labels overlap");
+if (a.anchorId !== "S" || b.anchorId !== "S") {
+  throw new Error("labels are not pinned below their player markers");
+}
+if (a.y !== b.y || a.y <= 0) throw new Error("below-marker offset is unstable");
 if (window.StratWebLabels.shortLabel("alpha-bravo", "short") !== "alpha…") {
   throw new Error("short label is incorrect");
 }
@@ -156,6 +193,11 @@ def test_viewer_renderer_uses_persistent_diffed_nodes() -> None:
     assert "PROJECTILE_SLOTS = 24" in renderer
     assert "EVENT_SLOTS = 32" in renderer
     assert "createPlayerSlots" in renderer
+    assert 'direction.className = "player-direction"' in renderer
+    assert 'sideText.className = "player-side-text"' in renderer
+    assert 'dead ? "\\u00d7"' in renderer
+    assert 'selectionSlot.node.className = "selection-marker"' in renderer
+    assert '"#icon-selection"' not in renderer
     assert "translate3d" in renderer
     assert "prepareMotionPlan" in renderer
     assert "projectileSignature" in renderer

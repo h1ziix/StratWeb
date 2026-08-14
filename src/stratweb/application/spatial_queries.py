@@ -13,6 +13,7 @@ from stratweb.ports import (
     MatchRepository,
     SpatialRepository,
     TemporalRepository,
+    ZoneAssignmentRepository,
 )
 from stratweb.spatial.map_overviews import MapOverviewAsset, MapOverviewRegistry
 from stratweb.spatial.models import SpatialRunSummary, SpatialSnapshot
@@ -41,6 +42,7 @@ from stratweb.spatial.query_models import (
     UtilityEffectView,
 )
 from stratweb.temporal.models import RoundTimeline, TemporalEvent, TemporalEventKind
+from stratweb.zones.assignment_models import ZoneAssignment, ZoneAssignmentRunSummary
 
 
 class SpatialExplorerService:
@@ -52,12 +54,14 @@ class SpatialExplorerService:
         overview_registry: MapOverviewRegistry,
         *,
         analytics_repository: AnalyticsRepository | None = None,
+        zone_repository: ZoneAssignmentRepository | None = None,
     ) -> None:
         self._matches = match_repository
         self._temporal = temporal_repository
         self._spatial = spatial_repository
         self._overviews = overview_registry
         self._analytics = analytics_repository
+        self._zones = zone_repository
         self._summary_cache: dict[tuple[UUID, UUID | None], SpatialRunSummary] = {}
         self._tick_cache: dict[tuple[UUID, UUID, int], tuple[int, ...]] = {}
         self._player_label_cache: dict[UUID, dict[UUID, str]] = {}
@@ -66,6 +70,7 @@ class SpatialExplorerService:
         self._opening_cache: dict[UUID, tuple[OpeningDuel, ...]] = {}
         self._trade_cache: dict[tuple[UUID, int], tuple[TradeEvent, ...]] = {}
         self._round_events_cache: dict[tuple[UUID, int], RoundEvents | None] = {}
+        self._zone_summary_cache: dict[tuple[UUID, UUID], ZoneAssignmentRunSummary | None] = {}
 
     def list_round_ticks(
         self,
@@ -121,7 +126,10 @@ class SpatialExplorerService:
             if navigation.status is TickResolutionStatus.EXACT
             else ()
         )
-        players = tuple(_player_view(row, labels, teams, overview) for row in rows)
+        zone_run, zones = self._zone_context(summary, rows)
+        players = tuple(
+            _player_view(row, labels, teams, overview, zones.get(row.snapshot_id)) for row in rows
+        )
         bomb = self._spatial.get_bomb_position_at_tick(
             match_id,
             round_number,
@@ -174,6 +182,7 @@ class SpatialExplorerService:
             bomb_carrier_id=bomb.carrier_participant_id if bomb else None,
             events=events,
             overview=overview.model,
+            zone_run=zone_run,
             warnings=tuple(warnings),
         )
 
@@ -204,6 +213,7 @@ class SpatialExplorerService:
             team_name=self._team_labels(match_id).get(team_id, str(team_id)),
             players=item.players,
             overview=item.overview,
+            zone_run=item.zone_run,
         )
 
     def get_player_path(
@@ -224,7 +234,10 @@ class SpatialExplorerService:
             participant_id,
             spatial_run_id=summary.spatial_run_id,
         )
-        points = tuple(_player_view(row, labels, teams, overview) for row in rows)
+        zone_run, zones = self._zone_context(summary, rows)
+        points = tuple(
+            _player_view(row, labels, teams, overview, zones.get(row.snapshot_id)) for row in rows
+        )
         first = rows[0] if rows else None
         warnings = () if rows else ("no reliable alive-player path points are available",)
         return PlayerPath(
@@ -238,6 +251,7 @@ class SpatialExplorerService:
             side=first.side if first else "UNKNOWN",
             points=points,
             overview=overview.model,
+            zone_run=zone_run,
             warnings=warnings,
         )
 
@@ -263,7 +277,10 @@ class SpatialExplorerService:
             alive_only=alive_only,
             spatial_run_id=summary.spatial_run_id,
         )
-        return tuple(_player_view(row, labels, teams, overview) for row in rows)
+        _zone_run, zones = self._zone_context(summary, rows)
+        return tuple(
+            _player_view(row, labels, teams, overview, zones.get(row.snapshot_id)) for row in rows
+        )
 
     def nearest_players(
         self,
@@ -411,6 +428,7 @@ class SpatialExplorerService:
         overview = self._overviews.get_for_run(summary.map_model.map_name, summary.map_semantics)
         labels = self._player_labels(match_id)
         teams = self._team_labels(match_id)
+        zone_run, zones = self._zone_context(summary, rows)
         samples: list[PlaybackSample] = []
         for offset, tick in enumerate(selected_ticks):
             all_rows = tuple(rows_by_tick.get(tick, ()))
@@ -426,7 +444,8 @@ class SpatialExplorerService:
                 )
             )
             player_views = tuple(
-                _player_view(row, labels, teams, overview) for row in filtered_rows
+                _player_view(row, labels, teams, overview, zones.get(row.snapshot_id))
+                for row in filtered_rows
             )
             bomb = bombs_by_tick.get(tick)
             bomb_projection = overview.project(bomb.x, bomb.y, bomb.z) if bomb else None
@@ -533,13 +552,39 @@ class SpatialExplorerService:
                 bomb_carrier_only=bomb_carrier_only,
             ),
             overview=overview.model,
+            zone_run=zone_run,
             position_availability=summary.capabilities.positions.status,
             view_angle_availability=summary.capabilities.view_angles.status,
             projectile_metadata=summary.projectile_metadata,
             projectile_capabilities=summary.projectile_capabilities,
             diagnostics=diagnostics,
-            warnings=summary.warnings,
+            warnings=tuple(
+                dict.fromkeys(
+                    (*summary.warnings, *(zone_run.warnings if zone_run is not None else ()))
+                )
+            ),
         )
+
+    def _zone_context(
+        self,
+        spatial: SpatialRunSummary,
+        rows: tuple[SpatialSnapshot, ...],
+    ) -> tuple[ZoneAssignmentRunSummary | None, dict[UUID, ZoneAssignment]]:
+        if self._zones is None:
+            return None, {}
+        key = (spatial.match_id, spatial.spatial_run_id)
+        if key not in self._zone_summary_cache:
+            self._zone_summary_cache[key] = self._zones.get_summary_for_spatial_run(
+                spatial.match_id, spatial.spatial_run_id
+            )
+        summary = self._zone_summary_cache[key]
+        if summary is None or not rows:
+            return summary, {}
+        assignments = self._zones.get_assignments(
+            summary.zone_assignment_run_id,
+            tuple(item.snapshot_id for item in rows),
+        )
+        return summary, {item.spatial_snapshot_id: item for item in assignments}
 
     def _event_markers(
         self,
@@ -783,6 +828,7 @@ def _player_view(
     labels: dict[UUID, str],
     teams: dict[UUID, str],
     overview: MapOverviewAsset,
+    zone_assignment: ZoneAssignment | None = None,
 ) -> SpatialPlayerView:
     projection = (
         overview.project(row.x, row.y, row.z) if row.x is not None and row.y is not None else None
@@ -806,6 +852,7 @@ def _player_view(
         view_direction=direction,
         render_status=render_status,
         rejection_reasons=rejection_reasons,
+        zone_assignment=zone_assignment,
     )
 
 

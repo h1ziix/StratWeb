@@ -24,6 +24,9 @@ data/
 uploads/
 staging/
 reports/
+.runtime/
+output/
+tmp/
 .stage5-manual/
 .stage6-manual/
 .stage7-manual/

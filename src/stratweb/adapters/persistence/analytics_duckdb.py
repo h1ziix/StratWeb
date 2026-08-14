@@ -13,6 +13,7 @@ import polars as pl
 from pydantic import BaseModel
 
 from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.analytics.models import (
     AnalyticsAvailability,
@@ -218,15 +219,35 @@ class DuckDBAnalyticsRepository:
         fingerprint = self._latest_fingerprint(match_id)
         if fingerprint is None:
             return None
+        return self.get_round_analytics_for_run(match_id, fingerprint, round_number)
+
+    def get_round_analytics_for_run(
+        self,
+        match_id: UUID,
+        analytics_fingerprint: str,
+        round_number: int,
+    ) -> RoundAnalyticsView | None:
+        self.initialize()
+        with read_connection(self._database_path, "analytics") as connection:
+            belongs_to_match = connection.execute(
+                """
+                SELECT 1 FROM analytics_runs
+                WHERE match_id = ? AND analytics_fingerprint = ?
+                LIMIT 1
+                """,
+                [match_id, analytics_fingerprint],
+            ).fetchone()
+        if belongs_to_match is None:
+            return None
         players = self._model_rows_for_fingerprint(
-            fingerprint,
+            analytics_fingerprint,
             "player_round_analytics",
             PlayerRoundAnalytics,
             "player_id",
             round_number,
         )
         teams = self._model_rows_for_fingerprint(
-            fingerprint,
+            analytics_fingerprint,
             "team_round_analytics",
             TeamRoundAnalytics,
             "team_id",
@@ -235,13 +256,17 @@ class DuckDBAnalyticsRepository:
         if not players and not teams:
             return None
         openings = self._model_rows_for_fingerprint(
-            fingerprint, "opening_duels", OpeningDuel, "event_id", round_number
+            analytics_fingerprint, "opening_duels", OpeningDuel, "event_id", round_number
         )
         trades = self._model_rows_for_fingerprint(
-            fingerprint, "trade_events", TradeEvent, "traded_kill_event_id", round_number
+            analytics_fingerprint,
+            "trade_events",
+            TradeEvent,
+            "traded_kill_event_id",
+            round_number,
         )
         transitions = self._model_rows_for_fingerprint(
-            fingerprint,
+            analytics_fingerprint,
             "man_advantage_transitions",
             ManAdvantageTransition,
             "tick, event_id",
@@ -302,6 +327,15 @@ class DuckDBAnalyticsRepository:
                     if exists is None:
                         connection.execute("ROLLBACK")
                         return False
+                    fingerprints = connection.execute(
+                        "SELECT analytics_fingerprint FROM analytics_runs WHERE match_id = ?",
+                        [match_id],
+                    ).fetchall()
+                    delete_dependent_feature_runs(
+                        connection,
+                        "analytics_fingerprint",
+                        [row[0] for row in fingerprints],
+                    )
                     for table in _CHILD_TABLES:
                         connection.execute(f'DELETE FROM "{table}" WHERE match_id = ?', [match_id])
                     connection.execute("DELETE FROM analytics_runs WHERE match_id = ?", [match_id])
@@ -466,6 +500,7 @@ class DuckDBAnalyticsRepository:
 
     @staticmethod
     def _delete_fingerprint(connection: duckdb.DuckDBPyConnection, fingerprint: str) -> None:
+        delete_dependent_feature_runs(connection, "analytics_fingerprint", [fingerprint])
         for table in _CHILD_TABLES:
             connection.execute(
                 f'DELETE FROM "{table}" WHERE analytics_fingerprint = ?', [fingerprint]

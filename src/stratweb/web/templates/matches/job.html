@@ -1,22 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Import job · StratWeb{% endblock %}
+{% block title %}Обработка демки · StratWeb{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><p class="eyebrow">Local import pipeline</p><h1>Processing {{ job.original_name }}</h1><p id="jobMessage">{{ job.message }}</p></div>
+  <div><p class="eyebrow">Локальная обработка</p><h1>Обработка демки</h1><p id="jobMessage">{{ job.message|warning_label }}</p></div>
   <span id="jobStage" class="status {{ 'unavailable' if job.stage == 'failed' else ('available' if job.stage == 'complete' else 'partial') }}">{{ job.stage }}</span>
 </section>
-<div class="job-progress" aria-label="Pipeline progress"><div id="jobProgressBar" style="width: {{ job.progress_percent }}%"></div></div>
-<p class="muted"><span id="jobProgress">{{ job.progress_percent }}</span>% pipeline checkpoint · attempt <span id="jobAttempt">{{ job.attempt_count }}</span> · server contact <span id="jobContact">waiting</span>. Parsing progress inside a stage is not estimated.</p>
-<ol class="job-stages" aria-label="Import stages"><li>Canonical dataset</li><li>Gameplay analytics</li><li>Temporal 1.1</li><li>Spatial samples</li></ol>
+<div class="job-progress" aria-label="Ход обработки"><div id="jobProgressBar" style="width: {{ job.progress_percent }}%"></div></div>
+<p class="muted">Выполнено: <span id="jobProgress">{{ job.progress_percent }}</span>% · попытка <span id="jobAttempt">{{ job.attempt_count }}</span> · связь с сервером: <span id="jobContact">ожидание</span>. Прогресс внутри отдельного шага не оценивается.</p>
+<ol class="job-stages" aria-label="Этапы импорта"><li>Исходные данные</li><li>Игровая аналитика</li><li>Состояния раунда</li><li>Позиции и зоны</li></ol>
 <div id="jobResult" class="button-row" aria-live="polite">
-  {% if job.match_id and job.stage == 'complete' %}<a class="button" href="/ui/matches/{{ job.match_id }}">Open match</a>{% endif %}
-  {% if job.stage == 'failed' and job.recoverable %}<form method="post" action="/api/import-jobs/{{ job.job_id }}/retry"><button type="submit">Retry import</button></form>{% endif %}
+  {% if job.match_id and job.stage == 'complete' %}<a class="button" href="/ui/matches/{{ job.match_id }}">Открыть матч</a>{% endif %}
+  {% if job.stage == 'failed' and job.recoverable %}<form method="post" action="/api/import-jobs/{{ job.job_id }}/retry"><button type="submit">Повторить импорт</button></form>{% endif %}
 </div>
-<details class="developer-details"><summary>Job details</summary><dl>
-  <dt>Job ID</dt><dd><code>{{ job.job_id }}</code></dd>
-  <dt>Internal filename</dt><dd><code>{{ job.internal_name }}</code></dd>
-  <dt>Last update</dt><dd><time id="jobUpdated" datetime="{{ job.updated_at.isoformat() }}">{{ job.updated_at.isoformat() }}</time></dd>
-  <dt>Error code</dt><dd><code id="jobError">{{ job.error_code or '—' }}</code></dd>
+<details class="developer-details"><summary>Технические сведения</summary><dl>
+  <dt>Исходное имя</dt><dd><code>{{ job.original_name }}</code></dd>
+  <dt>ID задачи</dt><dd><code>{{ job.job_id }}</code></dd>
+  <dt>Внутреннее имя</dt><dd><code>{{ job.internal_name }}</code></dd>
+  <dt>Обновлено</dt><dd><time id="jobUpdated" datetime="{{ job.updated_at.isoformat() }}">{{ job.updated_at.isoformat() }}</time></dd>
+  <dt>Код ошибки</dt><dd><code id="jobError">{{ job.error_code or '—' }}</code></dd>
 </dl></details>
 <script id="jobConfig" type="application/json">{"job_id":"{{ job.job_id }}"}</script>
 {% endblock %}

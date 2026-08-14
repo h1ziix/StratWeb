@@ -114,6 +114,5 @@ def test_dust2_rotation_would_be_detected() -> None:
     rotated_norm_y = rotated_y / definition.image_height
 
     assert (
-        abs(rotated_norm_x - expected_x) > TOLERANCE
-        or abs(rotated_norm_y - expected_y) > TOLERANCE
+        abs(rotated_norm_x - expected_x) > TOLERANCE or abs(rotated_norm_y - expected_y) > TOLERANCE
     ), "rotated projection unexpectedly matches the anchor; test has no power"
