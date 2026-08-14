@@ -4,6 +4,27 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.6.0] - 2026-08-14
+
+### Added
+
+- Stage 9.2a read-only DuckDB storage audit with exact rows, block attribution and JSON bytes.
+- Mirror/derived relationship audits for Spatial, bomb-position and zone data.
+- Bounded warm-cache benchmarks for five representative application query shapes.
+- Explicit run-history inventory and limited 20/100/500-match growth projections.
+- `stratweb storage audit` CLI with safe JSON output protection.
+
+### Findings
+
+- The five-match local database is about 1.45 GiB with 2,199,091 exact rows.
+- Spatial and bomb lookup mirrors duplicate about 695.6 MB of identical JSON payload.
+- Stage 9.2b should test slim key-only lookup tables before any destructive migration.
+
+### Safety
+
+- Stage 9.2a never mutates, checkpoints, compacts or deletes from the audited database.
+- Additional immutable runs are inventoried but are not classified as deletion-safe.
+
 ## [0.5.0] - 2026-08-14
 
 ### Added

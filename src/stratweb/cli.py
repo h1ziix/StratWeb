@@ -107,6 +107,8 @@ from stratweb.golden_corpus.runner import GoldenCorpusRunner
 from stratweb.patterns.models import PatternAvailability, PatternConfig, PatternType
 from stratweb.readiness.models import FindingReadinessConfig
 from stratweb.spatial.models import SpatialConfig
+from stratweb.storage_audit import DuckDBStorageAuditor, StorageAuditError
+from stratweb.storage_audit.models import StorageAuditConfig
 from stratweb.temporal.models import TemporalConfig
 from stratweb.zones.assignment_models import ZoneAssignmentConfig, ZoneAssignmentStatus
 
@@ -120,6 +122,7 @@ _EXIT_FATAL_VALIDATION = 8
 _EXIT_PERSISTENCE = 9
 _EXIT_CANONICAL_IMPORT = 10
 _EXIT_CORPUS = 11
+_EXIT_STORAGE_AUDIT = 12
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -145,6 +148,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     _add_readiness_commands(subparsers)
     _add_counter_strategy_commands(subparsers)
     _add_golden_corpus_commands(subparsers)
+    _add_storage_audit_commands(subparsers)
     return parser
 
 
@@ -184,12 +188,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_counter_strategy_command(args)
         if args.command == "corpus":
             return _run_golden_corpus_command(args)
+        if args.command == "storage":
+            return _run_storage_audit_command(args)
         raise AssertionError(f"Unhandled CLI command: {args.command}")
     except GoldenCorpusError as exc:
         print(f"error [golden_corpus]: {exc}", file=sys.stderr)
         if debug:
             traceback.print_exc(file=sys.stderr)
         return _EXIT_CORPUS
+    except StorageAuditError as exc:
+        print(f"error [storage_audit]: {exc}", file=sys.stderr)
+        if debug:
+            traceback.print_exc(file=sys.stderr)
+        return _EXIT_STORAGE_AUDIT
     except DemoInspectionError as exc:
         print(f"error [{exc.error_code}]: {exc}", file=sys.stderr)
         if debug:
@@ -804,6 +815,27 @@ def _add_golden_corpus_commands(subparsers: Any) -> None:
     )
     run.add_argument("--pretty", action="store_true")
     run.add_argument("--debug", action="store_true")
+
+
+def _add_storage_audit_commands(subparsers: Any) -> None:
+    storage = subparsers.add_parser(
+        "storage",
+        help="run read-only Stage 9.2a DuckDB diagnostics",
+    )
+    actions = storage.add_subparsers(dest="storage_action", required=True)
+    audit = actions.add_parser(
+        "audit",
+        help="measure tables, physical blocks, mirrored rows and representative queries",
+    )
+    audit.add_argument("--db", type=Path, help="DuckDB path (overrides environment)")
+    audit.add_argument("--output", type=Path, help="also save the JSON report")
+    audit.add_argument("--force", action="store_true", help="replace an existing JSON report")
+    audit.add_argument("--skip-exact-counts", action="store_true")
+    audit.add_argument("--skip-payload-scan", action="store_true")
+    audit.add_argument("--skip-benchmarks", action="store_true")
+    audit.add_argument("--benchmark-iterations", type=int, default=5, choices=range(1, 21))
+    audit.add_argument("--pretty", action="store_true")
+    audit.add_argument("--debug", action="store_true")
 
 
 def _add_output_options(command: argparse.ArgumentParser) -> None:
@@ -1478,6 +1510,31 @@ def _run_golden_corpus_command(args: argparse.Namespace) -> int:
         _print_model(run_report, pretty=args.pretty)
         return _EXIT_CORPUS if args.require_pass and not run_report.passed else 0
     raise AssertionError(f"Unhandled corpus command: {args.corpus_action}")
+
+
+def _run_storage_audit_command(args: argparse.Namespace) -> int:
+    if args.storage_action != "audit":
+        raise AssertionError(f"Unhandled storage command: {args.storage_action}")
+    database_path = resolve_database_path(args.db).expanduser().resolve()
+    output_path: Path | None = None
+    if args.output is not None:
+        output_path = _preflight_json_output(args.output, force=bool(args.force))
+        if output_path == database_path:
+            raise StorageAuditError("Storage audit output cannot replace the DuckDB file.")
+    report = DuckDBStorageAuditor().audit(
+        database_path,
+        config=StorageAuditConfig(
+            exact_row_counts=not bool(args.skip_exact_counts),
+            scan_json_payload_bytes=not bool(args.skip_payload_scan),
+            benchmark_iterations=args.benchmark_iterations,
+            run_benchmarks=not bool(args.skip_benchmarks),
+        ),
+    )
+    serialized = report.model_dump_json(indent=2 if args.pretty else None)
+    if output_path is not None:
+        _write_output(output_path, serialized, force=bool(args.force))
+    print(serialized)
+    return 0
 
 
 def _build_service() -> DemoInspectionService:

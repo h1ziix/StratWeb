@@ -1430,3 +1430,17 @@ and indeterminate are distinct states. Evaluation is deterministic and excludes
 indeterminate, missing and unavailable values instead of coercing them to false. Precision,
 recall, false-positive rate and F1 are null when their denominator is zero. See
 [STAGE_9_1.md](STAGE_9_1.md) and [corpus/README.md](corpus/README.md).
+
+## Stage 9.2a architectural decision — measure before migration
+
+Storage diagnostics open the configured DuckDB file read-only and keep observed timing
+separate from deterministic analytics. Exact row counts and JSON byte scans are explicit;
+DuckDB catalog estimates and physical block attribution retain limitations because blocks
+can be shared and index/metadata storage is not fully attributable to a user table.
+
+The audit proves that `spatial_snapshot_query_rows` and `bomb_position_query_rows` preserve
+valuable narrow lookup keys but duplicate every canonical JSON payload. Storage V2 will test
+a slim key-to-snapshot lookup followed by a canonical payload join. It will not remove the
+lookup concept, migrate interactive data to Parquet without latency evidence, or classify
+additional immutable runs as deletable merely because a newer run exists. See
+[STAGE_9_2A.md](STAGE_9_2A.md).

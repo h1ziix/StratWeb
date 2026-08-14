@@ -1302,14 +1302,29 @@ PDF не содержит выводов, отсутствующих в сохр
 
 Полный scope и честные blockers: [STAGE_9_1.md](STAGE_9_1.md).
 
-## Stage 9.2 — Storage Engine V2 (не начат)
+## Stage 9.2 — Storage Engine V2 (9.2a завершён; миграция не начата)
 
-- измерение bytes/rows по match/run/layer;
-- устранение дублирования Spatial payload;
-- Parquet evaluation для immutable high-volume samples;
-- superseded-run и original-demo retention policy;
-- migration backup/restore и disk cleanup;
-- benchmarks на 20/100/500 матчах.
+### Stage 9.2a — read-only audit
+
+- [x] измерение bytes/rows/indexes/blocks по таблицам;
+- [x] точное сравнение canonical и lookup Spatial/Bomb payload;
+- [x] representative warm-cache query benchmarks;
+- [x] naive risk projection для 20/100/500 матчей с явными ограничениями;
+- [x] аудит количества immutable runs без объявления их удаляемыми;
+- [x] безопасный CLI и JSON contract, не изменяющие DuckDB.
+
+Результаты: [STAGE_9_2A.md](STAGE_9_2A.md).
+
+### Stage 9.2b — slim lookup migration (не начат)
+
+- [ ] verified backup/restore до миграции;
+- [ ] shadow lookup tables без дублированного JSON payload;
+- [ ] key/payload parity и migration rollback tests;
+- [ ] performance comparison с явным latency budget;
+- [ ] version-aware repository read switch и acceptance window;
+- [ ] Parquet evaluation для immutable high-volume samples;
+- [ ] dependency-aware superseded-run и original-demo retention policy;
+- [ ] controlled disk reclamation только после отдельного подтверждения владельца.
 
 ## Stage 9.3 — Import Worker V2 (не начат)
 

@@ -956,3 +956,19 @@ Use `--demo-root <external-directory>` for byte-level file verification and
 report `blocked`: five FACEIT candidates exist, but no target opponent or analyst finding
 labels have been confirmed and the 20-match minimum has not been met. See
 [corpus/README.md](corpus/README.md) for the review workflow.
+
+### Stage 9.2a read-only storage audit
+
+Inspect DuckDB growth, table blocks, mirrored payload and representative query timings
+without modifying the database:
+
+```powershell
+uv run --frozen stratweb storage audit `
+  --db C:\Users\<user>\StratWeb-data\faceit-spatial.duckdb `
+  --output .runtime\storage-audit.json `
+  --pretty
+```
+
+The current five-match database proves complete JSON duplication in the Spatial and bomb
+lookup mirrors. The proposed slim-lookup migration is documented but deliberately not
+executed in Stage 9.2a. See [STAGE_9_2A.md](STAGE_9_2A.md).

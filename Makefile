@@ -1,4 +1,4 @@
-.PHONY: install lock lock-check format format-check lint typecheck test integration corpus-check corpus-ready check release-check import-check db-init run compose-up compose-down
+.PHONY: install lock lock-check format format-check lint typecheck test integration corpus-check corpus-ready storage-audit check release-check import-check db-init run compose-up compose-down
 
 install:
 	uv sync --frozen --extra dev
@@ -20,6 +20,9 @@ corpus-check:
 
 corpus-ready:
 	uv run --frozen stratweb corpus validate --manifest corpus/golden-corpus-v1.json --require-ready --pretty
+
+storage-audit:
+	uv run --frozen stratweb storage audit --pretty
 
 format:
 	uv run --frozen ruff format src tests scripts
