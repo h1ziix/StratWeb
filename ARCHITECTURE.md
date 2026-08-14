@@ -1390,3 +1390,25 @@ reference. Product and opponent query services overlay this label after all evid
 they never mutate `teams.display_name`, roster membership, scores, or analysis manifests.
 FACEIT-style `team_<captain>` names are never inferred from nicknames because the inspected
 demo metadata does not prove them. See [UI_LOCALIZATION.md](UI_LOCALIZATION.md).
+
+## Stage 9.0 architectural decision — reproducible release boundary
+
+The package version and release process are separate from analytical schema/rule versions.
+Changing `stratweb` from `0.3.0` to `0.4.0` does not silently upgrade a canonical,
+Temporal, Spatial, Pattern, Finding or Report contract. Every analytical artifact keeps its
+explicit source run, version and fingerprint.
+
+`uv.lock` is the cross-platform dependency boundary for CPython 3.11–3.14. Local quality
+checks, Windows/Linux CI and the Docker image install from that lock rather than resolving
+transitive dependencies independently. Direct dependencies remain pinned in
+`pyproject.toml`; the lock additionally records platform-specific wheels and hashes.
+
+Release recovery has two independent parts: Git/source backup and runtime-data backup.
+The repository never contains `.env`, demos, DuckDB files, reports or proprietary map
+assets. A source tag is therefore reproducible as code but cannot claim to restore private
+runtime evidence. The complete policy is in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+Network security remains deliberately local-first. Uvicorn listens on container wildcard
+only inside the container; Compose publishes it on host loopback. Loopback mutation guards
+are defense in depth, not authentication, and the current service must not be placed behind
+a public proxy or tunnel. See [SECURITY.md](SECURITY.md).

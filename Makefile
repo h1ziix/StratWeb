@@ -1,33 +1,45 @@
-.PHONY: install format lint typecheck test integration check import-check db-init run compose-up compose-down
+.PHONY: install lock lock-check format format-check lint typecheck test integration check release-check import-check db-init run compose-up compose-down
 
 install:
-	python -m pip install -e ".[dev]"
+	uv sync --frozen --extra dev
+
+lock:
+	uv lock
+
+lock-check:
+	uv lock --check
 
 test:
-	python -m pytest
+	uv run --frozen pytest
 
 integration:
-	python -m pytest -m integration
+	uv run --frozen pytest -m integration
 
 format:
-	python -m ruff format .
+	uv run --frozen ruff format src tests scripts
+
+format-check:
+	uv run --frozen ruff format --check src tests scripts
 
 lint:
-	python -m ruff check .
+	uv run --frozen ruff check src tests scripts
 
 typecheck:
-	python -m mypy src
+	uv run --frozen mypy src
 
-check: format lint typecheck test
+check: lock-check format-check lint typecheck test
+
+release-check:
+	powershell -ExecutionPolicy Bypass -File scripts/release_check.ps1
 
 import-check:
-	python -c "from stratweb.main import app; print(app.title)"
+	uv run --frozen python -c "from stratweb.main import app; print(app.title)"
 
 db-init:
-	python -m stratweb.cli db init --pretty
+	uv run --frozen python -m stratweb.cli db init --pretty
 
 run:
-	python -m uvicorn stratweb.main:app --reload --host 0.0.0.0 --port 8000
+	uv run --frozen python -m uvicorn stratweb.main:app --reload --host 127.0.0.1 --port 8000
 
 compose-up:
 	docker compose up --build

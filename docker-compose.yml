@@ -13,7 +13,8 @@ services:
       STRATWEB_MAP_OVERVIEW_DIR: /app/data/map_overviews
       STRATWEB_MAP_DEVELOPER_MODE: "false"
     ports:
-      - "8000:8000"
+      # Local-only by default. Authentication is not implemented yet.
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/app/data
     command: ["python", "-m", "uvicorn", "stratweb.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -129,9 +129,7 @@ class ScoutingReportExporter:
                 source_findings=validation.coverage.source_findings,
                 ready_findings=validation.coverage.ready_findings,
                 recommendations=validation.coverage.recommendations,
-                evidence_references=sum(
-                    len(item.evidence_references) for item in findings
-                ),
+                evidence_references=sum(len(item.evidence_references) for item in findings),
             ),
             "corpus": corpus,
             "validation": validation,
@@ -151,9 +149,9 @@ class ScoutingReportExporter:
     @staticmethod
     def render_json(report: ScoutingReportExport) -> bytes:
         payload = report.model_dump(mode="json")
-        return (
-            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        ).encode("utf-8")
+        return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+            "utf-8"
+        )
 
 
 def _canonical_json(values: dict[str, Any]) -> bytes:

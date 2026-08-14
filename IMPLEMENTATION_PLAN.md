@@ -1273,39 +1273,90 @@ product acceptance владельцем. Stage 8.9/PDF не начат.
 
 PDF не содержит выводов, отсутствующих в сохранённом Analysis/Strategy run.
 
-## Stage 9 — Optional LLM Rephrasing (не начат)
+## Stage 9.0 — Release Baseline (завершён)
 
-Только после принятия детерминированного отчёта.
+- [x] private source ZIP и Git bundle созданы до изменения рабочего дерева;
+- [x] accepted Stage 8.2–8.9 зафиксированы отдельным baseline commit `8351d5a`;
+- [x] версия проекта поднята до `0.4.0`;
+- [x] добавлен cross-platform `uv.lock` contract и frozen install policy;
+- [x] добавлен общий Windows/Linux release gate и GitHub Actions workflow;
+- [x] добавлены changelog, release checklist и security deployment policy;
+- [x] Docker Compose публикует HTTP только на host loopback по умолчанию;
+- [x] полный local quality gate проходит после final self-review;
+- [x] clean release commit помечен локальным tag `v0.4.0`.
 
-LLM разрешено: сокращать текст; менять стиль; переводить; формировать
-короткое executive summary.
+Полный scope: [STAGE_9_0.md](STAGE_9_0.md).
 
-LLM запрещено: считать статистику; менять numerator/denominator; создавать
-findings; добавлять рекомендации без deterministic rule; удалять limitations;
-выбирать evidence; повышать confidence.
+## Stage 9.1 — Golden Corpus (не начат)
 
-Оригинальный deterministic finding всегда должен сохраняться рядом с
-LLM-текстом.
-
-## Stage 10 — Corpus and Production Hardening (не начат)
-
+- минимум 20 явно подтверждённых матчей одного соперника;
 - реальные FACEIT fixtures разных карт;
-- Valve demos;
-- HLTV/GOTV demos;
-- POV demos, если формат поддерживается;
-- повреждённые и неполные demos;
-- overtime;
-- substitutions;
-- отсутствующие Steam IDs;
-- parser-version compatibility matrix;
-- migration backup/restore;
-- disk cleanup policy;
-- import cancellation;
-- crash/restart tests;
-- performance benchmark на больших наборах;
-- security review localhost API;
-- fuzz/negative tests, resource limits, structured logs, CI и support matrix
-  из бывшего «Этапа 9 — hardening MVP».
+- Valve, HLTV/GOTV и поддерживаемые POV demos;
+- overtime, substitutions, missing Steam IDs, damaged/incomplete demos;
+- analyst-labelled expected findings и parser-version compatibility matrix;
+- precision/recall/false-positive evaluation без LLM.
+
+## Stage 9.2 — Storage Engine V2 (не начат)
+
+- измерение bytes/rows по match/run/layer;
+- устранение дублирования Spatial payload;
+- Parquet evaluation для immutable high-volume samples;
+- superseded-run и original-demo retention policy;
+- migration backup/restore и disk cleanup;
+- benchmarks на 20/100/500 матчах.
+
+## Stage 9.3 — Import Worker V2 (не начат)
+
+- parser isolation в отдельном процессе;
+- early SHA-256 duplicate rejection;
+- bounded queue, cancellation, safe retry/resume;
+- crash/restart tests, time/memory/disk limits и backpressure.
+
+## Stage 9.4 — Statistical Trust (не начат)
+
+- match-clustered uncertainty и effect-size gates;
+- multiple-comparison control;
+- stability между матчами, patches и roster periods;
+- deterministic ranking без подмены observation рекомендацией.
+
+## Stage 9.5 — Tactical Intelligence V2 (не начат)
+
+- path clustering, executes, utility effectiveness и spacing;
+- entry/trade structure, rotation trees, clutch/save behaviour и heatmaps;
+- только deterministic computations с полной evidence lineage.
+
+## Stage 9.6 — Product UX and Localization (не начат)
+
+- краткий top-findings слой поверх полного evidence appendix;
+- удаление технических identifiers из основного пользовательского потока;
+- завершение русского, затем английский/испанский/китайский contracts;
+- analyst notes и feedback labels без изменения source finding.
+
+## Stage 9.7 — Team/On-Prem Edition (не начат)
+
+- users, roles, projects, authentication, HTTPS и audit log;
+- metadata store и object storage boundary;
+- tenant-safe API и controlled worker deployment.
+
+## Stage 9.8 — Production Operations (не начат)
+
+- readiness checks, structured logs, metrics and request/job IDs;
+- migration rehearsal, disaster restore, security scanning и support matrix;
+- performance budgets и release automation.
+
+## Stage 9.9 — Optional LLM Rephrasing (не начат)
+
+Только после corpus/statistical acceptance. LLM может сокращать, переводить и менять
+стиль подтверждённого текста. LLM не может считать статистику, менять
+numerator/denominator/confidence, создавать findings, выбирать evidence или удалять
+limitations. Оригинальный deterministic finding всегда хранится рядом.
+
+## Stage 10 — Cloud Scale (не начат)
+
+- multi-tenant control plane;
+- horizontally scalable parser/analytics workers;
+- Postgres metadata, object storage и immutable analytical artifacts;
+- quotas, billing boundary и operational SLO только после on-prem hardening.
 
 ## Рекомендуемый порядок после Stage 8.1
 
@@ -1328,9 +1379,15 @@ LLM-текстом.
         ↓
 8.9 Export
         ↓
-9 Optional LLM
+9.0 Release Baseline
         ↓
-10 Hardening
+9.1 Corpus → 9.2 Storage → 9.3 Workers → 9.4 Statistical Trust
+        ↓
+9.5 Tactical V2 → 9.6 UX → 9.7 On-Prem → 9.8 Operations
+        ↓
+9.9 Optional LLM
+        ↓
+10 Cloud Scale
 ```
 
 ## Stage 8.8.1 — interface productization

@@ -10,11 +10,16 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
+
+RUN python -m pip install --no-cache-dir uv==0.11.16 \
+    && uv sync --frozen --no-dev --no-install-project
+
 COPY src ./src
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install .
+RUN uv sync --frozen --no-dev
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 RUN mkdir -p /app/data
 

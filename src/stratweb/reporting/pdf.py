@@ -449,8 +449,7 @@ def _corpus_table(report: ScoutingReportExport, styles: dict[str, ParagraphStyle
                     f"{item.opponent_team_name or '—'}\n"
                     f"{item.round_count if item.round_count is not None else '—'}"
                 ),
-                item.input_status
-                + (f"\n{item.exclusion_reason}" if item.exclusion_reason else ""),
+                item.input_status + (f"\n{item.exclusion_reason}" if item.exclusion_reason else ""),
             ]
         )
     return _paragraph_table(rows, styles, (41 * mm, 61 * mm, 35 * mm, 25 * mm), repeat_rows=1)

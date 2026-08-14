@@ -823,8 +823,22 @@ def _status_badge(label: str, value: str) -> str:
         if value in {"conflicting", "unresolved", "unavailable"}
         else ("warn" if value in {"ambiguous", "ambiguous_order", "partial"} else "good")
     )
-    labels = {"ordering": "порядок", "intermediate": "промежуточное", "final": "финальное", "state": "состояние"}
-    values = {"available": "доступно", "partial": "частично", "unavailable": "недоступно", "deterministic": "детерминировано", "ambiguous": "неоднозначно", "ambiguous_order": "порядок неоднозначен", "conflicting": "конфликт", "unresolved": "не разрешено"}
+    labels = {
+        "ordering": "порядок",
+        "intermediate": "промежуточное",
+        "final": "финальное",
+        "state": "состояние",
+    }
+    values = {
+        "available": "доступно",
+        "partial": "частично",
+        "unavailable": "недоступно",
+        "deterministic": "детерминировано",
+        "ambiguous": "неоднозначно",
+        "ambiguous_order": "порядок неоднозначен",
+        "conflicting": "конфликт",
+        "unresolved": "не разрешено",
+    }
     return f'<span class="status {css}">{escape(labels.get(label, label))}: {escape(values.get(value, value))}</span>'
 
 

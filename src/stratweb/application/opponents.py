@@ -380,8 +380,7 @@ class OpponentWorkspaceService:
         if self._team_names is None:
             return {}
         return {
-            item.team_id: item.display_name
-            for item in self._team_names.list_for_match(match_id)
+            item.team_id: item.display_name for item in self._team_names.list_for_match(match_id)
         }
 
 

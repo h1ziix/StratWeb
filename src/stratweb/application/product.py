@@ -250,12 +250,12 @@ class ProductQueryService:
                     name_source=(
                         labels[team.team_id].source.value
                         if team.team_id in labels
-                        else "demo" if team.display_name else "fallback"
+                        else "demo"
+                        if team.display_name
+                        else "fallback"
                     ),
                     name_source_reference=(
-                        labels[team.team_id].source_reference
-                        if team.team_id in labels
-                        else None
+                        labels[team.team_id].source_reference if team.team_id in labels else None
                     ),
                     player_names=_team_player_names(team, memberships, players),
                     score=scores.get(team.team_id),
@@ -279,18 +279,10 @@ def _team_player_names(
     players: dict[UUID, CanonicalPlayer],
 ) -> tuple[str, ...]:
     player_ids = set(team.starting_player_ids)
-    player_ids.update(
-        item.player_id
-        for item in memberships
-        if item.team_id == team.team_id
-    )
+    player_ids.update(item.player_id for item in memberships if item.team_id == team.team_id)
     return tuple(
         sorted(
-            (
-                players[player_id].current_name
-                for player_id in player_ids
-                if player_id in players
-            ),
+            (players[player_id].current_name for player_id in player_ids if player_id in players),
             key=str.casefold,
         )
     )

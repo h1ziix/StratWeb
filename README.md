@@ -5,7 +5,7 @@ StratWeb — локальное backend-приложение для доказа
 командные и индивидуальные паттерны, но каждый вывод обязан ссылаться на конкретные
 демки, матчи и раунды.
 
-Реализованы этапы 1–8.8.2: inspection и canonical dataset (`demoparser2==0.41.4`
+Реализованы этапы 1–8.9 и release baseline Stage 9.0: inspection и canonical dataset (`demoparser2==0.41.4`
 за портом), DuckDB persistence (миграции 001–023), `Gameplay Analytics Engine V1`
 (opening/trade/KAST/multikill/advantage/bomb метрики), `Temporal Round State
 Engine 1.1.0` (immutable timeline, snapshots — [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)),
@@ -18,10 +18,11 @@ per-round tactical facts ([ROUND_FEATURE_MODEL.md](ROUND_FEATURE_MODEL.md)) и
 cross-match patterns ([PATTERN_MODEL.md](PATTERN_MODEL.md)) и воспроизводимые findings
 ([FINDING_MODEL.md](FINDING_MODEL.md)). Основные продуктовые страницы имеют русский
 presentation-слой, а проверенные вручную названия команд хранятся отдельно от canonical
-identity ([UI_LOCALIZATION.md](UI_LOCALIZATION.md)). Все движки
-parser-independent и детерминированы; tick — authoritative единица времени.
-Дальнейшие этапы (рекомендации и отчёты) — в
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+identity ([UI_LOCALIZATION.md](UI_LOCALIZATION.md)). Детерминированные рекомендации,
+evidence-first UI и стабильные JSON/PDF/printable exports описаны в
+[SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md) и [REPORT_EXPORT.md](REPORT_EXPORT.md).
+Все движки parser-independent и детерминированы; tick — authoritative единица времени.
+Дальнейшее production hardening — в [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Безопасная область продукта
 
@@ -60,7 +61,7 @@ src/stratweb/
 │                      # opponents, economy, features, patterns и import jobs use cases
 ├── web/               # FastAPI routers, Jinja templates, static JS/CSS viewer
 ├── domain/            # parser-independent модели и enum
-├── reporting/         # будущие renderer-ы отчётов
+├── reporting/         # стабильный JSON contract и HTML/PDF presentation
 ├── config.py          # настройки окружения (.env, префикс STRATWEB_)
 ├── contracts.py       # DTO между портами
 ├── exceptions.py      # typed inspection/import/persistence errors
@@ -68,7 +69,7 @@ src/stratweb/
 │                      # temporal/spatial/features/patterns commands
 ├── main.py            # FastAPI-приложение и composition root
 └── ports.py           # интерфейсы модулей
-tests/                 # 36 модулей: unit, integration, UI и frontend tests
+tests/                 # 43 модуля: unit, integration, UI и frontend tests
 ```
 
 Запуск локального сервера описан в [SERVER_GUIDE.md](SERVER_GUIDE.md)
@@ -76,7 +77,16 @@ tests/                 # 36 модулей: unit, integration, UI и frontend te
 
 ## Локальная установка
 
-Требуется CPython 3.11–3.14. Рекомендуется отдельное виртуальное окружение.
+Требуется CPython 3.11–3.14. Release baseline использует `uv==0.11.16` и
+закреплённый `uv.lock`:
+
+```bash
+uv sync --frozen --extra dev
+uv run --frozen pytest
+uv run --frozen python -c "from stratweb.main import app; print(app.title)"
+```
+
+Fallback без uv остаётся доступен для локальной разработки:
 
 ```bash
 python -m venv .venv
@@ -86,6 +96,16 @@ python -m pip install -e ".[dev]"
 python -m pytest
 python -c "from stratweb.main import app; print(app.title)"
 ```
+
+Полная локальная проверка релиза:
+
+```powershell
+.\scripts\release_check.ps1
+```
+
+История версии находится в [CHANGELOG.md](CHANGELOG.md), процедура восстановления — в
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md), ограничения сетевого запуска — в
+[SECURITY.md](SECURITY.md).
 
 ## Локальная инспекция `.dem`
 

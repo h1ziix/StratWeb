@@ -1,6 +1,9 @@
 .git
 .gitignore
+.github
 .venv
+.runtime
+.stage*-manual
 __pycache__
 *.py[cod]
 .pytest_cache
@@ -11,9 +14,12 @@ data
 uploads
 staging
 reports
+output
+tmp
 *.dem
 *.duckdb*
+canonical-match.json
+demo-inspection.json
 tests
 dist
 build
-
