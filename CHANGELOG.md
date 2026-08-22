@@ -4,6 +4,29 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.7.0] - 2026-08-22
+
+### Added
+
+- Stage 9.2b verified DuckDB backup using `COPY FROM DATABASE` before any V2 mutation.
+- Version-aware `canonical_key_indexes_v2` reads with three canonical lookup indexes.
+- Deterministic key/payload parity, warm-cache latency gates and persisted migration status.
+- `storage status`, `storage migrate-v2` and reversible `storage rollback-v1` commands.
+- Migration and rollback tests covering backup refusal, payload parity and repository reads.
+
+### Changed
+
+- Active V2 writes store Spatial and bomb payload only in their canonical tables.
+- A rehearsed slim-table join was rejected after exceeding the latency budget; direct canonical
+  indexes matched legacy lookup performance and became the final design.
+- Parquet remains an archive candidate only, not an interactive storage dependency.
+
+### Safety
+
+- Existing legacy mirror rows remain intact during the acceptance window.
+- No mirror deletion, run retention or disk reclamation is performed in Stage 9.2b.
+- Original uploaded demos are never classified as automatically deletable.
+
 ## [0.6.0] - 2026-08-14
 
 ### Added

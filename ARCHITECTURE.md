@@ -1439,8 +1439,29 @@ DuckDB catalog estimates and physical block attribution retain limitations becau
 can be shared and index/metadata storage is not fully attributable to a user table.
 
 The audit proves that `spatial_snapshot_query_rows` and `bomb_position_query_rows` preserve
-valuable narrow lookup keys but duplicate every canonical JSON payload. Storage V2 will test
-a slim key-to-snapshot lookup followed by a canonical payload join. It will not remove the
-lookup concept, migrate interactive data to Parquet without latency evidence, or classify
-additional immutable runs as deletable merely because a newer run exists. See
-[STAGE_9_2A.md](STAGE_9_2A.md).
+valuable narrow lookup keys but duplicate every canonical JSON payload. Stage 9.2a therefore
+proposed testing a slim key-to-snapshot lookup followed by a canonical payload join, while
+forbidding deletion or an unmeasured Parquet move. Stage 9.2b tested and rejected that join as
+described below. See [STAGE_9_2A.md](STAGE_9_2A.md).
+
+## Stage 9.2b architectural decision — canonical payload is the single source
+
+The initially proposed slim lookup plus canonical join was implemented and rehearsed against
+the real five-match corpus. Although parity was exact, median reads regressed to roughly
+14–16 ms because DuckDB did not turn the join into an indexed point lookup. The migration gate
+correctly kept V1 active. A second rehearsal indexed the existing canonical `tick_lookup_key`
+and `player_path_key` columns and read payload directly. It matched the legacy mirror at about
+0.6 ms per tick and 4.2 ms per player path, so this is the accepted V2 layout.
+
+`storage_layout_state` is deliberately outside automatic application migrations: it is created
+only by the explicit migration command after a verified backup. Pre-V2 databases therefore
+remain readable and unchanged until the owner invokes migration. When V2 is active, repository
+reads select canonical tables and writes omit legacy mirror payload. The retained legacy rows
+form the acceptance-window rollback path; rollback first restores any mirror rows created only
+under V2, proves payload parity, and only then switches the layout marker.
+
+Parquet was rejected for active interactive storage because the current access path needs point
+lookups, match deletion and recomputation. It remains a candidate for a separately versioned,
+immutable archive. No original demo or superseded run is automatically deletable: evidence,
+feature and report dependencies must be checked before any future retention action. See
+[STAGE_9_2B.md](STAGE_9_2B.md).

@@ -109,6 +109,11 @@ from stratweb.readiness.models import FindingReadinessConfig
 from stratweb.spatial.models import SpatialConfig
 from stratweb.storage_audit import DuckDBStorageAuditor, StorageAuditError
 from stratweb.storage_audit.models import StorageAuditConfig
+from stratweb.storage_migration import (
+    DuckDBStorageMigrator,
+    StorageMigrationConfig,
+    StorageMigrationError,
+)
 from stratweb.temporal.models import TemporalConfig
 from stratweb.zones.assignment_models import ZoneAssignmentConfig, ZoneAssignmentStatus
 
@@ -123,6 +128,7 @@ _EXIT_PERSISTENCE = 9
 _EXIT_CANONICAL_IMPORT = 10
 _EXIT_CORPUS = 11
 _EXIT_STORAGE_AUDIT = 12
+_EXIT_STORAGE_MIGRATION = 13
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -189,7 +195,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "corpus":
             return _run_golden_corpus_command(args)
         if args.command == "storage":
-            return _run_storage_audit_command(args)
+            return _run_storage_command(args)
         raise AssertionError(f"Unhandled CLI command: {args.command}")
     except GoldenCorpusError as exc:
         print(f"error [golden_corpus]: {exc}", file=sys.stderr)
@@ -201,6 +207,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         if debug:
             traceback.print_exc(file=sys.stderr)
         return _EXIT_STORAGE_AUDIT
+    except StorageMigrationError as exc:
+        print(f"error [storage_migration]: {exc}", file=sys.stderr)
+        if debug:
+            traceback.print_exc(file=sys.stderr)
+        return _EXIT_STORAGE_MIGRATION
     except DemoInspectionError as exc:
         print(f"error [{exc.error_code}]: {exc}", file=sys.stderr)
         if debug:
@@ -820,7 +831,7 @@ def _add_golden_corpus_commands(subparsers: Any) -> None:
 def _add_storage_audit_commands(subparsers: Any) -> None:
     storage = subparsers.add_parser(
         "storage",
-        help="run read-only Stage 9.2a DuckDB diagnostics",
+        help="audit or migrate the local DuckDB storage layout",
     )
     actions = storage.add_subparsers(dest="storage_action", required=True)
     audit = actions.add_parser(
@@ -836,6 +847,45 @@ def _add_storage_audit_commands(subparsers: Any) -> None:
     audit.add_argument("--benchmark-iterations", type=int, default=5, choices=range(1, 21))
     audit.add_argument("--pretty", action="store_true")
     audit.add_argument("--debug", action="store_true")
+
+    status = actions.add_parser("status", help="show the active storage layout read-only")
+    status.add_argument("--db", type=Path, help="DuckDB path (overrides environment)")
+    status.add_argument("--pretty", action="store_true")
+    status.add_argument("--debug", action="store_true")
+
+    migrate = actions.add_parser(
+        "migrate-v2",
+        help="back up, index canonical rows and conditionally activate Storage V2",
+    )
+    migrate.add_argument("--db", type=Path, help="DuckDB path (overrides environment)")
+    migrate.add_argument("--backup", type=Path, required=True)
+    migrate.add_argument("--output", type=Path, help="also save the JSON report")
+    migrate.add_argument("--force", action="store_true", help="replace an existing JSON report")
+    migrate.add_argument("--benchmark-iterations", type=int, default=5, choices=range(1, 21))
+    migrate.add_argument("--maximum-median-ratio", type=float, default=2.0)
+    migrate.add_argument("--maximum-absolute-regression-ms", type=float, default=10.0)
+    migrate.add_argument("--yes", action="store_true", help="confirm the database mutation")
+    migrate.add_argument("--pretty", action="store_true")
+    migrate.add_argument("--debug", action="store_true")
+
+    rollback = actions.add_parser(
+        "rollback-v1",
+        help="restore missing legacy mirrors and switch reads back to V1",
+    )
+    rollback.add_argument("--db", type=Path, help="DuckDB path (overrides environment)")
+    rollback.add_argument("--yes", action="store_true", help="confirm the database mutation")
+    rollback.add_argument("--pretty", action="store_true")
+    rollback.add_argument("--debug", action="store_true")
+
+    restore = actions.add_parser(
+        "restore-backup",
+        help="restore a backup into a new DuckDB file without replacing existing data",
+    )
+    restore.add_argument("--backup", type=Path, required=True)
+    restore.add_argument("--destination", type=Path, required=True)
+    restore.add_argument("--yes", action="store_true", help="confirm creation of the new file")
+    restore.add_argument("--pretty", action="store_true")
+    restore.add_argument("--debug", action="store_true")
 
 
 def _add_output_options(command: argparse.ArgumentParser) -> None:
@@ -1512,16 +1562,52 @@ def _run_golden_corpus_command(args: argparse.Namespace) -> int:
     raise AssertionError(f"Unhandled corpus command: {args.corpus_action}")
 
 
-def _run_storage_audit_command(args: argparse.Namespace) -> int:
+def _run_storage_command(args: argparse.Namespace) -> int:
+    if args.storage_action == "restore-backup":
+        if not args.yes:
+            raise StorageMigrationError("restore-backup requires explicit --yes confirmation.")
+        result = DuckDBStorageMigrator().restore_to_new_database(args.backup, args.destination)
+        _print_model(result, pretty=args.pretty)
+        return 0
+    database_path = resolve_database_path(args.db).expanduser().resolve()
+    if args.storage_action == "status":
+        _print_model(DuckDBStorageMigrator().status(database_path), pretty=args.pretty)
+        return 0
+    if args.storage_action == "migrate-v2":
+        if not args.yes:
+            raise StorageMigrationError("migrate-v2 requires explicit --yes confirmation.")
+        migration_output_path: Path | None = None
+        if args.output is not None:
+            migration_output_path = _preflight_json_output(args.output, force=bool(args.force))
+            if migration_output_path == database_path:
+                raise StorageMigrationError("Migration report cannot replace the DuckDB file.")
+        migration_report = DuckDBStorageMigrator().migrate(
+            database_path,
+            args.backup,
+            config=StorageMigrationConfig(
+                benchmark_iterations=args.benchmark_iterations,
+                maximum_median_ratio=args.maximum_median_ratio,
+                maximum_absolute_regression_ms=args.maximum_absolute_regression_ms,
+            ),
+        )
+        serialized = migration_report.model_dump_json(indent=2 if args.pretty else None)
+        if migration_output_path is not None:
+            _write_output(migration_output_path, serialized, force=bool(args.force))
+        print(serialized)
+        return 0 if migration_report.activated else _EXIT_STORAGE_MIGRATION
+    if args.storage_action == "rollback-v1":
+        if not args.yes:
+            raise StorageMigrationError("rollback-v1 requires explicit --yes confirmation.")
+        _print_model(DuckDBStorageMigrator().rollback(database_path), pretty=args.pretty)
+        return 0
     if args.storage_action != "audit":
         raise AssertionError(f"Unhandled storage command: {args.storage_action}")
-    database_path = resolve_database_path(args.db).expanduser().resolve()
     output_path: Path | None = None
     if args.output is not None:
         output_path = _preflight_json_output(args.output, force=bool(args.force))
         if output_path == database_path:
             raise StorageAuditError("Storage audit output cannot replace the DuckDB file.")
-    report = DuckDBStorageAuditor().audit(
+    audit_report = DuckDBStorageAuditor().audit(
         database_path,
         config=StorageAuditConfig(
             exact_row_counts=not bool(args.skip_exact_counts),
@@ -1530,7 +1616,7 @@ def _run_storage_audit_command(args: argparse.Namespace) -> int:
             run_benchmarks=not bool(args.skip_benchmarks),
         ),
     )
-    serialized = report.model_dump_json(indent=2 if args.pretty else None)
+    serialized = audit_report.model_dump_json(indent=2 if args.pretty else None)
     if output_path is not None:
         _write_output(output_path, serialized, force=bool(args.force))
     print(serialized)

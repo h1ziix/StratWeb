@@ -1302,7 +1302,7 @@ PDF не содержит выводов, отсутствующих в сохр
 
 Полный scope и честные blockers: [STAGE_9_1.md](STAGE_9_1.md).
 
-## Stage 9.2 — Storage Engine V2 (9.2a завершён; миграция не начата)
+## Stage 9.2 — Storage Engine V2 (9.2a и 9.2b завершены)
 
 ### Stage 9.2a — read-only audit
 
@@ -1315,16 +1315,19 @@ PDF не содержит выводов, отсутствующих в сохр
 
 Результаты: [STAGE_9_2A.md](STAGE_9_2A.md).
 
-### Stage 9.2b — slim lookup migration (не начат)
+### Stage 9.2b — canonical single-source migration
 
-- [ ] verified backup/restore до миграции;
-- [ ] shadow lookup tables без дублированного JSON payload;
-- [ ] key/payload parity и migration rollback tests;
-- [ ] performance comparison с явным latency budget;
-- [ ] version-aware repository read switch и acceptance window;
-- [ ] Parquet evaluation для immutable high-volume samples;
-- [ ] dependency-aware superseded-run и original-demo retention policy;
+- [x] verified `COPY FROM DATABASE` backup до первой V2 mutation;
+- [x] canonical key indexes без второй JSON-копии для новых Spatial runs;
+- [x] key/payload parity и migration rollback tests;
+- [x] performance comparison с явным latency budget;
+- [x] version-aware repository read switch и acceptance window;
+- [x] Parquet evaluation: только будущий immutable archive, не interactive store;
+- [x] dependency-aware retention policy спроектирована; automatic deletion запрещён;
 - [ ] controlled disk reclamation только после отдельного подтверждения владельца.
+
+Результаты: [STAGE_9_2B.md](STAGE_9_2B.md). Старые mirrors сохранены для rollback,
+поэтому Stage 9.2b не обещает немедленное уменьшение существующего файла.
 
 ## Stage 9.3 — Import Worker V2 (не начат)
 

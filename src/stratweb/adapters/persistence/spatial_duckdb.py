@@ -12,6 +12,7 @@ import duckdb
 from stratweb.adapters.persistence._connections import read_connection
 from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
+from stratweb.adapters.persistence.storage_layout import uses_canonical_index_layout
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, SpatialIntegrityError
 from stratweb.spatial.models import (
@@ -379,14 +380,24 @@ class DuckDBSpatialRepository:
         if run_id is None:
             return None
         with read_connection(self._database_path, "spatial") as connection:
-            row = connection.execute(
-                """
-                SELECT payload FROM bomb_position_query_rows
-                WHERE tick_lookup_key = ?
-                ORDER BY snapshot_id LIMIT 1
-                """,
-                [_tick_lookup_key(run_id, round_number, tick)],
-            ).fetchone()
+            if uses_canonical_index_layout(connection):
+                row = connection.execute(
+                    """
+                    SELECT payload FROM bomb_position_snapshots
+                    WHERE tick_lookup_key = ?
+                    ORDER BY snapshot_id LIMIT 1
+                    """,
+                    [_tick_lookup_key(run_id, round_number, tick)],
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT payload FROM bomb_position_query_rows
+                    WHERE tick_lookup_key = ?
+                    ORDER BY snapshot_id LIMIT 1
+                    """,
+                    [_tick_lookup_key(run_id, round_number, tick)],
+                ).fetchone()
         return BombPositionSnapshot.model_validate(_json(row[0])) if row else None
 
     def get_playback_snapshots(
@@ -402,15 +413,26 @@ class DuckDBSpatialRepository:
         keys = [_tick_lookup_key(spatial_run_id, round_number, tick) for tick in ticks]
         placeholders = ",".join("?" for _ in keys)
         with read_connection(self._database_path, "spatial") as connection:
-            rows = connection.execute(
-                f"""
-                SELECT payload FROM spatial_snapshot_query_rows
-                WHERE match_id = ? AND spatial_run_id = ?
-                  AND tick_lookup_key IN ({placeholders})
-                ORDER BY tick, participant_id
-                """,
-                [match_id, spatial_run_id, *keys],
-            ).fetchall()
+            if uses_canonical_index_layout(connection):
+                rows = connection.execute(
+                    f"""
+                    SELECT payload FROM spatial_snapshots
+                    WHERE match_id = ? AND spatial_run_id = ?
+                      AND tick_lookup_key IN ({placeholders})
+                    ORDER BY tick, participant_id
+                    """,
+                    [match_id, spatial_run_id, *keys],
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    f"""
+                    SELECT payload FROM spatial_snapshot_query_rows
+                    WHERE match_id = ? AND spatial_run_id = ?
+                      AND tick_lookup_key IN ({placeholders})
+                    ORDER BY tick, participant_id
+                    """,
+                    [match_id, spatial_run_id, *keys],
+                ).fetchall()
         return tuple(SpatialSnapshot.model_validate(_json(row[0])) for row in rows)
 
     def get_playback_bomb_positions(
@@ -426,15 +448,26 @@ class DuckDBSpatialRepository:
         keys = [_tick_lookup_key(spatial_run_id, round_number, tick) for tick in ticks]
         placeholders = ",".join("?" for _ in keys)
         with read_connection(self._database_path, "spatial") as connection:
-            rows = connection.execute(
-                f"""
-                SELECT payload FROM bomb_position_query_rows
-                WHERE match_id = ? AND spatial_run_id = ?
-                  AND tick_lookup_key IN ({placeholders})
-                ORDER BY tick, snapshot_id
-                """,
-                [match_id, spatial_run_id, *keys],
-            ).fetchall()
+            if uses_canonical_index_layout(connection):
+                rows = connection.execute(
+                    f"""
+                    SELECT payload FROM bomb_position_snapshots
+                    WHERE match_id = ? AND spatial_run_id = ?
+                      AND tick_lookup_key IN ({placeholders})
+                    ORDER BY tick, snapshot_id
+                    """,
+                    [match_id, spatial_run_id, *keys],
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    f"""
+                    SELECT payload FROM bomb_position_query_rows
+                    WHERE match_id = ? AND spatial_run_id = ?
+                      AND tick_lookup_key IN ({placeholders})
+                    ORDER BY tick, snapshot_id
+                    """,
+                    [match_id, spatial_run_id, *keys],
+                ).fetchall()
         return tuple(BombPositionSnapshot.model_validate(_json(row[0])) for row in rows)
 
     def get_round_projectiles(
@@ -527,22 +560,28 @@ class DuckDBSpatialRepository:
         *,
         table: str = "spatial_snapshots",
     ) -> tuple[SpatialSnapshot, ...]:
-        if table == "spatial_snapshot_query_rows":
-            key_filter, *remaining_filters = where
-            sql = (
-                f'WITH selected AS MATERIALIZED (SELECT * FROM "{table}" '
-                f"WHERE {key_filter}) SELECT payload FROM selected"
-            )
-            if remaining_filters:
-                sql += " WHERE " + " AND ".join(remaining_filters)
-            sql += f" ORDER BY {order_by}"
-        else:
-            sql = (
-                f'SELECT payload FROM "{table}" WHERE '
-                + " AND ".join(where)
-                + f" ORDER BY {order_by}"
-            )
         with read_connection(self._database_path, "spatial") as connection:
+            if table == "spatial_snapshot_query_rows" and uses_canonical_index_layout(connection):
+                sql = (
+                    "SELECT payload FROM spatial_snapshots WHERE "
+                    + " AND ".join(where)
+                    + f" ORDER BY {order_by}"
+                )
+            elif table == "spatial_snapshot_query_rows":
+                key_filter, *remaining_filters = where
+                sql = (
+                    f'WITH selected AS MATERIALIZED (SELECT * FROM "{table}" '
+                    f"WHERE {key_filter}) SELECT payload FROM selected"
+                )
+                if remaining_filters:
+                    sql += " WHERE " + " AND ".join(remaining_filters)
+                sql += f" ORDER BY {order_by}"
+            else:
+                sql = (
+                    f'SELECT payload FROM "{table}" WHERE '
+                    + " AND ".join(where)
+                    + f" ORDER BY {order_by}"
+                )
             rows = connection.execute(sql, params).fetchall()
         return tuple(SpatialSnapshot.model_validate(_json(row[0])) for row in rows)
 
@@ -664,40 +703,41 @@ class DuckDBSpatialRepository:
                     for snapshot in state.snapshots
                 ],
             )
-            connection.executemany(
-                """
-                INSERT INTO spatial_snapshot_query_rows (
-                    spatial_run_id, snapshot_id, round_number, tick, participant_id,
-                    physical_team_id, alive, has_bomb, x, position_authority,
-                    tick_lookup_key, player_path_key, payload, match_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
+            if not uses_canonical_index_layout(connection):
+                connection.executemany(
+                    """
+                    INSERT INTO spatial_snapshot_query_rows (
+                        spatial_run_id, snapshot_id, round_number, tick, participant_id,
+                        physical_team_id, alive, has_bomb, x, position_authority,
+                        tick_lookup_key, player_path_key, payload, match_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
                     [
-                        state.spatial_run_id,
-                        snapshot.snapshot_id,
-                        snapshot.round_number,
-                        snapshot.tick,
-                        snapshot.participant_id,
-                        snapshot.physical_team_id,
-                        snapshot.alive,
-                        snapshot.has_bomb,
-                        snapshot.x,
-                        snapshot.position_authority.value,
-                        _tick_lookup_key(
-                            state.spatial_run_id, snapshot.round_number, snapshot.tick
-                        ),
-                        _player_path_key(
+                        [
                             state.spatial_run_id,
+                            snapshot.snapshot_id,
                             snapshot.round_number,
+                            snapshot.tick,
                             snapshot.participant_id,
-                        ),
-                        _payload(snapshot),
-                        snapshot.match_id,
-                    ]
-                    for snapshot in state.snapshots
-                ],
-            )
+                            snapshot.physical_team_id,
+                            snapshot.alive,
+                            snapshot.has_bomb,
+                            snapshot.x,
+                            snapshot.position_authority.value,
+                            _tick_lookup_key(
+                                state.spatial_run_id, snapshot.round_number, snapshot.tick
+                            ),
+                            _player_path_key(
+                                state.spatial_run_id,
+                                snapshot.round_number,
+                                snapshot.participant_id,
+                            ),
+                            _payload(snapshot),
+                            snapshot.match_id,
+                        ]
+                        for snapshot in state.snapshots
+                    ],
+                )
         if state.bomb_positions:
             connection.executemany(
                 """
@@ -728,26 +768,27 @@ class DuckDBSpatialRepository:
                     for bomb in state.bomb_positions
                 ],
             )
-            connection.executemany(
-                """
-                INSERT INTO bomb_position_query_rows (
-                    spatial_run_id, snapshot_id, round_number, tick,
-                    tick_lookup_key, payload, match_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
+            if not uses_canonical_index_layout(connection):
+                connection.executemany(
+                    """
+                    INSERT INTO bomb_position_query_rows (
+                        spatial_run_id, snapshot_id, round_number, tick,
+                        tick_lookup_key, payload, match_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
                     [
-                        state.spatial_run_id,
-                        bomb.snapshot_id,
-                        bomb.round_number,
-                        bomb.tick,
-                        _tick_lookup_key(state.spatial_run_id, bomb.round_number, bomb.tick),
-                        _payload(bomb),
-                        bomb.match_id,
-                    ]
-                    for bomb in state.bomb_positions
-                ],
-            )
+                        [
+                            state.spatial_run_id,
+                            bomb.snapshot_id,
+                            bomb.round_number,
+                            bomb.tick,
+                            _tick_lookup_key(state.spatial_run_id, bomb.round_number, bomb.tick),
+                            _payload(bomb),
+                            bomb.match_id,
+                        ]
+                        for bomb in state.bomb_positions
+                    ],
+                )
         if state.projectiles:
             connection.executemany(
                 """

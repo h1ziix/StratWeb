@@ -970,5 +970,43 @@ uv run --frozen stratweb storage audit `
 ```
 
 The current five-match database proves complete JSON duplication in the Spatial and bomb
-lookup mirrors. The proposed slim-lookup migration is documented but deliberately not
-executed in Stage 9.2a. See [STAGE_9_2A.md](STAGE_9_2A.md).
+lookup mirrors. Stage 9.2a only measured the problem. See [STAGE_9_2A.md](STAGE_9_2A.md).
+
+### Stage 9.2b Storage Engine V2
+
+Inspect the active layout without changing the database:
+
+```powershell
+uv run --frozen stratweb storage status --db <database.duckdb> --pretty
+```
+
+The explicit migration command creates and verifies a full backup before installing canonical
+lookup indexes. It activates V2 only when every key resolves and the measured query latency
+stays inside the configured budget:
+
+```powershell
+uv run --frozen stratweb storage migrate-v2 `
+  --db <database.duckdb> `
+  --backup <new-backup.duckdb> `
+  --output .runtime\storage-migration.json `
+  --pretty --yes
+```
+
+V2 reads payload from `spatial_snapshots` and `bomb_position_snapshots` directly. New runs do
+not write a second payload mirror. Existing mirrors remain available for verified rollback:
+
+```powershell
+uv run --frozen stratweb storage rollback-v1 --db <database.duckdb> --pretty --yes
+```
+
+A backup can be restore-tested only into a new destination; existing files are refused:
+
+```powershell
+uv run --frozen stratweb storage restore-backup `
+  --backup <backup.duckdb> `
+  --destination <new-restored.duckdb> `
+  --pretty --yes
+```
+
+No existing mirror is dropped and no disk reclamation occurs in this stage. See
+[STAGE_9_2B.md](STAGE_9_2B.md).
