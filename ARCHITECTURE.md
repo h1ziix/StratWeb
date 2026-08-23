@@ -1505,3 +1505,25 @@ Reliability ranking is derived solely from those evidence measures. It neither e
 tactical recommendations. Patch and roster-period results remain unavailable until canonical match
 time, game patch and versioned roster-period inputs exist. See
 [STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md).
+
+## Stage 9.5 architectural decision — tactical observations are source-pinned ratios
+
+Tactical Intelligence V2 is a new immutable observation pipeline, not a rewrite of Stage 8.6
+findings or Stage 8.7 recommendations. Its pure engine accepts typed rounds whose Analytics,
+Temporal, Spatial, Zone and Feature fingerprints are pinned as one exact lineage. DuckDB loading,
+calculation and persistence remain separate ports.
+
+Every family defines its denominator before aggregation. Route clusters use exact checkpoint-zone
+signatures; execute packages require a proven plant; rotations are observed post-contact edges;
+clutch state is evaluated only after a complete same-tick kill group. Heatmaps count authoritative
+alive samples in world-coordinate cells and never relabel that share as seconds or round chance.
+
+HE/fire outcome is explicitly a unique same-owner, matching-weapon, bounded-time association;
+damage matching multiple effect windows is excluded as ambiguous. It is stored as partial and
+cannot be presented as causality. Flash blindness and smoke line-of-sight impact stay unavailable
+because the current canonical evidence does not prove them. Missing source facts change
+capabilities, never a numerator to zero. See
+[TACTICAL_INTELLIGENCE_V2_MODEL.md](TACTICAL_INTELLIGENCE_V2_MODEL.md).
+
+Malformed or lineage-incompatible selected matches are isolated and reported as exclusions; they
+do not prevent compatible matches in the same opponent corpus from being calculated.

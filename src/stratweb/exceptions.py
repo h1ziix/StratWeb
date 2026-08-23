@@ -272,6 +272,18 @@ class StatisticalTrustConfigurationError(StatisticalTrustError):
     error_code = "statistical_trust_configuration_error"
 
 
+class TacticalV2Error(PersistenceError):
+    error_code = "tactical_v2_error"
+
+
+class TacticalV2NotFoundError(TacticalV2Error):
+    error_code = "tactical_v2_not_found"
+
+
+class TacticalV2ConfigurationError(TacticalV2Error):
+    error_code = "tactical_v2_configuration_error"
+
+
 class AnalysisFindingError(PersistenceError):
     error_code = "analysis_finding_error"
 

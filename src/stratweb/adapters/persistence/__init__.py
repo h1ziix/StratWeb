@@ -15,6 +15,10 @@ from stratweb.adapters.persistence.spatial_duckdb import DuckDBSpatialRepository
 from stratweb.adapters.persistence.statistical_trust_duckdb import (
     DuckDBStatisticalTrustRepository,
 )
+from stratweb.adapters.persistence.tactical_v2_duckdb import (
+    DuckDBTacticalV2Repository,
+    DuckDBTacticalV2SourceRepository,
+)
 from stratweb.adapters.persistence.team_names_duckdb import DuckDBTeamNameRepository
 from stratweb.adapters.persistence.temporal_duckdb import DuckDBTemporalRepository
 from stratweb.adapters.persistence.zone_assignments_duckdb import (
@@ -33,6 +37,8 @@ __all__ = [
     "DuckDBRoundFeatureRepository",
     "DuckDBSpatialRepository",
     "DuckDBStatisticalTrustRepository",
+    "DuckDBTacticalV2Repository",
+    "DuckDBTacticalV2SourceRepository",
     "DuckDBTemporalRepository",
     "DuckDBTeamNameRepository",
     "DuckDBZoneAssignmentRepository",

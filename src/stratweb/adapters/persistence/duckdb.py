@@ -14,6 +14,9 @@ import duckdb
 import polars as pl
 
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_matches
+from stratweb.adapters.persistence._tactical_v2_cascade import (
+    delete_tactical_v2_for_matches,
+)
 from stratweb.adapters.persistence.migrations import MIGRATIONS, Migration
 from stratweb.application.canonical_models import (
     CanonicalBombEvent,
@@ -879,6 +882,7 @@ class DuckDBMatchRepository:
     def _delete_match_in_connection(
         self, connection: duckdb.DuckDBPyConnection, match_id: UUID
     ) -> None:
+        delete_tactical_v2_for_matches(connection, [match_id])
         delete_patterns_for_matches(connection, [match_id])
         for table in _DELETE_ORDER:
             connection.execute(f'DELETE FROM "{table}" WHERE match_id = ?', [match_id])

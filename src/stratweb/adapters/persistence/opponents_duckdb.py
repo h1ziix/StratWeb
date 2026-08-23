@@ -9,6 +9,9 @@ from uuid import UUID
 import duckdb
 
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_profile
+from stratweb.adapters.persistence._tactical_v2_cascade import (
+    delete_tactical_v2_for_profile,
+)
 from stratweb.application.opponent_models import (
     OpponentMatchSelection,
     OpponentProfile,
@@ -105,6 +108,7 @@ class DuckDBOpponentRepository:
                     return False
                 connection.execute("BEGIN TRANSACTION")
                 try:
+                    delete_tactical_v2_for_profile(connection, profile_id)
                     delete_patterns_for_profile(connection, profile_id)
                     connection.execute(
                         "DELETE FROM opponent_match_selections WHERE profile_id = ?",

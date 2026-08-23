@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Тактические сигналы V2 · {{ profile.display_name }} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% endblock %}
+{% block content_class %}report-shell{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / Тактические сигналы V2</nav>
+<section class="page-heading">
+  <div><p class="eyebrow">Stage 9.5 · deterministic evidence only</p><h1>Тактические сигналы V2</h1><p>Траектории, plant-пакеты, utility, дистанции, размены, переходы, clutch/save и карта присутствия. Это наблюдения, а не доказательство намерения или готовая рекомендация.</p></div>
+  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute"><button type="submit">Рассчитать V2</button></form>
+</section>
+{% if not summary %}
+<div class="empty-state"><strong>Расчёт ещё не создан.</strong><p>{{ unavailable_reason }} Нужен хотя бы один подтверждённый матч с полным Stage 8.4 pipeline.</p></div>
+{% else %}
+<section class="report-metrics" aria-label="Итог Tactical V2">
+  <article><span>Матчи</span><strong>{{ summary.summary.included_matches }}</strong><small>исключено: {{ summary.summary.excluded_matches }}</small></article>
+  <article><span>Раунды</span><strong>{{ summary.summary.eligible_rounds }}</strong><small>без warmup и неполных</small></article>
+  <article class="available"><span>Сигналы</span><strong>{{ summary.summary.insights }}</strong><small>каждый со своим знаменателем</small></article>
+  <article class="partial"><span>Малая выборка</span><strong>{{ summary.summary.small_sample_insights }}</strong><small>цель корпуса: {{ summary.config.target_corpus_matches }} матчей</small></article>
+</section>
+{% for warning in summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}
+<section class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Capabilities</p><h2>Покрытие расчётов</h2></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Семейство</th><th>Статус</th><th>Покрытие</th><th>Сигналы</th><th>Ограничение</th></tr></thead><tbody>
+  {% for kind, capability in summary.capabilities.items() %}<tr><td>{{ t('tactical.' ~ kind.value) }}</td><td><span class="status {{ 'available' if capability.status.value == 'available' else ('partial' if capability.status.value == 'partial' else 'unavailable') }}">{{ capability.status.value|status_label }}</span></td><td>{{ capability.covered_units }}/{{ capability.eligible_units }}</td><td>{{ capability.insight_count }}</td><td>{% for reason in capability.unavailable_reasons %}{{ reason|warning_label }}{% if not loop.last %}; {% endif %}{% else %}—{% endfor %}</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Evidence-backed ratios</p><h2>Наблюдаемые структуры</h2></div><span>{{ insights|length }}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Тип</th><th>Карта / сторона</th><th>Наблюдение</th><th>Числа</th><th>Матчи</th><th>Evidence</th></tr></thead><tbody>
+  {% for item in insights %}<tr><td>{{ t('tactical.' ~ item.insight_type.value) }}</td><td><strong>{{ item.map_name|map_name }}</strong><br><span class="side-chip {{ item.side.value|lower }}">{{ item.side.value }}</span></td><td><strong>{{ item.label }}</strong><br><small>{{ item.key }}</small>{% if item.small_sample_warning %}<br><span class="status partial">малая выборка</span>{% endif %}</td><td>{{ item.numerator }}/{{ item.denominator }} · {{ '%.1f'|format(item.frequency * 100) }}%</td><td>{{ item.match_count }}</td><td><a href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ item.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ item.evidence_references|length }} ссылок</a></td></tr>{% else %}<tr><td colspan="6">Нет доступных сигналов.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Top world-grid cells</p><h2>Карта присутствия — наиболее частые ячейки</h2></div><span>{{ heatmap_cells|length }}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Карта / сторона</th><th>Ячейка</th><th>Доля alive-снимков</th><th>Evidence</th></tr></thead><tbody>
+  {% for item in heatmap_cells %}<tr><td>{{ item.map_name|map_name }} · {{ item.side.value }}</td><td>{{ item.label }}</td><td>{{ item.numerator }}/{{ item.denominator }} · {{ '%.2f'|format(item.frequency * 100) }}%</td><td>{{ item.evidence_references|length }} раундов</td></tr>{% else %}<tr><td colspan="4">Heatmap cells недоступны.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<details class="product-disclosure"><summary>Методика и provenance</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>Схема / правила</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>Run</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>Fingerprint</dt><dd><code>{{ summary.tactical_fingerprint }}</code></dd><dt>Источники</dt><dd>{{ summary.source_pins|length }} точных наборов Analytics/Temporal/Spatial/Zone/Features</dd></dl><div class="button-row"><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/summary">Summary JSON</a><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights">Insights JSON</a></div></div></details>
+{% endif %}
+{% endblock %}

@@ -4,6 +4,23 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.10.0] - 2026-08-23
+
+### Added
+
+- Stage 9.5 Tactical Intelligence V2 with ten deterministic observation families.
+- Source-pinned path, execute, utility, spacing, entry/trade, rotation, clutch/save and heatmap
+  calculations.
+- Immutable DuckDB migration 026 with normalized evidence lookup and dependency-aware cleanup.
+- JSON API and Russian opponent inspection page.
+
+### Safety
+
+- Tactical intent, recommendation and causality are never inferred.
+- Same-tick clutch state is evaluated only after the complete group.
+- Flash/smoke effectiveness and unavailable save facts remain typed unavailable.
+- Every observation retains numerator, denominator, frequency, sample size and source evidence.
+
 ## [0.9.0] - 2026-08-23
 
 ### Added

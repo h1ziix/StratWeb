@@ -20,6 +20,7 @@ from stratweb.exceptions import (
     RoundFeatureNotFoundError,
     SpatialNotFoundError,
     StatisticalTrustNotFoundError,
+    TacticalV2NotFoundError,
     ZoneAssignmentNotFoundError,
 )
 from stratweb.maps.registry import MapRegistry
@@ -37,6 +38,7 @@ from stratweb.web.scouting_report import scouting_report_router
 from stratweb.web.spatial import spatial_ui_router
 from stratweb.web.spatial_explorer import spatial_explorer_router
 from stratweb.web.statistical_trust import statistical_trust_router
+from stratweb.web.tactical_v2 import tactical_v2_router
 from stratweb.web.temporal import temporal_ui_router
 from stratweb.web.zones import zone_assignment_router
 
@@ -139,6 +141,13 @@ def create_app(
             content={"detail": str(exc), "error_code": exc.error_code},
         )
 
+    @application.exception_handler(TacticalV2NotFoundError)
+    async def tactical_v2_not_found(request: Request, exc: TacticalV2NotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
     @application.exception_handler(CounterStrategyNotFoundError)
     async def counter_strategy_not_found(
         request: Request, exc: CounterStrategyNotFoundError
@@ -225,6 +234,7 @@ def create_app(
     application.include_router(counter_strategy_router(selected_database))
     application.include_router(pattern_router(selected_database))
     application.include_router(statistical_trust_router(selected_database))
+    application.include_router(tactical_v2_router(selected_database))
     application.include_router(finding_router(selected_database))
     application.include_router(
         spatial_explorer_router(

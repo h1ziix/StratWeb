@@ -12,6 +12,9 @@ import polars as pl
 
 from stratweb.adapters.persistence._connections import read_connection
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_feature_runs
+from stratweb.adapters.persistence._tactical_v2_cascade import (
+    delete_tactical_v2_for_feature_runs,
+)
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.domain.enums import Side
@@ -486,6 +489,7 @@ class DuckDBRoundFeatureRepository:
 
     @staticmethod
     def _delete_run(connection: duckdb.DuckDBPyConnection, run_id: UUID) -> None:
+        delete_tactical_v2_for_feature_runs(connection, [run_id])
         delete_patterns_for_feature_runs(connection, [run_id])
         connection.execute("DELETE FROM round_features WHERE feature_run_id = ?", [run_id])
         connection.execute("DELETE FROM round_feature_runs WHERE feature_run_id = ?", [run_id])

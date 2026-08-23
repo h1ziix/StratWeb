@@ -126,6 +126,16 @@ if TYPE_CHECKING:
         StatisticalTrustSaveResult,
         TrustDecision,
     )
+    from stratweb.tactical_v2.models import (
+        TacticalEvidenceReference,
+        TacticalInsight,
+        TacticalInsightType,
+        TacticalV2Input,
+        TacticalV2Run,
+        TacticalV2RunRecord,
+        TacticalV2RunSummary,
+        TacticalV2SaveResult,
+    )
     from stratweb.temporal.models import (
         BombTransition,
         ParticipantRoundState,
@@ -790,6 +800,52 @@ class StatisticalTrustRepository(Protocol):
     ) -> tuple[StatisticalTrustAssessment, ...]: ...
 
     def delete_trust(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class TacticalV2SourceRepository(Protocol):
+    """Read boundary for an exact Stage 9.5 source lineage."""
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def load_input(
+        self, profile_id: UUID, selections: tuple[OpponentMatchSelection, ...]
+    ) -> TacticalV2Input: ...
+
+
+@runtime_checkable
+class TacticalV2Repository(Protocol):
+    """Persistence boundary for immutable Tactical Intelligence V2 runs."""
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save(self, state: TacticalV2Run, *, replace: bool = False) -> TacticalV2SaveResult: ...
+
+    def get_summary(self, profile_id: UUID) -> TacticalV2RunSummary | None: ...
+
+    def get_summary_for_run(
+        self, profile_id: UUID, tactical_run_id: UUID
+    ) -> TacticalV2RunSummary | None: ...
+
+    def list_runs(self, profile_id: UUID) -> tuple[TacticalV2RunRecord, ...]: ...
+
+    def list_insights(
+        self,
+        profile_id: UUID,
+        *,
+        tactical_run_id: UUID | None = None,
+        insight_type: TacticalInsightType | None = None,
+        map_name: str | None = None,
+        side: Side | None = None,
+        limit: int = 500,
+        offset: int = 0,
+    ) -> tuple[TacticalInsight, ...]: ...
+
+    def list_evidence(
+        self, profile_id: UUID, insight_id: UUID, *, tactical_run_id: UUID | None = None
+    ) -> tuple[TacticalEvidenceReference, ...]: ...
+
+    def delete(self, profile_id: UUID) -> int: ...
 
 
 @runtime_checkable

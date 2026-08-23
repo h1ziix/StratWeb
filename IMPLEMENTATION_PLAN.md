@@ -1360,11 +1360,20 @@ PDF не содержит выводов, отсутствующих в сохр
 Методика: [STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md). Acceptance evidence:
 [STAGE_9_4.md](STAGE_9_4.md).
 
-## Stage 9.5 — Tactical Intelligence V2 (не начат)
+## Stage 9.5 — Tactical Intelligence V2 (завершён)
 
-- path clustering, executes, utility effectiveness и spacing;
-- entry/trade structure, rotation trees, clutch/save behaviour и heatmaps;
-- только deterministic computations с полной evidence lineage.
+- [x] exact checkpoint-formation path clustering и planted execute packages;
+- [x] typed HE/fire outcome association без выдуманной flash/smoke эффективности;
+- [x] spacing checkpoints, unambiguous entry/trade structure;
+- [x] post-contact CT transition edges без утверждения о намерении;
+- [x] post-tick-group 1v2+ clutch и Stage 8.4 save-exit behaviour;
+- [x] world-grid alive-sample heatmaps с явной sampling семантикой;
+- [x] полная match/round/tick/event/snapshot/feature/projectile/effect lineage;
+- [x] immutable DuckDB runs, migration 026, API и русский inspection UI;
+- [x] synthetic all-family acceptance и persisted real FACEIT smoke с idempotency check.
+
+Контракт: [TACTICAL_INTELLIGENCE_V2_MODEL.md](TACTICAL_INTELLIGENCE_V2_MODEL.md).
+Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 
 ## Stage 9.6 — Product UX and Localization (не начат)
 

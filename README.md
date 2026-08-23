@@ -1038,3 +1038,19 @@ stability. Patterns without a justified null hypothesis are displayed as untesta
 receiving an invented baseline. Patch and roster-period checks remain unavailable until their
 source metadata exists. See [STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md) and
 [STAGE_9_4.md](STAGE_9_4.md).
+
+### Stage 9.5 Tactical Intelligence V2
+
+For a confirmed opponent profile, open:
+
+```text
+http://127.0.0.1:8000/ui/opponents/<profile-id>/tactical-v2
+```
+
+The versioned engine derives exact checkpoint path clusters, planted execute packages, typed
+HE/fire outcome associations, spacing, opening/trade structure, post-contact CT transitions,
+post-group 1v2+ outcomes, save behaviour and world-grid occupancy. Every ratio keeps its complete
+source lineage. Unknown flash/smoke effectiveness, intent and causal claims remain unavailable.
+The compute endpoint is localhost-only; JSON summary, insights and evidence remain separately
+queryable. See [TACTICAL_INTELLIGENCE_V2_MODEL.md](TACTICAL_INTELLIGENCE_V2_MODEL.md) and
+[STAGE_9_5.md](STAGE_9_5.md).

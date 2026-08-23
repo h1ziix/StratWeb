@@ -1438,6 +1438,80 @@ CREATE INDEX idx_statistical_trust_assessments_pattern
 """
 
 
+TACTICAL_INTELLIGENCE_V2_SCHEMA = r"""
+CREATE TABLE tactical_v2_runs (
+    tactical_run_id UUID PRIMARY KEY,
+    tactical_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    tactical_schema_version VARCHAR NOT NULL,
+    tactical_rule_version VARCHAR NOT NULL,
+    configuration_hash VARCHAR(64) NOT NULL,
+    profile_id UUID NOT NULL,
+    config JSON NOT NULL,
+    capabilities JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    UNIQUE (profile_id, tactical_rule_version, configuration_hash, tactical_fingerprint)
+);
+
+CREATE TABLE tactical_v2_run_inputs (
+    tactical_run_id UUID NOT NULL,
+    match_id UUID NOT NULL,
+    team_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    dataset_fingerprint VARCHAR(64) NOT NULL,
+    analytics_fingerprint VARCHAR(64) NOT NULL,
+    temporal_run_id UUID NOT NULL,
+    spatial_run_id UUID NOT NULL,
+    zone_assignment_run_id UUID NOT NULL,
+    feature_run_id UUID,
+    payload JSON NOT NULL,
+    PRIMARY KEY (tactical_run_id, match_id)
+);
+
+CREATE TABLE tactical_v2_insights (
+    tactical_run_id UUID NOT NULL,
+    insight_id UUID NOT NULL,
+    profile_id UUID NOT NULL,
+    insight_type VARCHAR NOT NULL,
+    map_name VARCHAR NOT NULL,
+    side VARCHAR NOT NULL,
+    insight_key VARCHAR NOT NULL,
+    availability VARCHAR NOT NULL,
+    numerator BIGINT NOT NULL,
+    denominator BIGINT NOT NULL,
+    frequency DOUBLE NOT NULL,
+    match_count INTEGER NOT NULL,
+    small_sample_warning BOOLEAN NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (tactical_run_id, insight_id),
+    UNIQUE (tactical_run_id, insight_type, map_name, side, insight_key)
+);
+
+CREATE TABLE tactical_v2_evidence (
+    tactical_run_id UUID NOT NULL,
+    insight_id UUID NOT NULL,
+    evidence_index INTEGER NOT NULL,
+    match_id UUID NOT NULL,
+    round_number INTEGER NOT NULL,
+    tick_start BIGINT,
+    tick_end BIGINT,
+    payload JSON NOT NULL,
+    PRIMARY KEY (tactical_run_id, insight_id, evidence_index)
+);
+
+CREATE INDEX idx_tactical_v2_runs_profile
+    ON tactical_v2_runs(profile_id, created_at);
+CREATE INDEX idx_tactical_v2_inputs_match
+    ON tactical_v2_run_inputs(match_id, tactical_run_id);
+CREATE INDEX idx_tactical_v2_insights_scope
+    ON tactical_v2_insights(tactical_run_id, insight_type, map_name, side, frequency);
+CREATE INDEX idx_tactical_v2_evidence_round
+    ON tactical_v2_evidence(match_id, round_number, tick_start);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1484,4 +1558,9 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=23, name="team_display_labels", sql=TEAM_DISPLAY_LABEL_SCHEMA),
     Migration(version=24, name="import_worker_v2", sql=IMPORT_WORKER_V2_SCHEMA),
     Migration(version=25, name="statistical_trust", sql=STATISTICAL_TRUST_SCHEMA),
+    Migration(
+        version=26,
+        name="tactical_intelligence_v2",
+        sql=TACTICAL_INTELLIGENCE_V2_SCHEMA,
+    ),
 )

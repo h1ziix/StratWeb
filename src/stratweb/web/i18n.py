@@ -38,6 +38,16 @@ _RU: Final[dict[str, str]] = {
     "team.unknown": "Команда не определена",
     "value.unknown": "Неизвестно",
     "value.unavailable": "Недоступно",
+    "tactical.path_cluster": "Формации и маршруты",
+    "tactical.execute_package": "Выходы на плент",
+    "tactical.utility_outcome": "Результат гранат",
+    "tactical.spacing_profile": "Дистанции игроков",
+    "tactical.entry_structure": "Первый контакт",
+    "tactical.trade_structure": "Размены",
+    "tactical.rotation_transition": "Переходы после контакта",
+    "tactical.clutch_behavior": "Клатч-ситуации",
+    "tactical.save_behavior": "Сохранение оружия",
+    "tactical.heatmap_cell": "Присутствие на карте",
 }
 
 _WARNING_LABELS: Final[dict[str, str]] = {
@@ -64,6 +74,30 @@ _WARNING_LABELS: Final[dict[str, str]] = {
     ),
     "no counter strategy recommendations published": (
         "Контрстратегические рекомендации пока не опубликованы."
+    ),
+    "tactical_v2_observations_do_not_prove_intent_or_causality": (
+        "Наблюдения не доказывают замысел команды или причинно-следственную связь"
+    ),
+    "tick_windows_are_versioned_policies_not_inferred_seconds": (
+        "Временные окна заданы в тиках и закреплены версией правил"
+    ),
+    "complete_zone_formation_unavailable": "Полная формация по зонам доступна не во всех раундах",
+    "plant_site_or_utility_provenance_unavailable": (
+        "Не для каждого выхода подтверждены плент и происхождение гранат"
+    ),
+    "utility_outcome_requires_unique_association_and_never_proves_causality": (
+        "Результат гранаты показывается только при однозначной связи и не доказывает причину"
+    ),
+    "insufficient_same_tick_player_positions": (
+        "Не для каждой точки времени доступны позиции нескольких игроков"
+    ),
+    "opening_order_ambiguous_or_unavailable": "Порядок первого контакта иногда не доказан",
+    "opening_death_or_trade_data_unavailable": "Данные первой смерти или размена неполны",
+    "post_contact_zone_transitions_unavailable": "Переходы между зонами после контакта недоступны",
+    "complete_roster_or_round_outcome_unavailable": "Не подтверждён полный состав или итог раунда",
+    "save_exit_fact_unavailable": "Факт сохранения оружия пока недоступен",
+    "authoritative_alive_position_unavailable": (
+        "Часть подтверждённых позиций живых игроков недоступна"
     ),
 }
 
@@ -143,6 +177,8 @@ def warning_label(value: object) -> str:
         return f"Игроков в статистике: {match.group(1)}"
     if match := re.fullmatch(r"(\d+) authoritative samples", normalized):
         return f"Подтверждённых снимков: {match.group(1)}"
+    if match := re.fullmatch(r"small_corpus:(\d+)/(\d+)_matches", normalized):
+        return f"Малая выборка: {match.group(1)} из рекомендуемых {match.group(2)} матчей"
     if normalized.startswith("temporal "):
         return f"Версия состояний раунда: {raw.removeprefix('Temporal ')}"
     return raw.replace("_", " ")

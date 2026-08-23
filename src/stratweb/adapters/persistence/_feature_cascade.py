@@ -8,6 +8,9 @@ from typing import Any
 import duckdb
 
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_feature_runs
+from stratweb.adapters.persistence._tactical_v2_cascade import (
+    delete_tactical_v2_for_feature_runs,
+)
 
 _DEPENDENCY_COLUMNS = frozenset(
     {
@@ -40,6 +43,7 @@ def delete_dependent_feature_runs(
     run_ids = [row[0] for row in run_rows]
     if not run_ids:
         return
+    delete_tactical_v2_for_feature_runs(connection, run_ids)
     delete_patterns_for_feature_runs(connection, run_ids)
     run_placeholders = ", ".join("?" for _ in run_ids)
     connection.execute(

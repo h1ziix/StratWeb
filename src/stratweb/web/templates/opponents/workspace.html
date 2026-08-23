@@ -7,7 +7,7 @@
   <p>В корпус попадают только команды, которые вы выбрали вручную. Совпадение Steam ID служит подсказкой, но ничего не подтверждает автоматически.</p></div>
   <span class="status available">Подтверждено матчей: {{ workspace.selected_matches|length }}</span>
 </section>
-<div class="button-row"><a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Открыть отчёт</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/statistical-trust">Статистическая надёжность</a><a class="button secondary" href="/api/opponents/{{ workspace.profile.profile_id }}/report">Отчёт JSON</a></div>
+<div class="button-row"><a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Открыть отчёт</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/tactical-v2">Тактические сигналы V2</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/statistical-trust">Статистическая надёжность</a><a class="button secondary" href="/api/opponents/{{ workspace.profile.profile_id }}/report">Отчёт JSON</a></div>
 <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/rename" class="opponent-create">
   <label>Название соперника
     <input type="text" name="display_name" value="{{ workspace.profile.display_name }}" minlength="1" maxlength="100" required>
