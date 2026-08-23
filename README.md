@@ -1010,3 +1010,16 @@ uv run --frozen stratweb storage restore-backup `
 
 No existing mirror is dropped and no disk reclamation occurs in this stage. See
 [STAGE_9_2B.md](STAGE_9_2B.md).
+
+### Stage 9.3 Import Worker V2
+
+Demo upload now computes SHA-256 while streaming and refuses an identical queued/imported demo
+before expensive parsing. One job writes to DuckDB at a time and the waiting queue is bounded.
+Every native `demoparser2` extraction runs in an isolated child process with timeout, memory,
+free-disk and cancellation guards. The browser job page shows the durable checkpoint, worker
+version/PID and provides cancel/retry actions.
+
+Parser output is an atomic validated artifact under the runtime `import_artifacts/<job-id>`
+directory. A retry may reuse it only when its demo hash and requested ticks match. Parser children
+never open DuckDB. Configuration and acceptance evidence are documented in
+[STAGE_9_3.md](STAGE_9_3.md).

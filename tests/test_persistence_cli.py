@@ -43,6 +43,7 @@ def test_persistence_cli_init_import_query_and_delete(
         21,
         22,
         23,
+        24,
     ]
 
     import_args = [

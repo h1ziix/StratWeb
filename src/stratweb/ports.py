@@ -310,6 +310,8 @@ class ImportJobRepository(Protocol):
 
     def list_recent(self, limit: int = 20) -> tuple[ImportJobRecord, ...]: ...
 
+    def find_by_sha256(self, sha256: str) -> ImportJobRecord | None: ...
+
 
 @runtime_checkable
 class OpponentRepository(Protocol):

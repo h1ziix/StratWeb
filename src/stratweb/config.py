@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     map_overview_dir: Path = Path("data/map_overviews")
     max_upload_bytes: int = Field(default=2 * 1024 * 1024 * 1024, gt=0)
     position_sample_interval_ticks: int = Field(default=16, gt=0)
+    import_queue_size: int = Field(default=4, ge=0, le=100)
+    parser_timeout_seconds: int = Field(default=1800, ge=10)
+    parser_memory_limit_bytes: int = Field(default=4 * 1024 * 1024 * 1024, gt=0)
+    import_minimum_free_disk_bytes: int = Field(default=2 * 1024 * 1024 * 1024, ge=0)
+    import_cancel_grace_seconds: float = Field(default=5.0, ge=0.1, le=60)
     map_developer_mode: bool = False
 
 

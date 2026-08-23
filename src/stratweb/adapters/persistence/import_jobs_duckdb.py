@@ -33,8 +33,11 @@ class DuckDBImportJobRepository:
                     INSERT INTO import_jobs (
                         job_id, stage, original_name, internal_name, match_id,
                         message, error_code, attempt_count, recoverable,
-                        progress_percent, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        progress_percent, created_at, updated_at, demo_sha256,
+                        file_size_bytes, last_completed_stage, worker_version,
+                        worker_pid, peak_worker_memory_bytes, cancel_requested_at,
+                        completed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     _parameters(record),
                 )
@@ -63,7 +66,10 @@ class DuckDBImportJobRepository:
                     UPDATE import_jobs SET
                         stage = ?, original_name = ?, internal_name = ?, match_id = ?,
                         message = ?, error_code = ?, attempt_count = ?, recoverable = ?,
-                        progress_percent = ?, created_at = ?, updated_at = ?
+                        progress_percent = ?, created_at = ?, updated_at = ?,
+                        demo_sha256 = ?, file_size_bytes = ?, last_completed_stage = ?,
+                        worker_version = ?, worker_pid = ?, peak_worker_memory_bytes = ?,
+                        cancel_requested_at = ?, completed_at = ?
                     WHERE job_id = ?
                     """,
                     [*_parameters(record)[1:], record.job_id],
@@ -78,7 +84,7 @@ class DuckDBImportJobRepository:
                 cursor = connection.execute(
                     """
                     SELECT * FROM import_jobs
-                    WHERE stage NOT IN ('complete', 'failed')
+                    WHERE stage NOT IN ('complete', 'failed', 'cancelled')
                     ORDER BY created_at, job_id
                     """
                 )
@@ -108,6 +114,24 @@ class DuckDBImportJobRepository:
             raise PersistenceError("Could not list recent import jobs.") from exc
         return tuple(_record(row) for row in rows)
 
+    def find_by_sha256(self, sha256: str) -> ImportJobRecord | None:
+        self.initialize()
+        try:
+            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                cursor = connection.execute(
+                    """
+                    SELECT * FROM import_jobs
+                    WHERE demo_sha256 = ? AND stage != 'cancelled'
+                    ORDER BY updated_at DESC, job_id
+                    LIMIT 1
+                    """,
+                    [sha256],
+                )
+                row = _fetch_one(cursor)
+        except duckdb.Error as exc:
+            raise PersistenceError("Could not check import-job duplicate hash.") from exc
+        return _record(row) if row is not None else None
+
 
 def _parameters(record: ImportJobRecord) -> list[object]:
     return [
@@ -123,6 +147,14 @@ def _parameters(record: ImportJobRecord) -> list[object]:
         record.progress_percent,
         _utc_naive(record.created_at),
         _utc_naive(record.updated_at),
+        record.demo_sha256,
+        record.file_size_bytes,
+        record.last_completed_stage.value if record.last_completed_stage is not None else None,
+        record.worker_version,
+        record.worker_pid,
+        record.peak_worker_memory_bytes,
+        _utc_naive(record.cancel_requested_at) if record.cancel_requested_at else None,
+        _utc_naive(record.completed_at) if record.completed_at else None,
     ]
 
 
@@ -136,7 +168,7 @@ def _fetch_one(cursor: duckdb.DuckDBPyConnection) -> dict[str, object] | None:
 
 def _record(row: dict[str, object]) -> ImportJobRecord:
     value = dict(row)
-    for field in ("created_at", "updated_at"):
+    for field in ("created_at", "updated_at", "cancel_requested_at", "completed_at"):
         timestamp = value[field]
         if isinstance(timestamp, datetime) and timestamp.tzinfo is None:
             value[field] = timestamp.replace(tzinfo=UTC)

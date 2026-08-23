@@ -49,6 +49,45 @@ class ImportJobNotRetryableError(PersistenceError):
     error_code = "import_job_not_retryable"
 
 
+class ImportQueueFullError(PersistenceError):
+    error_code = "import_queue_full"
+
+
+class ImportDuplicateError(PersistenceError):
+    error_code = "import_duplicate"
+
+    def __init__(
+        self, message: str, *, job_id: object | None = None, match_id: object | None = None
+    ):
+        super().__init__(message)
+        self.job_id = job_id
+        self.match_id = match_id
+
+
+class ImportJobNotCancellableError(PersistenceError):
+    error_code = "import_job_not_cancellable"
+
+
+class ImportWorkerError(DemoInspectionError):
+    error_code = "import_worker_failed"
+
+
+class ImportWorkerTimeoutError(ImportWorkerError):
+    error_code = "import_worker_timeout"
+
+
+class ImportWorkerMemoryError(ImportWorkerError):
+    error_code = "import_worker_memory_limit"
+
+
+class ImportWorkerCancelledError(ImportWorkerError):
+    error_code = "import_worker_cancelled"
+
+
+class ImportDiskSpaceError(ImportWorkerError):
+    error_code = "import_disk_space_low"
+
+
 class OpponentWorkspaceError(PersistenceError):
     error_code = "opponent_workspace_error"
 

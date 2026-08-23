@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.8.0] - 2026-08-23
+
+### Added
+
+- Stage 9.3 parser isolation: every native `demoparser2` call runs in a disposable child
+  process and returns an atomically written, Pydantic-validated JSON artifact.
+- Streaming upload SHA-256, early duplicate refusal, bounded admission and typed backpressure.
+- Durable cancellation, retry checkpoints, worker PID/peak-memory diagnostics and reuse of
+  hash/tick-matched canonical, economy and spatial artifacts.
+- Parser timeout, working-set memory and free-disk guards with controlled error codes.
+
+### Changed
+
+- DuckDB writes remain in the single application process; parser children never open the
+  database, preventing cross-process DuckDB writer conflicts.
+- Graceful server shutdown stops parser children before final durable job-state writes.
+- Import-job migration 024 stores source identity, worker/checkpoint and cancellation metadata.
+
+### Safety
+
+- Original upload names remain presentation metadata; files keep random internal names.
+- Cancellation never invents partial evidence and retained demos can be retried explicitly.
+- Stage 9.4 statistical work is not included.
+
 ## [0.7.0] - 2026-08-22
 
 ### Added

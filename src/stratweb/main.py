@@ -191,6 +191,11 @@ def create_app(
             selected_database,
             max_upload_bytes=settings.max_upload_bytes,
             sampling_interval_ticks=settings.position_sample_interval_ticks,
+            max_queue_size=settings.import_queue_size,
+            parser_timeout_seconds=settings.parser_timeout_seconds,
+            parser_memory_limit_bytes=settings.parser_memory_limit_bytes,
+            minimum_free_disk_bytes=settings.import_minimum_free_disk_bytes,
+            cancel_grace_seconds=settings.import_cancel_grace_seconds,
             asset_directory=selected_overviews,
             map_registry=map_registry,
             map_developer_mode=(

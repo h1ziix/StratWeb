@@ -348,6 +348,7 @@ def test_migration_005_preserves_canonical_and_analytics_rows(
         21,
         22,
         23,
+        24,
     )
     with duckdb.connect(str(database), read_only=True) as connection:
         canonical_count = connection.execute("SELECT count(1) FROM matches").fetchone()

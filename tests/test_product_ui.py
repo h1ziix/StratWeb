@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 import duckdb
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -170,6 +171,29 @@ def test_local_upload_enforces_streaming_size_limit(tmp_path: Path) -> None:
         )
 
     assert response.status_code == 413
+    assert tuple((tmp_path / "uploads").glob("*")) == ()
+
+
+def test_local_upload_refuses_low_disk_before_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "disk-guard.duckdb"
+    DuckDBMatchRepository(database).initialize()
+    application = FastAPI()
+    application.include_router(product_router(database, minimum_free_disk_bytes=100))
+    monkeypatch.setattr(
+        "stratweb.web.routers.product.disk_usage",
+        lambda _path: type("Usage", (), {"free": 50})(),
+    )
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/api/import-jobs",
+            files={"demo": ("match.dem", b"PBDEMS2payload", "application/octet-stream")},
+            headers={"Accept": "application/json"},
+        )
+
+    assert response.status_code == 507
     assert tuple((tmp_path / "uploads").glob("*")) == ()
 
 

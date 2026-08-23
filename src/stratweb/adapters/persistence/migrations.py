@@ -1378,6 +1378,21 @@ CREATE INDEX idx_team_display_labels_match
 """
 
 
+IMPORT_WORKER_V2_SCHEMA = r"""
+ALTER TABLE import_jobs ADD COLUMN demo_sha256 VARCHAR;
+ALTER TABLE import_jobs ADD COLUMN file_size_bytes BIGINT;
+ALTER TABLE import_jobs ADD COLUMN last_completed_stage VARCHAR;
+ALTER TABLE import_jobs ADD COLUMN worker_version VARCHAR;
+ALTER TABLE import_jobs ADD COLUMN worker_pid BIGINT;
+ALTER TABLE import_jobs ADD COLUMN peak_worker_memory_bytes BIGINT;
+ALTER TABLE import_jobs ADD COLUMN cancel_requested_at TIMESTAMP;
+ALTER TABLE import_jobs ADD COLUMN completed_at TIMESTAMP;
+
+CREATE INDEX idx_import_jobs_demo_sha256
+    ON import_jobs(demo_sha256, updated_at);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1422,4 +1437,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=21, name="analysis_findings", sql=ANALYSIS_FINDING_SCHEMA),
     Migration(version=22, name="counter_strategy_rules", sql=COUNTER_STRATEGY_SCHEMA),
     Migration(version=23, name="team_display_labels", sql=TEAM_DISPLAY_LABEL_SCHEMA),
+    Migration(version=24, name="import_worker_v2", sql=IMPORT_WORKER_V2_SCHEMA),
 )

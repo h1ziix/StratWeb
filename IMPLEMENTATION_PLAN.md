@@ -1329,12 +1329,20 @@ PDF не содержит выводов, отсутствующих в сохр
 Результаты: [STAGE_9_2B.md](STAGE_9_2B.md). Старые mirrors сохранены для rollback,
 поэтому Stage 9.2b не обещает немедленное уменьшение существующего файла.
 
-## Stage 9.3 — Import Worker V2 (не начат)
+## Stage 9.3 — Import Worker V2 (завершён)
 
-- parser isolation в отдельном процессе;
-- early SHA-256 duplicate rejection;
-- bounded queue, cancellation, safe retry/resume;
-- crash/restart tests, time/memory/disk limits и backpressure.
+- [x] все вызовы native `demoparser2` изолированы в одноразовых subprocess;
+- [x] parser artifacts записываются атомарно и проходят Pydantic/hash/tick validation;
+- [x] DuckDB persistence остаётся у единственного application-process writer;
+- [x] SHA-256 считается во время streaming upload, duplicate отклоняется до parsing;
+- [x] очередь ограничена: один активный writer плюс настраиваемое число ожидающих задач;
+- [x] cancellation работает для queued и running parser jobs через безопасные границы;
+- [x] retry/restart переиспользует только совместимые артефакты стабильного `job_id`;
+- [x] timeout, working-set memory, free-disk limits и typed backpressure;
+- [x] migration 024 сохраняет hash, размер, checkpoint, worker и cancellation metadata;
+- [x] crash/restart, duplicate, queue, cancel, artifact reuse, disk и timeout tests.
+
+Результаты и ограничения: [STAGE_9_3.md](STAGE_9_3.md).
 
 ## Stage 9.4 — Statistical Trust (не начат)
 

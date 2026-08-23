@@ -1465,3 +1465,22 @@ lookups, match deletion and recomputation. It remains a candidate for a separate
 immutable archive. No original demo or superseded run is automatically deletable: evidence,
 feature and report dependencies must be checked before any future retention action. See
 [STAGE_9_2B.md](STAGE_9_2B.md).
+
+## Stage 9.3 architectural decision — isolate native parsing, not DuckDB writes
+
+`demoparser2` executes only in a disposable child process launched with the pinned project
+interpreter. Canonical, economy and spatial results cross the process boundary as atomically
+renamed JSON files and are accepted only after Pydantic, SHA-256 and requested-tick validation.
+Malformed, partial or mismatched artifacts never enter persistence.
+
+The child process never opens DuckDB. A single application worker performs canonical import and
+all deterministic engines in order, which preserves DuckDB's local single-writer assumptions.
+Admission is bounded to one active job plus a configured waiting queue. Timeout, working-set
+memory, free-disk and cancellation signals terminate parsing with typed job failures instead of
+taking down FastAPI.
+
+The durable job row stores source hash/size, attempt, last completed stage, worker version/PID,
+peak observed memory and cancellation/completion timestamps. Retry keeps the same job ID and may
+reuse only a complete artifact whose source hash and requested ticks still match. Abrupt restart
+marks unfinished work retryable; graceful shutdown first stops workers and then persists final
+state. See [STAGE_9_3.md](STAGE_9_3.md).

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
+from shutil import disk_usage
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -21,8 +23,11 @@ from stratweb.application.import_jobs import LocalImportJobManager
 from stratweb.application.product import ProductQueryService
 from stratweb.application.team_names import TeamNameSource, normalize_team_display_name
 from stratweb.exceptions import (
+    ImportDuplicateError,
+    ImportJobNotCancellableError,
     ImportJobNotFoundError,
     ImportJobNotRetryableError,
+    ImportQueueFullError,
     MatchNotFoundError,
 )
 from stratweb.maps.registry import DEFAULT_MAP_REGISTRY, MapRegistry
@@ -37,6 +42,11 @@ def product_router(
     *,
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024,
     sampling_interval_ticks: int = 16,
+    max_queue_size: int = 4,
+    parser_timeout_seconds: int = 1800,
+    parser_memory_limit_bytes: int = 4 * 1024 * 1024 * 1024,
+    minimum_free_disk_bytes: int = 2 * 1024 * 1024 * 1024,
+    cancel_grace_seconds: float = 5.0,
     asset_directory: Path | None = None,
     map_registry: MapRegistry | None = None,
     map_developer_mode: bool = False,
@@ -56,7 +66,13 @@ def product_router(
     jobs = LocalImportJobManager(
         database_path,
         sampling_interval_ticks=sampling_interval_ticks,
+        max_queue_size=max_queue_size,
+        parser_timeout_seconds=parser_timeout_seconds,
+        parser_memory_limit_bytes=parser_memory_limit_bytes,
+        minimum_free_disk_bytes=minimum_free_disk_bytes,
+        cancel_grace_seconds=cancel_grace_seconds,
     )
+    router.add_event_handler("shutdown", jobs.shutdown)
     upload_directory = (database_path.parent / "uploads").resolve()
     definitions = map_registry or DEFAULT_MAP_REGISTRY
     map_assets = (
@@ -207,6 +223,7 @@ def product_router(
         if internal_path.parent != upload_directory:
             raise HTTPException(status_code=400, detail="Unsafe upload target.")
         written = 0
+        digest = sha256()
         try:
             with internal_path.open("xb") as stream:
                 while chunk := await demo.read(1024 * 1024):
@@ -215,7 +232,13 @@ def product_router(
                         raise HTTPException(
                             status_code=413, detail="Demo exceeds max_upload_bytes."
                         )
+                    if disk_usage(upload_directory).free < minimum_free_disk_bytes + len(chunk):
+                        raise HTTPException(
+                            status_code=507,
+                            detail="Not enough free disk space to retain this demo safely.",
+                        )
                     stream.write(chunk)
+                    digest.update(chunk)
             with internal_path.open("rb") as stream:
                 signature = stream.read(7)
             if signature != b"PBDEMS2":
@@ -226,7 +249,29 @@ def product_router(
             raise
         finally:
             await demo.close()
-        job = jobs.submit(internal_path, original_name)
+        try:
+            job = jobs.submit(
+                internal_path,
+                original_name,
+                demo_sha256=digest.hexdigest(),
+                file_size_bytes=written,
+            )
+        except ImportDuplicateError as exc:
+            internal_path.unlink(missing_ok=True)
+            detail = {
+                "error_code": exc.error_code,
+                "message": str(exc),
+                "job_id": str(exc.job_id) if exc.job_id is not None else None,
+                "match_id": str(exc.match_id) if exc.match_id is not None else None,
+            }
+            return JSONResponse(status_code=409, content={"detail": detail})
+        except ImportQueueFullError as exc:
+            internal_path.unlink(missing_ok=True)
+            return JSONResponse(
+                status_code=429,
+                headers={"Retry-After": "10"},
+                content={"detail": {"error_code": exc.error_code, "message": str(exc)}},
+            )
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(f"/ui/import-jobs/{job.job_id}", status_code=303)
         return JSONResponse(status_code=202, content=job.model_dump(mode="json"))
@@ -251,6 +296,28 @@ def product_router(
         except ImportJobNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ImportJobNotRetryableError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ImportQueueFullError as exc:
+            raise HTTPException(
+                status_code=429, detail=str(exc), headers={"Retry-After": "10"}
+            ) from exc
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/import-jobs/{job.job_id}", status_code=303)
+        return JSONResponse(status_code=202, content=job.model_dump(mode="json"))
+
+    @router.post(
+        "/api/import-jobs/{job_id}/cancel",
+        status_code=202,
+        tags=["local-import"],
+        response_model=None,
+    )
+    def cancel_import_job(request: Request, job_id: UUID) -> Response:
+        _require_localhost(request)
+        try:
+            job = jobs.cancel(job_id)
+        except ImportJobNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ImportJobNotCancellableError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(f"/ui/import-jobs/{job.job_id}", status_code=303)
