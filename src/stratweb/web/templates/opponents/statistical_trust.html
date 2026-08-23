@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Статистическая надёжность · {{ profile.display_name }} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% endblock %}
+{% block content_class %}report-shell{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / Статистическая надёжность</nav>
+<section class="page-heading">
+  <div><p class="eyebrow">Stage 9.4 · только детерминированные расчёты</p><h1>Статистическая надёжность</h1><p>Проверка того, выдерживает ли наблюдение различия между матчами. Это не тактическая рекомендация и не доказательство причины.</p></div>
+  <form method="post" action="/api/opponents/{{ profile.profile_id }}/statistical-trust/compute"><button type="submit">Рассчитать проверку</button></form>
+</section>
+{% if not summary %}
+<div class="empty-state"><strong>Расчёт ещё не создан.</strong><p>{{ unavailable_reason }} Сначала нужен совместимый расчёт паттернов.</p></div>
+{% else %}
+<section class="report-metrics" aria-label="Итог статистической проверки">
+  <article><span>Проверено паттернов</span><strong>{{ summary.summary.source_patterns }}</strong><small>тестируемых: {{ summary.summary.testable_patterns }}</small></article>
+  <article class="available"><span>Поддержаны</span><strong>{{ summary.summary.supported_patterns }}</strong><small>прошли все заранее заданные пороги</small></article>
+  <article class="partial"><span>Не хватает данных</span><strong>{{ summary.summary.insufficient_data_patterns }}</strong><small>матчей или стабильности недостаточно</small></article>
+  <article><span>Без корректного теста</span><strong>{{ summary.summary.not_testable_patterns }}</strong><small>нет доказанной нулевой гипотезы</small></article>
+</section>
+{% for warning in summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}
+<section class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">Evidence reliability ranking</p><h2>Проверки наблюдений</h2></div><span>{{ assessments|length }}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Ранг</th><th>Карта / сторона</th><th>Паттерн</th><th>Матчи</th><th>Частота</th><th>Cluster interval</th><th>Effect / q</th><th>Стабильность</th><th>Решение</th></tr></thead><tbody>
+  {% for item in assessments %}<tr>
+    <td>{{ item.reliability_rank or '—' }}</td>
+    <td><strong>{{ item.scope.map_name|map_name }}</strong><br><span class="side-chip {{ item.scope.side.value|lower }}">{{ item.scope.side.value }}</span> {{ item.scope.buy_type|buy_type }}</td>
+    <td>{{ item.source_pattern_type.value|replace('_', ' ') }}</td>
+    <td>{{ item.denominator_match_count }}</td>
+    <td>{{ item.numerator }}/{{ item.denominator }} · {{ '%.1f'|format(item.frequency * 100) }}%</td>
+    <td>{% if item.clustered_interval.availability.value == 'available' %}{{ '%.1f'|format(item.clustered_interval.lower_bound * 100) }}–{{ '%.1f'|format(item.clustered_interval.upper_bound * 100) }}%{% else %}недоступно{% endif %}</td>
+    <td>{% if item.effect_size is not none %}Δ {{ '%+.3f'|format(item.effect_size) }}{% else %}—{% endif %}<br>{% if item.multiple_comparison.adjusted_q_value is not none %}q={{ '%.4f'|format(item.multiple_comparison.adjusted_q_value) }}{% else %}q —{% endif %}</td>
+    <td>{% if item.match_stability.availability.value == 'available' %}{{ 'стабильно' if item.match_stability.stable else 'нестабильно' }}<br>LOO Δ {{ '%.3f'|format(item.match_stability.leave_one_out_range) }}{% else %}недоступно{% endif %}</td>
+    <td><span class="status {{ 'available' if item.decision.value == 'supported' else ('partial' if item.decision.value in ('insufficient_data', 'not_testable') else 'unavailable') }}">{% if item.decision.value == 'supported' %}поддержано{% elif item.decision.value == 'not_supported' %}не поддержано{% elif item.decision.value == 'insufficient_data' %}мало данных{% else %}нет корректного теста{% endif %}</span></td>
+  </tr>{% else %}<tr><td colspan="9">Нет оценок.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<details class="product-disclosure"><summary>Методика и версии</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>Схема / правила</dt><dd><code>{{ summary.trust_schema_version }} / {{ summary.trust_rule_version }}</code></dd><dt>Run</dt><dd><code>{{ summary.trust_run_id }}</code></dd><dt>Источник</dt><dd><code>{{ summary.source_pattern_run_id }}</code></dd><dt>Bootstrap</dt><dd>{{ summary.config.bootstrap_iterations }} итераций, матч является кластером</dd><dt>FDR</dt><dd>{{ summary.config.false_discovery_rate }} · Benjamini–Hochberg по глобальному семейству</dd></dl><div class="button-row"><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/statistical-trust/summary">Summary JSON</a><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/statistical-trust/assessments">Assessments JSON</a></div></div></details>
+{% endif %}
+{% endblock %}

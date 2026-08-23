@@ -118,6 +118,14 @@ if TYPE_CHECKING:
         SpatialProjectile,
         UtilityEffect,
     )
+    from stratweb.statistical_trust.models import (
+        StatisticalTrustAssessment,
+        StatisticalTrustRun,
+        StatisticalTrustRunRecord,
+        StatisticalTrustRunSummary,
+        StatisticalTrustSaveResult,
+        TrustDecision,
+    )
     from stratweb.temporal.models import (
         BombTransition,
         ParticipantRoundState,
@@ -744,6 +752,44 @@ class PatternRepository(Protocol):
     ) -> tuple[CrossMatchPattern, ...]: ...
 
     def delete_patterns(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class StatisticalTrustRepository(Protocol):
+    """Persistence boundary for immutable Stage 9.4 trust assessments."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save_trust(
+        self, state: StatisticalTrustRun, *, replace: bool = False
+    ) -> StatisticalTrustSaveResult: ...
+
+    def get_summary(
+        self, profile_id: UUID, *, source_pattern_run_id: UUID
+    ) -> StatisticalTrustRunSummary | None: ...
+
+    def get_summary_for_run(
+        self, profile_id: UUID, trust_run_id: UUID
+    ) -> StatisticalTrustRunSummary | None: ...
+
+    def list_runs(
+        self, profile_id: UUID, *, current_pattern_run_id: UUID | None
+    ) -> tuple[StatisticalTrustRunRecord, ...]: ...
+
+    def list_assessments(
+        self,
+        profile_id: UUID,
+        *,
+        trust_run_id: UUID,
+        decision: TrustDecision | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> tuple[StatisticalTrustAssessment, ...]: ...
+
+    def delete_trust(self, profile_id: UUID) -> int: ...
 
 
 @runtime_checkable

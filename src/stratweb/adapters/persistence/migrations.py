@@ -1393,6 +1393,51 @@ CREATE INDEX idx_import_jobs_demo_sha256
 """
 
 
+STATISTICAL_TRUST_SCHEMA = r"""
+CREATE TABLE statistical_trust_runs (
+    trust_run_id UUID PRIMARY KEY,
+    trust_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    trust_schema_version VARCHAR NOT NULL,
+    trust_rule_version VARCHAR NOT NULL,
+    configuration_hash VARCHAR(64) NOT NULL,
+    profile_id UUID NOT NULL,
+    source_pattern_run_id UUID NOT NULL,
+    source_pattern_fingerprint VARCHAR(64) NOT NULL,
+    source_pattern_schema_version VARCHAR NOT NULL,
+    source_pattern_rule_version VARCHAR NOT NULL,
+    config JSON NOT NULL,
+    summary JSON NOT NULL,
+    row_counts JSON NOT NULL,
+    warnings JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE statistical_trust_assessments (
+    trust_run_id UUID NOT NULL,
+    assessment_id UUID NOT NULL,
+    profile_id UUID NOT NULL,
+    source_pattern_id UUID NOT NULL,
+    map_name VARCHAR NOT NULL,
+    side VARCHAR NOT NULL,
+    buy_type VARCHAR,
+    pattern_type VARCHAR NOT NULL,
+    decision VARCHAR NOT NULL,
+    reliability_rank INTEGER,
+    reliability_score DOUBLE,
+    denominator_match_count INTEGER NOT NULL,
+    payload JSON NOT NULL,
+    PRIMARY KEY (trust_run_id, assessment_id)
+);
+
+CREATE INDEX idx_statistical_trust_runs_profile
+    ON statistical_trust_runs(profile_id, created_at);
+CREATE INDEX idx_statistical_trust_assessments_rank
+    ON statistical_trust_assessments(trust_run_id, decision, reliability_rank);
+CREATE INDEX idx_statistical_trust_assessments_pattern
+    ON statistical_trust_assessments(source_pattern_id, trust_run_id);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1438,4 +1483,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=22, name="counter_strategy_rules", sql=COUNTER_STRATEGY_SCHEMA),
     Migration(version=23, name="team_display_labels", sql=TEAM_DISPLAY_LABEL_SCHEMA),
     Migration(version=24, name="import_worker_v2", sql=IMPORT_WORKER_V2_SCHEMA),
+    Migration(version=25, name="statistical_trust", sql=STATISTICAL_TRUST_SCHEMA),
 )

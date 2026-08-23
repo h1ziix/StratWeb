@@ -1484,3 +1484,24 @@ peak observed memory and cancellation/completion timestamps. Retry keeps the sam
 reuse only a complete artifact whose source hash and requested ticks still match. Abrupt restart
 marks unfinished work retryable; graceful shutdown first stops workers and then persists final
 state. See [STAGE_9_3.md](STAGE_9_3.md).
+
+## Stage 9.4 architectural decision — matches are the uncertainty clusters
+
+Rounds from one match are correlated context, not independent corpus samples. Statistical Trust
+therefore preserves the original round numerator/denominator but resamples whole `match_id`
+clusters for its interval and uses a match-level sign test for multiplicity-controlled support.
+Wilson intervals remain historical descriptive fields on Stage 8.5 patterns; they are not treated
+as Stage 9.4 cross-match acceptance.
+
+Only binary pattern values and the pre-registered A/B site pair receive a 0.5 null hypothesis.
+Other categorical/player/route/setup/timing values remain `not_testable`; the engine does not infer
+a uniform baseline from categories merely observed in the data. Benjamini–Hochberg correction is
+applied to one global family of all testable patterns in the pinned source run.
+
+An assessment is `supported` only when cluster count, practical effect, clustered lower bound,
+adjusted q-value and match stability all pass the versioned configuration. Only supported
+assessments are ranked; partial and rejected inputs cannot appear authoritative through a rank.
+Reliability ranking is derived solely from those evidence measures. It neither edits finding observation text nor orders
+tactical recommendations. Patch and roster-period results remain unavailable until canonical match
+time, game patch and versioned roster-period inputs exist. See
+[STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md).

@@ -1023,3 +1023,18 @@ Parser output is an atomic validated artifact under the runtime `import_artifact
 directory. A retry may reuse it only when its demo hash and requested ticks match. Parser children
 never open DuckDB. Configuration and acceptance evidence are documented in
 [STAGE_9_3.md](STAGE_9_3.md).
+
+### Stage 9.4 Statistical Trust
+
+For a computed opponent pattern run, open:
+
+```text
+http://127.0.0.1:8000/ui/opponents/<profile-id>/statistical-trust
+```
+
+The page assesses evidence between matches using deterministic cluster bootstrap intervals,
+match-level sign tests, global FDR correction, practical-effect gates and leave-one-match-out
+stability. Patterns without a justified null hypothesis are displayed as untestable instead of
+receiving an invented baseline. Patch and roster-period checks remain unavailable until their
+source metadata exists. See [STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md) and
+[STAGE_9_4.md](STAGE_9_4.md).

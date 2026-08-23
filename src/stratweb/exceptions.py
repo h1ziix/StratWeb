@@ -256,6 +256,22 @@ class PatternConfigurationError(PatternError):
     error_code = "pattern_configuration_error"
 
 
+class StatisticalTrustError(PersistenceError):
+    error_code = "statistical_trust_error"
+
+
+class StatisticalTrustNotFoundError(StatisticalTrustError):
+    error_code = "statistical_trust_not_found"
+
+
+class StatisticalTrustIntegrityError(StatisticalTrustError):
+    error_code = "statistical_trust_integrity_error"
+
+
+class StatisticalTrustConfigurationError(StatisticalTrustError):
+    error_code = "statistical_trust_configuration_error"
+
+
 class AnalysisFindingError(PersistenceError):
     error_code = "analysis_finding_error"
 

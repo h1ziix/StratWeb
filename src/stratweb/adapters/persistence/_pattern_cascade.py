@@ -22,6 +22,30 @@ def delete_pattern_runs(
     delete_analysis_for_pattern_runs(connection, pattern_run_ids)
     placeholders = ", ".join("?" for _ in pattern_run_ids)
     parameters = list(pattern_run_ids)
+    trust_table = connection.execute(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'statistical_trust_runs'"
+    ).fetchone()
+    trust_rows = (
+        connection.execute(
+            f"SELECT trust_run_id FROM statistical_trust_runs "
+            f"WHERE source_pattern_run_id IN ({placeholders})",
+            parameters,
+        ).fetchall()
+        if trust_table is not None
+        else []
+    )
+    if trust_rows:
+        trust_ids = [row[0] for row in trust_rows]
+        trust_placeholders = ", ".join("?" for _ in trust_ids)
+        connection.execute(
+            f"DELETE FROM statistical_trust_assessments "
+            f"WHERE trust_run_id IN ({trust_placeholders})",
+            trust_ids,
+        )
+        connection.execute(
+            f"DELETE FROM statistical_trust_runs WHERE trust_run_id IN ({trust_placeholders})",
+            trust_ids,
+        )
     for table in (
         "pattern_round_exclusions",
         "pattern_round_evidence",

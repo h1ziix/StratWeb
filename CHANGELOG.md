@@ -4,6 +4,25 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.9.0] - 2026-08-23
+
+### Added
+
+- Stage 9.4 immutable Statistical Trust runs and DuckDB migration 025.
+- Deterministic match-cluster bootstrap intervals and leave-one-match-out stability.
+- Exact one-sided match-cluster sign tests with global Benjamini–Hochberg FDR correction.
+- Pre-registered practical-effect, cluster-count, interval, multiplicity and stability gates.
+- Evidence-reliability ranking separate from observations and tactical recommendations.
+- JSON API and Russian statistical-trust workspace for each opponent profile.
+
+### Safety
+
+- Multi-category patterns without a justified null hypothesis are `not_testable`.
+- Patch and roster-period stability remain typed unavailable because match patch/time metadata is
+  not proven by the current canonical schema.
+- Existing findings and recommendations are not silently rewritten or re-ranked.
+- Statistical support is explicitly not presented as causality or tactical value.
+
 ## [0.8.0] - 2026-08-23
 
 ### Added

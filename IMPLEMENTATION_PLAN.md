@@ -1344,12 +1344,21 @@ PDF не содержит выводов, отсутствующих в сохр
 
 Результаты и ограничения: [STAGE_9_3.md](STAGE_9_3.md).
 
-## Stage 9.4 — Statistical Trust (не начат)
+## Stage 9.4 — Statistical Trust (завершён)
 
-- match-clustered uncertainty и effect-size gates;
-- multiple-comparison control;
-- stability между матчами, patches и roster periods;
-- deterministic ranking без подмены observation рекомендацией.
+- [x] round evidence агрегируется в независимые `match_id` clusters;
+- [x] deterministic match-cluster bootstrap interval с hash-derived seed;
+- [x] practical effect gate относительно заранее доказуемой null frequency;
+- [x] exact match-cluster sign test и global Benjamini–Hochberg FDR correction;
+- [x] minimum cluster, clustered lower-bound и leave-one-match-out stability gates;
+- [x] typed `not_testable` для pattern families без корректного baseline;
+- [x] patch/roster-period stability возвращает `unavailable`, пока нет match patch/time metadata;
+- [x] deterministic evidence-reliability ranking не меняет observation/recommendation;
+- [x] immutable DuckDB runs, migration 025, API и отдельный русский UI;
+- [x] synthetic edge-case tests и read-only smoke на реальных 160 patterns.
+
+Методика: [STATISTICAL_TRUST_MODEL.md](STATISTICAL_TRUST_MODEL.md). Acceptance evidence:
+[STAGE_9_4.md](STAGE_9_4.md).
 
 ## Stage 9.5 — Tactical Intelligence V2 (не начат)
 
