@@ -1,0 +1,150 @@
+.tactical-shell { max-width: 1460px; }
+
+.tactical-heading {
+  background:
+    radial-gradient(circle at 88% 18%, #0c5263 0, #172a38 27%, transparent 55%),
+    linear-gradient(145deg, #111b27, #0b1119);
+}
+
+.tactical-warnings { margin: 12px 0 0; }
+
+.tactical-highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tactical-highlight {
+  display: grid;
+  gap: 8px;
+  min-height: 190px;
+  padding: 16px;
+  background: linear-gradient(145deg, #132331, #0c141d);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+.tactical-highlight header,
+.tactical-highlight > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tactical-highlight header,
+.tactical-highlight small,
+.tactical-highlight > div span { color: var(--color-text-secondary); }
+.tactical-highlight h3 { margin: 0; font-size: 17px; line-height: 1.3; }
+.tactical-highlight > div { margin-top: auto; }
+.tactical-highlight > div strong { color: var(--color-accent); font-size: 27px; }
+
+.tactical-filters {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.5fr) minmax(150px, 1fr) minmax(120px, .65fr) auto auto;
+  gap: 9px;
+  align-items: end;
+  padding: 14px;
+  margin: 14px 0 20px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.tactical-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.tactical-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  background: linear-gradient(150deg, var(--color-surface-2), var(--color-surface-1));
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+.tactical-card.partial { border-left-color: var(--color-warning); }
+.tactical-card.unavailable { border-left-color: var(--color-danger); }
+.tactical-card > header,
+.tactical-card > header > div,
+.tactical-card > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.tactical-card > header,
+.tactical-card > footer { justify-content: space-between; }
+.tactical-card h3 { margin: 0; font-size: 17px; line-height: 1.32; }
+.tactical-card > p:not(.tactical-card__type) { min-height: 42px; margin: 0; color: var(--color-text-secondary); }
+.tactical-card__type { margin: 0; color: var(--color-accent); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.tactical-card > footer { color: var(--color-text-tertiary); font-size: 11px; }
+
+.tactical-ratio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.tactical-ratio div { display: grid; gap: 2px; padding: 9px; border-right: 1px solid var(--color-border); }
+.tactical-ratio div:last-child { border: 0; }
+.tactical-ratio dt { color: var(--color-text-tertiary); font-size: 9px; text-transform: uppercase; }
+.tactical-ratio dd { margin: 0; font-size: 17px; font-weight: 800; }
+
+.tactical-card__limitations { padding-top: 8px; border-top: 1px solid var(--color-border-subtle); }
+.tactical-card__limitations summary { color: var(--color-text-secondary); font-size: 11px; cursor: pointer; }
+.tactical-card__limitations ul { display: grid; gap: 5px; margin: 9px 0 0; padding-left: 18px; color: var(--color-text-secondary); font-size: 11px; }
+
+.tactical-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.tactical-capability {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.tactical-capability header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tactical-capability p,
+.tactical-capability small { margin: 0; color: var(--color-text-secondary); }
+.tactical-capability progress { width: 100%; height: 7px; accent-color: var(--color-success); }
+.tactical-capability.partial progress { accent-color: var(--color-warning); }
+.tactical-capability.unavailable progress { accent-color: var(--color-danger); }
+.tactical-technical { margin-top: 22px; }
+
+@media (max-width: 1050px) {
+  .tactical-highlight-grid,
+  .tactical-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tactical-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .tactical-highlight-grid,
+  .tactical-card-grid,
+  .tactical-capability-grid { grid-template-columns: 1fr; }
+  .tactical-filters { grid-template-columns: 1fr 1fr; }
+  .tactical-highlight { min-height: 0; }
+}
+
+@media (max-width: 460px) {
+  .tactical-filters { grid-template-columns: 1fr; }
+  .tactical-ratio dd { font-size: 15px; }
+}

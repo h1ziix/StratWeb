@@ -1375,12 +1375,24 @@ PDF не содержит выводов, отсутствующих в сохр
 Контракт: [TACTICAL_INTELLIGENCE_V2_MODEL.md](TACTICAL_INTELLIGENCE_V2_MODEL.md).
 Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 
-## Stage 9.6 — Product UX and Localization (не начат)
+## Stage 9.6 — Product UX and Localization (в работе)
 
-- краткий top-findings слой поверх полного evidence appendix;
-- удаление технических identifiers из основного пользовательского потока;
-- завершение русского, затем английский/испанский/китайский contracts;
-- analyst notes и feedback labels без изменения source finding.
+### Stage 9.6.1 — Tactical V2 product view (завершён)
+
+- [x] краткий обзор с одним репрезентативным наблюдением на семейство;
+- [x] карточки вместо технической таблицы, без insight key/UUID в основном потоке;
+- [x] server-side фильтры type/map/side и bounded pagination;
+- [x] русские названия, ограничения и capability coverage;
+- [x] responsive layout и сохранение полного provenance в сворачиваемом разделе;
+- [x] доказать тестами, что UI-фильтры не изменяют persisted insight payload.
+
+### Следующие подэтапы (не начаты)
+
+- Stage 9.6.2: полный locale contract для русского, затем английский/испанский/китайский;
+- Stage 9.6.3: HTML-навигация от observation к match/round/tick evidence;
+- Stage 9.6.4: mobile acceptance, loading/error/empty-state polish и analyst notes.
+
+Acceptance evidence: [STAGE_9_6_1.md](STAGE_9_6_1.md).
 
 ## Stage 9.7 — Team/On-Prem Edition (не начат)
 

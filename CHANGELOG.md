@@ -4,6 +4,21 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.10.1] - 2026-08-23
+
+### Changed
+
+- Stage 9.6.1 replaces the Tactical V2 diagnostic table with a Russian product view.
+- Adds representative overview cards, type/map/side filters and bounded pagination.
+- Internal insight keys and run identifiers are removed from the primary reading flow.
+- Capability coverage and per-observation limitations are presented in plain language.
+
+### Safety
+
+- Filtering and ordering are presentation-only; persisted ratios and evidence are never changed.
+- The overview chooses the largest existing denominator per family and is explicitly not a ranking
+  or recommendation.
+
 ## [0.10.0] - 2026-08-23
 
 ### Added

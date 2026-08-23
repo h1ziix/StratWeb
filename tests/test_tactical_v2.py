@@ -37,6 +37,11 @@ from stratweb.tactical_v2.models import (
     TacticalUtilitySample,
     TacticalV2Input,
 )
+from stratweb.web.tactical_v2_presenter import (
+    TACTICAL_V2_PAGE_SIZE,
+    TacticalV2Filters,
+    build_tactical_v2_page,
+)
 
 
 def _id(value: str) -> UUID:
@@ -242,6 +247,39 @@ def test_tactical_v2_is_deterministic_and_covers_independent_families() -> None:
     assert utility.availability.value == "partial"
     assert utility.numerator == utility.denominator == 1
     assert utility.metrics["damage_health_total"] == 48.0
+
+
+def test_tactical_v2_product_view_filters_without_changing_insights() -> None:
+    state = TacticalV2Engine().compute(_input())
+    original = state.insights
+    view = build_tactical_v2_page(
+        state.profile_id,
+        state.tactical_run_id,
+        state.insights,
+        filters=TacticalV2Filters(),
+        page=1,
+    )
+    filtered = build_tactical_v2_page(
+        state.profile_id,
+        state.tactical_run_id,
+        state.insights,
+        filters=TacticalV2Filters(
+            insight_type=TacticalInsightType.ENTRY_STRUCTURE,
+            side=Side.T,
+        ),
+        page=1,
+    )
+
+    assert state.insights == original
+    assert len(view.cards) == min(TACTICAL_V2_PAGE_SIZE, len(state.insights))
+    assert view.total_count == len(state.insights)
+    assert filtered.filtered_count > 0
+    assert all(
+        card.source.insight_type is TacticalInsightType.ENTRY_STRUCTURE
+        and card.source.side is Side.T
+        for card in filtered.cards
+    )
+    assert all("site:" not in card.title for card in view.cards)
 
 
 def _persist_sources(database: Path) -> None:
@@ -455,8 +493,24 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         assert client.get(f"/api/opponents/{_id('profile')}/tactical-v2/summary").status_code == 200
         page = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")
         assert page.status_code == 200
-        assert "Тактические сигналы V2" in page.text
-        assert "1/1" in page.text
+        assert "Тактический обзор" in page.text
+        assert "Главное в выбранном срезе" in page.text
+        assert 'name="type"' in page.text
+        assert "site:A|" not in page.text
+        filtered = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2",
+            params={"type": "entry_structure", "side": "T"},
+        )
+        assert filtered.status_code == 200
+        assert 'value="entry_structure" selected' in filtered.text
+        assert 'value="T" selected' in filtered.text
+        assert (
+            client.get(
+                f"/ui/opponents/{_id('profile')}/tactical-v2",
+                params={"type": "not-a-type"},
+            ).status_code
+            == 422
+        )
 
     with duckdb.connect(str(database)) as connection:
         connection.execute("UPDATE tactical_v2_runs SET tactical_rule_version = 'legacy_fixture'")

@@ -27,6 +27,7 @@ from stratweb.exceptions import (
 from stratweb.tactical_v2.models import TacticalInsightType, TacticalV2Config
 from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
+from stratweb.web.tactical_v2_presenter import TacticalV2Filters, build_tactical_v2_page
 
 
 def tactical_v2_router(database_path: Path) -> APIRouter:
@@ -117,7 +118,14 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         response_class=HTMLResponse,
         include_in_schema=False,
     )
-    def tactical_page(profile_id: UUID, run_id: UUID | None = None) -> HTMLResponse:
+    def tactical_page(
+        profile_id: UUID,
+        run_id: UUID | None = None,
+        insight_type: Annotated[TacticalInsightType | None, Query(alias="type")] = None,
+        map_name: Annotated[str | None, Query(alias="map", max_length=100)] = None,
+        side: Side | None = None,
+        page: Annotated[int, Query(ge=1)] = 1,
+    ) -> HTMLResponse:
         profile = opponents.get_profile(profile_id)
         if profile is None:
             raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
@@ -126,25 +134,28 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
             values = query.list_insights(
                 profile_id, tactical_run_id=selected.tactical_run_id, limit=5000
             )
-            regular = tuple(
-                item for item in values if item.insight_type is not TacticalInsightType.HEATMAP_CELL
-            )
-            heatmap = tuple(
-                item for item in values if item.insight_type is TacticalInsightType.HEATMAP_CELL
+            page_view = build_tactical_v2_page(
+                profile_id,
+                selected.tactical_run_id,
+                values,
+                filters=TacticalV2Filters(
+                    insight_type=insight_type,
+                    map_name=map_name,
+                    side=side,
+                ),
+                page=page,
             )
             unavailable_reason = None
         except TacticalV2NotFoundError as exc:
             selected = None
-            regular = ()
-            heatmap = ()
+            page_view = None
             unavailable_reason = str(exc)
         return HTMLResponse(
             render_template(
                 "opponents/tactical_v2.html",
                 profile=profile,
                 summary=selected,
-                insights=regular,
-                heatmap_cells=heatmap[:30],
+                page_view=page_view,
                 unavailable_reason=unavailable_reason,
                 match_context=None,
             )

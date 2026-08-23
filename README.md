@@ -1054,3 +1054,11 @@ source lineage. Unknown flash/smoke effectiveness, intent and causal claims rema
 The compute endpoint is localhost-only; JSON summary, insights and evidence remain separately
 queryable. See [TACTICAL_INTELLIGENCE_V2_MODEL.md](TACTICAL_INTELLIGENCE_V2_MODEL.md) and
 [STAGE_9_5.md](STAGE_9_5.md).
+
+### Stage 9.6.1 Tactical V2 product view
+
+The Tactical V2 page now presents persisted observations as a Russian analyst view rather than a
+raw diagnostic table. It provides a representative overview, plain-language cards, type/map/side
+filters, pagination and readable coverage limitations. Technical run IDs and JSON exports remain
+in one collapsed reproducibility section. UI filtering does not recalculate or mutate statistics.
+See [STAGE_9_6_1.md](STAGE_9_6_1.md).

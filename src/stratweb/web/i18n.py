@@ -99,6 +99,66 @@ _WARNING_LABELS: Final[dict[str, str]] = {
     "authoritative_alive_position_unavailable": (
         "Часть подтверждённых позиций живых игроков недоступна"
     ),
+    "absence_of_a_trade_event_is_not_proof_that_no_trade_was_attempted": (
+        "Отсутствие размена в данных не доказывает, что команда не пыталась разменять игрока"
+    ),
+    "alive_state_is_evaluated_after_the_complete_same_tick_kill_group": (
+        "Число живых игроков определяется после всей группы событий одного тика"
+    ),
+    "checkpoint_sampling_does_not_prove_spacing_between_checkpoints": (
+        "Позиции между контрольными снимками не додумываются"
+    ),
+    "checkpoints_with_fewer_than_two_known_player_zones_are_excluded": (
+        "Снимки с менее чем двумя подтверждёнными зонами игроков исключены"
+    ),
+    "clutch_attempt_intent_is_not_inferred_from_the_result": (
+        "Результат раунда не используется для догадки о замысле игрока"
+    ),
+    "damage_is_a_same_owner_weapon_time_association_not_proven_causality": (
+        "Урон связан по игроку, оружию и времени, но причинная связь не доказана"
+    ),
+    "damage_matching_multiple_effect_windows_is_excluded_as_ambiguous": (
+        "Урон, подходящий сразу к нескольким гранатам, исключён как неоднозначный"
+    ),
+    "distance_is_source2_world_units_not_a_tactical_quality_score": (
+        "Дистанция измерена в координатах игры и не является оценкой качества"
+    ),
+    "execute_population_is_t_side_rounds_with_proven_plant_site": (
+        "В выборку входят только T-раунды с подтверждённым местом установки бомбы"
+    ),
+    "flash_blindness_and_smoke_line_of_sight_effectiveness_are_unavailable": (
+        "Эффективность флешек и перекрытие обзора дымом пока не рассчитываются"
+    ),
+    "frequency_is_alive_spatial_sample_share_not_time_seconds_or_round_probability": (
+        "Частота означает долю снимков живых игроков, а не секунды или вероятность раунда"
+    ),
+    "identical_checkpoint_formations_are_clustered_without_geometry_guessing": (
+        "Объединяются только одинаковые подтверждённые расстановки без додумывания пути"
+    ),
+    "opening_result_does_not_identify_called_entry_role": (
+        "Первый контакт не используется для назначения игроку роли энтри"
+    ),
+    "post_contact_movement_is_observed_transition_not_proven_rotation_intent": (
+        "Показано перемещение после контакта, а не доказанный замысел ротации"
+    ),
+    "same_tick_multiple_opening_kills_are_excluded_as_ambiguous": (
+        "Несколько первых убийств в одном тике исключены как неоднозначные"
+    ),
+    "sampling_density_can_differ_between_versioned_spatial_runs": (
+        "Частота сохранения позиционных снимков может отличаться между версиями расчёта"
+    ),
+    "trade_uses_versioned_stage_5_trade_window": (
+        "Размен определяется закреплённым временным окном Stage 5"
+    ),
+    "transition_frequency_denominator_is_all_observed_zone_edges": (
+        "Знаменатель — все подтверждённые переходы между зонами после контакта"
+    ),
+    "unplanted_executes_and_tactical_intent_are_not_inferred": (
+        "Выходы без установки бомбы и замысел команды не додумываются"
+    ),
+    "utility_bundle_uses_effect_start_inside_versioned_preplant_tick_window": (
+        "Гранаты учитываются по закреплённому окну тиков перед установкой бомбы"
+    ),
 }
 
 _MAP_LABELS: Final[dict[str, str]] = {

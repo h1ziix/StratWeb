@@ -1527,3 +1527,14 @@ capabilities, never a numerator to zero. See
 
 Malformed or lineage-incompatible selected matches are isolated and reported as exclusions; they
 do not prevent compatible matches in the same opponent corpus from being calculated.
+
+## Stage 9.6.1 architectural decision — presentation never becomes analytics
+
+The Tactical V2 product presenter is a pure read-only projection over persisted insights. It may
+filter, paginate, translate and choose one representative high-denominator item per family for the
+overview. It cannot alter a numerator, denominator, frequency, evidence reference, capability or
+source pin. The overview is labelled as neither ranking nor recommendation.
+
+Primary cards omit internal insight keys and UUIDs. Exact schema/rule/run/fingerprint values and
+JSON exports remain available inside a collapsed reproducibility section. Server-side filters are
+encoded in query parameters and retain the exact selected tactical run across pagination.
