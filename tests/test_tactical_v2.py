@@ -47,6 +47,7 @@ from stratweb.web.tactical_evidence_presenter import (
 from stratweb.web.tactical_v2_presenter import (
     TACTICAL_V2_PAGE_SIZE,
     TacticalV2Filters,
+    build_tactical_insight_card,
     build_tactical_v2_page,
 )
 
@@ -278,8 +279,15 @@ def test_tactical_v2_product_view_filters_without_changing_insights() -> None:
     )
 
     assert state.insights == original
-    assert len(view.cards) == min(TACTICAL_V2_PAGE_SIZE, len(state.insights))
+    assert view.curated
+    assert len(view.cards) < min(TACTICAL_V2_PAGE_SIZE, len(state.insights))
+    assert len(view.cards) <= len(TacticalInsightType)
+    assert len(view.highlights) <= 3
+    assert len(
+        {(card.source.insight_type, card.source.map_name, card.source.side) for card in view.cards}
+    ) == len(view.cards)
     assert view.total_count == len(state.insights)
+    assert not filtered.curated
     assert filtered.filtered_count > 0
     assert all(
         card.source.insight_type is TacticalInsightType.ENTRY_STRUCTURE
@@ -287,6 +295,38 @@ def test_tactical_v2_product_view_filters_without_changing_insights() -> None:
         for card in filtered.cards
     )
     assert all("site:" not in str(card.title_values) for card in view.cards)
+    assert all(card.frequency_band_key.startswith("tactical.frequency.") for card in view.cards)
+    rotation = next(
+        card
+        for card in view.cards
+        if card.source.insight_type is TacticalInsightType.ROTATION_TRANSITION
+    )
+    assert rotation.title_key == "tactical.card.title.rotation_transition"
+
+
+def test_plain_language_frequency_and_reliability_bands_are_deterministic() -> None:
+    source = TacticalV2Engine().compute(_input()).insights[0]
+    cases = (
+        (20, 20, 1.0, "tactical.frequency.every_time"),
+        (19, 20, 0.95, "tactical.frequency.almost_always"),
+        (10, 20, 0.5, "tactical.frequency.often"),
+        (5, 20, 0.25, "tactical.frequency.sometimes"),
+        (1, 20, 0.05, "tactical.frequency.rarely"),
+        (0, 20, 0.0, "tactical.frequency.not_seen"),
+    )
+    for numerator, denominator, frequency, expected in cases:
+        card = build_tactical_insight_card(
+            source.model_copy(
+                update={
+                    "numerator": numerator,
+                    "denominator": denominator,
+                    "sample_size": denominator,
+                    "frequency": frequency,
+                }
+            )
+        )
+        assert card.frequency_band_key == expected
+        assert card.reliability_key == "tactical.reliability.one_match"
 
 
 def _persist_sources(database: Path) -> None:
@@ -533,7 +573,13 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         page = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")
         assert page.status_code == 200
         assert "Тактический обзор" in page.text
-        assert "Главное в выбранном срезе" in page.text
+        assert "Что важно заметить" in page.text
+        assert "Пока используйте это как подсказку" in page.text
+        assert "Почему система так решила" in page.text
+        assert "За атаку" in page.text or "За защиту" in page.text
+        assert "Часто наблюдаемый сектор карты (" not in page.text
+        assert "T + CT" not in page.text
+        assert "-&gt;" not in page.text
         assert 'name="type"' in page.text
         assert "site:A|" not in page.text
         selected_insight = state.insights[0]
@@ -545,6 +591,13 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         )
         assert evidence_page.status_code == 200
         assert "Доказательства" in evidence_page.text
+        assert "Как это выглядит в выборке" in evidence_page.text
+        assert (
+            "Посмотреть эпизод на 2D-карте" in evidence_page.text
+            or "Посмотреть, как прошёл раунд" in evidence_page.text
+            or "Открыть матч" in evidence_page.text
+        )
+        assert "Другие способы проверить эпизод" in evidence_page.text
         assert f"run_id={_id('temporal')}" in evidence_page.text
         assert f"/ui/matches/{_id('match')}#rounds" in evidence_page.text
         assert "Личная заметка аналитика" in evidence_page.text
@@ -612,7 +665,8 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         assert english.status_code == 200
         assert '<html lang="en"' in english.text
         assert "Tactical overview" in english.text
-        assert "Key signals in this slice" in english.text
+        assert "What is worth noticing" in english.text
+        assert "Treat these as preparation hints for now" in english.text
         assert "Тактический обзор" not in english.text
         assert "stratweb_locale=en" in english.headers["set-cookie"]
         persisted_locale = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")

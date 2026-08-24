@@ -1416,9 +1416,21 @@ Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 - [x] localhost/same-origin защита изменений, RU/EN locale schema 2.2.0;
 - [x] unit, persistence, HTTP, locale и responsive contract tests.
 
-Следующий этап — Stage 9.7 Team/On-Prem Edition. Он не начат.
+### Stage 9.6.5 — Plain-Language Tactical UX (завершён)
 
-Acceptance evidence: [STAGE_9_6_1.md](STAGE_9_6_1.md).
+- [x] провести аудит числового и технического шума основного Tactical V2 UI;
+- [x] заменить T/CT, raw transition keys и координаты heatmap понятными формулировками;
+- [x] добавить deterministic frequency bands и ясную оценку достаточности выборки;
+- [x] сократить default view до одного представителя каждого раздела и трёх главных сигналов;
+- [x] перенести проценты, дроби, counts, limitations, ticks и UUID во второй уровень;
+- [x] оставить полный набор insights доступным через явный фильтр типа;
+- [x] упростить evidence card до одного главного действия и скрыть специальные переходы;
+- [x] добавить прямой путь к готовому отчёту с рекомендациями;
+- [x] обновить RU/EN locale contract до 3.0.0 и проверить API invariance.
+
+Stage 9.7 не начат.
+
+Acceptance evidence: [STAGE_9_6_5.md](STAGE_9_6_5.md).
 
 ## Stage 9.7 — Team/On-Prem Edition (не начат)
 

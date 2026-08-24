@@ -8,99 +8,91 @@
 {% block content %}
 <nav class="breadcrumbs"><a href="/ui/opponents">{{ t('nav.opponents') }}</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / {{ t('tactical.breadcrumb') }}</nav>
 <section class="page-heading tactical-heading">
-  <div>
-    <p class="eyebrow">{{ t('tactical.eyebrow') }}</p>
-    <h1>{{ profile.display_name }}</h1>
-    <p>{{ t('tactical.intro') }}</p>
+  <div><p class="eyebrow">{{ t('tactical.eyebrow') }}</p><h1>{{ profile.display_name }}</h1><p>{{ t('tactical.intro') }}</p></div>
+  <div class="button-row tactical-heading-actions">
+    <a class="button" href="/ui/opponents/{{ profile.profile_id }}/report">{{ t('tactical.open_plan') }}</a>
+    <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute" data-submit-feedback><button class="secondary" type="submit" data-loading-label="{{ t('tactical.computing') }}">{{ t('tactical.compute') }}</button></form>
   </div>
-  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute" data-submit-feedback><button type="submit" data-loading-label="{{ t('tactical.computing') }}">{{ t('tactical.compute') }}</button></form>
 </section>
 {% if not summary or not page_view %}
-<div class="empty-state"><strong>{{ t('tactical.not_computed') }}</strong><p>{{ unavailable_reason }} {{ t('tactical.not_computed_help') }}</p></div>
+<div class="empty-state"><strong>{{ t('tactical.not_computed') }}</strong><p>{{ t('tactical.not_computed_help') }}</p></div>
 {% else %}
-<section class="report-metrics" aria-label="{{ t('tactical.summary_label') }}">
-  <article><span>{{ t('tactical.metric.matches') }}</span><strong>{{ summary.summary.included_matches }}</strong><small>{{ t('tactical.metric.matches_help') }}</small></article>
-  <article><span>{{ t('tactical.metric.rounds') }}</span><strong>{{ summary.summary.eligible_rounds }}</strong><small>{{ t('tactical.metric.rounds_help') }}</small></article>
-  <article class="available"><span>{{ t('tactical.metric.insights') }}</span><strong>{{ page_view.total_count }}</strong><small>{{ t('tactical.metric.insights_help') }}</small></article>
-  <article class="partial"><span>{{ t('tactical.metric.corpus') }}</span><strong>{{ summary.summary.included_matches }}/{{ summary.config.target_corpus_matches }}</strong><small>{{ t('tactical.metric.corpus_help') }}</small></article>
+<section class="tactical-coach-banner {{ 'preliminary' if summary.summary.included_matches < summary.config.target_corpus_matches else 'ready' }}">
+  <div>
+    <p class="eyebrow">{{ t('tactical.sample.eyebrow') }}</p>
+    {% if summary.summary.included_matches < summary.config.target_corpus_matches %}
+    <h2>{{ t('tactical.sample.preliminary_title') }}</h2>
+    <p>{{ t('tactical.sample.preliminary_help', matches=summary.summary.included_matches, rounds=summary.summary.eligible_rounds) }}</p>
+    {% else %}
+    <h2>{{ t('tactical.sample.ready_title') }}</h2>
+    <p>{{ t('tactical.sample.ready_help', matches=summary.summary.included_matches, rounds=summary.summary.eligible_rounds) }}</p>
+    {% endif %}
+  </div>
+  <details class="plain-details"><summary>{{ t('tactical.sample.details') }}</summary><div class="plain-details__content">
+    <dl class="plain-facts">
+      <div><dt>{{ t('tactical.metric.matches') }}</dt><dd>{{ summary.summary.included_matches }}</dd></div>
+      <div><dt>{{ t('tactical.metric.rounds') }}</dt><dd>{{ summary.summary.eligible_rounds }}</dd></div>
+      <div><dt>{{ t('tactical.metric.insights') }}</dt><dd>{{ page_view.total_count }}</dd></div>
+      <div><dt>{{ t('tactical.metric.corpus') }}</dt><dd>{{ summary.summary.included_matches }} / {{ summary.config.target_corpus_matches }}</dd></div>
+    </dl>
+  </div></details>
 </section>
 
-{% if summary.warnings %}<div class="report-warning-list tactical-warnings">{% for warning in summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div>{% endif %}
-
-<nav class="report-index" aria-label="{{ t('tactical.index_label') }}">
-  <a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a><a href="#technical">{{ t('tactical.index.technical') }}</a>
-</nav>
+<nav class="report-index" aria-label="{{ t('tactical.index_label') }}"><a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a></nav>
 
 <section id="overview" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.overview.eyebrow') }}</p><h2>{{ t('tactical.overview.title') }}</h2></div><span>{{ t('tactical.overview.limit') }}</span></div>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.overview.eyebrow') }}</p><h2>{{ t('tactical.overview.title') }}</h2></div></div>
   <p class="section-copy">{{ t('tactical.overview.help') }}</p>
   {% if page_view.highlights %}<div class="tactical-highlight-grid">
   {% for card in page_view.highlights %}
     <article class="tactical-highlight">
-      <header><span class="side-chip {{ card.source.side.value|lower }}">{{ card.source.side.value }}</span><span>{{ card.source.map_name|map_name }}</span></header>
+      <header><span class="side-chip {{ card.source.side.value|lower }}">{{ t('tactical.side.' ~ card.source.side.value|lower) }}</span><span>{{ card.source.map_name|map_name }}</span></header>
       <small>{{ t('tactical.' ~ card.source.insight_type.value) }}</small>
       <h3>{{ t(card.title_key, **card.title_values) }}</h3>
-      <div><strong>{{ card.frequency_percent }}</strong><span>{{ t('tactical.overview.frequency', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
-      <a class="button secondary" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_evidence') }}</a>
+      <div class="plain-frequency"><strong>{{ t(card.frequency_band_key) }}</strong><span>{{ t('tactical.card.sample_sentence', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
+      <span class="badge {{ card.reliability_class }}">{{ t(card.reliability_key) }}</span>
+      <a class="button secondary" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_rounds') }}</a>
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state"><p>{{ t('tactical.overview.empty') }}</p></div>{% endif %}
 </section>
 
 <section id="signals" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.signals.eyebrow') }}</p><h2>{{ t('tactical.signals.title') }}</h2></div><span>{{ t('tactical.signals.found', count=page_view.filtered_count) }}</span></div>
-  <p class="section-copy">{{ t('tactical.signals.help') }}</p>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.signals.eyebrow') }}</p><h2>{{ t('tactical.signals.title') }}</h2></div></div>
+  <p class="section-copy">{{ t('tactical.signals.curated_help') if page_view.curated else t('tactical.signals.filtered_help') }}</p>
   <form class="tactical-filters" method="get" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2">
     <input type="hidden" name="run_id" value="{{ summary.tactical_run_id }}">
-    <label>{{ t('tactical.filter.type') }}
-      <select name="type"><option value="">{{ t('tactical.filter.all_types') }}</option>{% for kind, count in page_view.type_counts.items() %}{% if count %}<option value="{{ kind.value }}" {% if page_view.filters.insight_type == kind %}selected{% endif %}>{{ t('tactical.' ~ kind.value) }} · {{ count }}</option>{% endif %}{% endfor %}</select>
-    </label>
-    <label>{{ t('tactical.filter.map') }}
-      <select name="map"><option value="">{{ t('tactical.filter.all_maps') }}</option>{% for map_name in page_view.maps %}<option value="{{ map_name }}" {% if page_view.filters.map_name == map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select>
-    </label>
-    <label>{{ t('tactical.filter.side') }}
-      <select name="side"><option value="">T + CT</option>{% for value in ['T', 'CT'] %}<option value="{{ value }}" {% if page_view.filters.side and page_view.filters.side.value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
-    </label>
+    <label>{{ t('tactical.filter.type') }}<select name="type"><option value="">{{ t('tactical.filter.main') }}</option>{% for kind, count in page_view.type_counts.items() %}{% if count %}<option value="{{ kind.value }}" {% if page_view.filters.insight_type == kind %}selected{% endif %}>{{ t('tactical.' ~ kind.value) }}</option>{% endif %}{% endfor %}</select></label>
+    <label>{{ t('tactical.filter.map') }}<select name="map"><option value="">{{ t('tactical.filter.all_maps') }}</option>{% for map_name in page_view.maps %}<option value="{{ map_name }}" {% if page_view.filters.map_name == map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select></label>
+    <label>{{ t('tactical.filter.side') }}<select name="side"><option value="">{{ t('tactical.filter.both_sides') }}</option>{% for value in ['T', 'CT'] %}<option value="{{ value }}" {% if page_view.filters.side and page_view.filters.side.value == value %}selected{% endif %}>{{ t('tactical.side.' ~ value|lower) }}</option>{% endfor %}</select></label>
     <button type="submit">{{ t('action.apply') }}</button><a class="button secondary" href="{{ page_view.reset_href }}">{{ t('action.reset') }}</a>
   </form>
 
   {% if page_view.cards %}<div class="tactical-card-grid">
   {% for card in page_view.cards %}
     <article class="tactical-card {{ card.source.availability.value }}">
-      <header>
-        <div><span class="side-chip {{ card.source.side.value|lower }}">{{ card.source.side.value }}</span><span class="map-chip">{{ card.source.map_name|map_name }}</span></div>
-        <span class="status {{ card.source.availability.value }}">{{ card.source.availability.value|status_label }}</span>
-      </header>
+      <header><div><span class="side-chip {{ card.source.side.value|lower }}">{{ t('tactical.side.' ~ card.source.side.value|lower) }}</span><span class="map-chip">{{ card.source.map_name|map_name }}</span></div></header>
       <p class="tactical-card__type">{{ t('tactical.' ~ card.source.insight_type.value) }}</p>
       <h3>{{ t(card.title_key, **card.title_values) }}</h3>
-      <p>{{ t(card.description_key, **card.description_values) }}</p>
-      <dl class="tactical-ratio">
-        <div><dt>{{ t('tactical.card.frequency') }}</dt><dd>{{ card.frequency_percent }}</dd></div>
-        <div><dt>{{ t('tactical.card.ratio') }}</dt><dd>{{ card.source.numerator }}/{{ card.source.denominator }}</dd></div>
-        <div><dt>{{ t('tactical.card.matches') }}</dt><dd>{{ card.source.match_count }}</dd></div>
-      </dl>
-      <footer><span>{{ t('tactical.card.evidence_rounds', count=card.evidence_rounds) }}</span>{% if card.source.small_sample_warning %}<span class="badge warn">{{ t('tactical.card.small_sample') }}</span>{% endif %}</footer>
-      <a class="button secondary tactical-card__evidence" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_evidence') }}</a>
-      <details class="tactical-card__limitations"><summary>{{ t('tactical.card.reading') }}</summary><ul>{% for limitation in card.source.limitations %}{% if '_rule:' not in limitation %}<li>{{ limitation|warning_label }}</li>{% endif %}{% endfor %}</ul></details>
+      <div class="plain-frequency"><strong>{{ t(card.frequency_band_key) }}</strong><span>{{ t('tactical.card.sample_sentence', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
+      <span class="badge {{ card.reliability_class }} tactical-reliability">{{ t(card.reliability_key) }}</span>
+      <a class="button secondary tactical-card__evidence" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_rounds') }}</a>
+      <details class="tactical-card__limitations"><summary>{{ t('tactical.card.why') }}</summary><div class="plain-details__content">
+        <p>{{ t(card.description_key, **card.description_values) }}</p>
+        <dl class="plain-facts compact"><div><dt>{{ t('tactical.card.exact_frequency') }}</dt><dd>{{ card.frequency_percent }}</dd></div><div><dt>{{ t('tactical.card.matches') }}</dt><dd>{{ card.source.match_count }}</dd></div><div><dt>{{ t('tactical.card.evidence') }}</dt><dd>{{ card.evidence_rounds }}</dd></div></dl>
+        <p class="plain-limitations-title">{{ t('tactical.card.limitations') }}</p><ul>{% for limitation in card.source.limitations %}{% if '_rule:' not in limitation %}<li>{{ limitation|warning_label }}</li>{% endif %}{% endfor %}</ul>
+      </div></details>
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state"><strong>{{ t('tactical.card.empty') }}</strong><p>{{ t('tactical.card.empty_help') }}</p></div>{% endif %}
-
-  <nav class="report-pagination" aria-label="{{ t('tactical.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>
+  {% if page_view.page_count > 1 %}<nav class="report-pagination" aria-label="{{ t('tactical.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>{% endif %}
 </section>
 
-<section id="coverage" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.coverage.eyebrow') }}</p><h2>{{ t('tactical.coverage.title') }}</h2></div></div>
-  <div class="tactical-capability-grid">{% for kind, capability in summary.capabilities.items() %}
-    <article class="tactical-capability {{ capability.status.value }}">
-      <header><strong>{{ t('tactical.' ~ kind.value) }}</strong><span class="status {{ capability.status.value }}">{{ capability.status.value|status_label }}</span></header>
-      <progress max="{{ capability.eligible_units or 1 }}" value="{{ capability.covered_units }}">{{ capability.covered_units }}/{{ capability.eligible_units }}</progress>
-      <p>{{ t('tactical.coverage.detail', covered=capability.covered_units, eligible=capability.eligible_units, insights=capability.insight_count) }}</p>
-      {% for reason in capability.unavailable_reasons %}<small>{{ reason|warning_label }}</small>{% endfor %}
-    </article>
-  {% endfor %}</div>
-</section>
-
+<details id="coverage" class="product-disclosure tactical-coverage-disclosure"><summary>{{ t('tactical.coverage.open') }}</summary><div class="product-disclosure__content">
+  <p>{{ t('tactical.coverage.help') }}</p>
+  <div class="tactical-capability-grid">{% for kind, capability in summary.capabilities.items() %}<article class="tactical-capability {{ capability.status.value }}"><header><strong>{{ t('tactical.' ~ kind.value) }}</strong><span class="status {{ capability.status.value }}">{{ capability.status.value|status_label }}</span></header>{% for reason in capability.unavailable_reasons %}<small>{{ reason|warning_label }}</small>{% else %}<small>{{ t('tactical.coverage.no_limits') }}</small>{% endfor %}</article>{% endfor %}</div>
+</div></details>
+{% if summary.warnings %}<details class="product-disclosure tactical-warnings"><summary>{{ t('tactical.warnings.open') }}</summary><div class="product-disclosure__content">{% for warning in summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div></details>{% endif %}
 <details id="technical" class="product-disclosure tactical-technical"><summary>{{ t('tactical.technical.summary') }}</summary><div class="product-disclosure__content"><p>{{ t('tactical.technical.help') }}</p><dl class="technical-facts"><dt>{{ t('tactical.technical.versions') }}</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>{{ t('tactical.technical.run_id') }}</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>{{ t('tactical.technical.fingerprint') }}</dt><dd><code>{{ summary.tactical_fingerprint }}</code></dd><dt>{{ t('tactical.technical.sources') }}</dt><dd>{{ t('tactical.technical.sources_value', count=summary.source_pins|length) }}</dd></dl><div class="button-row"><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/summary?run_id={{ summary.tactical_run_id }}">{{ t('tactical.technical.summary_json') }}</a><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights?run_id={{ summary.tactical_run_id }}">{{ t('tactical.technical.insights_json') }}</a></div></div></details>
 {% endif %}
 {% endblock %}

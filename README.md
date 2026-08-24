@@ -1088,3 +1088,12 @@ states, and provides a private analyst note for each exact Tactical V2 observati
 note is stored only in local DuckDB and is deliberately excluded from statistics, evidence,
 fingerprints and recommendations. Save/delete requests are accepted only from localhost with
 same-origin browser protection. See [STAGE_9_6_4.md](STAGE_9_6_4.md).
+
+### Stage 9.6.5 Plain-language coach view
+
+Tactical V2 now opens as a short player/coach briefing. The first level uses attack/defence,
+ordinary frequency wording, a clear sample warning and one direct route to the supporting rounds.
+Exact percentages, ratios, limitations, ticks and technical IDs remain available under “why” and
+service-data disclosures. Selecting a finding family reveals every persisted variant; the default
+screen is only a reversible curated projection. The JSON API and analytical data are unchanged.
+See [STAGE_9_6_5.md](STAGE_9_6_5.md).

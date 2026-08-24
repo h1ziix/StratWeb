@@ -28,6 +28,9 @@ class TacticalInsightCard:
     description_key: str
     description_values: dict[str, object]
     frequency_percent: str
+    frequency_band_key: str
+    reliability_key: str
+    reliability_class: str
     evidence_rounds: int
 
 
@@ -40,6 +43,7 @@ class TacticalV2Page:
     type_counts: dict[TacticalInsightType, int]
     total_count: int
     filtered_count: int
+    curated: bool
     page: int
     page_count: int
     previous_href: str | None
@@ -56,14 +60,16 @@ def build_tactical_v2_page(
     page: int,
 ) -> TacticalV2Page:
     ordered = _ordered(insights)
-    filtered = tuple(item for item in ordered if _matches(item, filters))
+    matching = tuple(item for item in ordered if _matches(item, filters))
+    curated = filters.insight_type is None
+    filtered = _representatives(matching, filters) if curated else matching
     page_count = max(1, math.ceil(len(filtered) / TACTICAL_V2_PAGE_SIZE))
     selected_page = min(page, page_count)
     start = (selected_page - 1) * TACTICAL_V2_PAGE_SIZE
     visible = filtered[start : start + TACTICAL_V2_PAGE_SIZE]
     highlights = _highlights(
         tuple(
-            item for item in filtered if item.insight_type is not TacticalInsightType.HEATMAP_CELL
+            item for item in matching if item.insight_type is not TacticalInsightType.HEATMAP_CELL
         )
     )
     base_path = f"/ui/opponents/{profile_id}/tactical-v2"
@@ -78,6 +84,7 @@ def build_tactical_v2_page(
         },
         total_count=len(insights),
         filtered_count=len(filtered),
+        curated=curated,
         page=selected_page,
         page_count=page_count,
         previous_href=(
@@ -110,8 +117,31 @@ def _highlights(insights: tuple[TacticalInsight, ...]) -> tuple[TacticalInsight,
             continue
         used.add(item.insight_type)
         result.append(item)
-        if len(result) == 6:
-            break
+    return tuple(
+        sorted(
+            result,
+            key=lambda item: (-item.denominator, -item.frequency, item.insight_type.value),
+        )[:3]
+    )
+
+
+def _representatives(
+    insights: tuple[TacticalInsight, ...], filters: TacticalV2Filters
+) -> tuple[TacticalInsight, ...]:
+    """Keep the default view short; explicit filters reveal progressively more detail."""
+
+    result: list[TacticalInsight] = []
+    used: set[tuple[object, ...]] = set()
+    for item in insights:
+        group: tuple[object, ...] = (item.insight_type,)
+        if filters.map_name is not None:
+            group += (item.side,)
+        if filters.side is not None:
+            group += (item.map_name,)
+        if group in used:
+            continue
+        used.add(group)
+        result.append(item)
     return tuple(result)
 
 
@@ -156,8 +186,33 @@ def build_tactical_insight_card(item: TacticalInsight) -> TacticalInsightCard:
         description_key=description_key,
         description_values={"numerator": item.numerator, "denominator": item.denominator},
         frequency_percent=f"{item.frequency * 100:.1f}%",
+        frequency_band_key=_frequency_band_key(item.frequency),
+        reliability_key=_reliability_key(item),
+        reliability_class="warn" if item.small_sample_warning else "good",
         evidence_rounds=len(item.evidence_references),
     )
+
+
+def _frequency_band_key(frequency: float) -> str:
+    if frequency >= 1.0:
+        return "tactical.frequency.every_time"
+    if frequency >= 0.75:
+        return "tactical.frequency.almost_always"
+    if frequency >= 0.5:
+        return "tactical.frequency.often"
+    if frequency >= 0.25:
+        return "tactical.frequency.sometimes"
+    if frequency > 0:
+        return "tactical.frequency.rarely"
+    return "tactical.frequency.not_seen"
+
+
+def _reliability_key(item: TacticalInsight) -> str:
+    if item.match_count == 1:
+        return "tactical.reliability.one_match"
+    if item.small_sample_warning:
+        return "tactical.reliability.preliminary"
+    return "tactical.reliability.repeatable"
 
 
 def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
@@ -180,6 +235,8 @@ def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
         return "tactical.card.title.entry_structure", {}
     if item.insight_type is TacticalInsightType.TRADE_STRUCTURE:
         return "tactical.card.title.trade_structure", {}
+    if item.insight_type is TacticalInsightType.ROTATION_TRANSITION:
+        return "tactical.card.title.rotation_transition", {}
     if item.insight_type is TacticalInsightType.CLUTCH_BEHAVIOR:
         return "tactical.card.title.clutch_behavior", {}
     if item.insight_type is TacticalInsightType.SAVE_BEHAVIOR:

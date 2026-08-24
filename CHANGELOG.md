@@ -4,6 +4,33 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.11.0] - 2026-08-24
+
+### Added
+
+- Stage 9.6.5 introduces a plain-language coach view for Tactical V2.
+- Deterministic frequency bands explain results as rarely, sometimes, often or almost always.
+- Every finding states sample reliability in ordinary language and links directly to its rounds.
+- A primary match-plan action connects observations to the existing recommendation report.
+
+### Changed
+
+- The default list now shows one representative per finding family and only three key signals;
+  selecting a family still reveals the complete persisted set.
+- Attack/defence labels replace raw T/CT symbols in the reading layer.
+- Exact percentages, ratios, counts, limitations, ticks and UUIDs moved behind explicit
+  explanation or service-data disclosures.
+- Evidence cards have one obvious primary action; alternate timeline and event tools are folded.
+- Locale schema `3.0.0` rewrites the Tactical V2 Russian/English vocabulary for players and
+  coaches.
+
+### Safety
+
+- Frequency bands are a pure deterministic projection over the persisted ratio.
+- Exact numerator, denominator, percentage, sample size, limitations and source lineage remain
+  available and unchanged.
+- No analytical rule, Tactical schema, DuckDB table or recommendation was modified.
+
 ## [0.10.4] - 2026-08-24
 
 ### Added

@@ -1,54 +1,41 @@
 {% extends "base.html" %}
 {% block title %}{{ t('evidence.page_title') }} · {{ profile.display_name }} · StratWeb{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">
-<link rel="stylesheet" href="{{ static_asset('css/tactical-v2.css') }}">
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}"><link rel="stylesheet" href="{{ static_asset('css/tactical-v2.css') }}">{% endblock %}
 {% block content_class %}report-shell tactical-shell{% endblock %}
 {% block content %}
 <nav class="breadcrumbs"><a href="/ui/opponents">{{ t('nav.opponents') }}</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / <a href="{{ page_view.back_href }}">{{ t('tactical.breadcrumb') }}</a> / {{ t('evidence.breadcrumb') }}</nav>
-
 <section class="page-heading tactical-heading evidence-heading">
-  <div>
-    <p class="eyebrow">{{ t('evidence.eyebrow') }}</p>
-    <h1>{{ t(page_view.insight_card.title_key, **page_view.insight_card.title_values) }}</h1>
-    <p>{{ t('evidence.intro') }}</p>
-  </div>
+  <div><p class="eyebrow">{{ t('evidence.eyebrow') }}</p><h1>{{ t(page_view.insight_card.title_key, **page_view.insight_card.title_values) }}</h1><p>{{ t('evidence.intro') }}</p></div>
   <a class="button secondary" href="{{ page_view.back_href }}">{{ t('evidence.back') }}</a>
 </section>
 
-<section class="report-metrics" aria-label="{{ t('evidence.summary_label') }}">
-  <article class="available"><span>{{ t('tactical.card.frequency') }}</span><strong>{{ page_view.insight_card.frequency_percent }}</strong><small>{{ page_view.insight.numerator }}/{{ page_view.insight.denominator }}</small></article>
-  <article><span>{{ t('evidence.metric.references') }}</span><strong>{{ page_view.total_count }}</strong><small>{{ t('evidence.metric.references_help') }}</small></article>
-  <article><span>{{ t('tactical.card.matches') }}</span><strong>{{ page_view.insight.match_count }}</strong><small>{{ t('evidence.metric.matches_help') }}</small></article>
-  <article class="{{ page_view.insight.availability.value }}"><span>{{ t('tactical.' ~ page_view.insight.insight_type.value) }}</span><strong>{{ page_view.insight.side.value }}</strong><small>{{ page_view.insight.map_name|map_name }}</small></article>
+<section class="evidence-plain-summary">
+  <div><span class="side-chip {{ page_view.insight.side.value|lower }}">{{ t('tactical.side.' ~ page_view.insight.side.value|lower) }}</span><span class="map-chip">{{ page_view.insight.map_name|map_name }}</span></div>
+  <p class="eyebrow">{{ t('evidence.simple_result') }}</p>
+  <h2>{{ t(page_view.insight_card.frequency_band_key) }}</h2>
+  <p>{{ t('tactical.card.sample_sentence', numerator=page_view.insight.numerator, denominator=page_view.insight.denominator) }}</p>
+  <span class="badge {{ page_view.insight_card.reliability_class }}">{{ t(page_view.insight_card.reliability_key) }}</span>
 </section>
 
 <section class="report-section evidence-section">
-  <div class="section-heading"><div><p class="eyebrow">{{ t('evidence.section.eyebrow') }}</p><h2>{{ t('evidence.section.title') }}</h2></div><span>{{ t('evidence.section.count', count=page_view.total_count) }}</span></div>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('evidence.section.eyebrow') }}</p><h2>{{ t('evidence.section.title') }}</h2></div></div>
   <p class="section-copy">{{ t('evidence.section.help') }}</p>
-
   {% if page_view.items %}<div class="evidence-card-list">
   {% for item in page_view.items %}
     <article class="evidence-card {% if not item.lineage_available %}partial{% endif %}">
-      <header>
-        <div><strong>{% if item.match_number %}{{ t('evidence.match', number=item.match_number) }}{% else %}{{ t('evidence.match_unknown') }}{% endif %}</strong><span>{{ item.map_name|map_name if item.map_name else t('value.unknown') }}</span></div>
-        <div><span class="side-chip">{{ t('evidence.round', number=item.source.round_number) }}</span><span class="map-chip">{% if item.source.tick_start is none %}{{ t('evidence.tick.unknown') }}{% elif item.source.tick_end is none or item.source.tick_end == item.source.tick_start %}{{ t('evidence.tick.single', tick=item.source.tick_start) }}{% else %}{{ t('evidence.tick.range', start=item.source.tick_start, end=item.source.tick_end) }}{% endif %}</span></div>
-      </header>
-
-      {% if item.lineage_available %}<p class="evidence-lineage">{{ t('evidence.lineage') }}</p>{% else %}<p class="notice warning">{{ t('evidence.lineage_unavailable') }}</p>{% endif %}
-
-      <div class="button-row evidence-actions">
+      <header><div><strong>{% if item.match_number %}{{ t('evidence.match', number=item.match_number) }}{% else %}{{ t('evidence.match_unknown') }}{% endif %}</strong><span>{{ item.map_name|map_name if item.map_name else t('value.unknown') }}</span></div><span class="side-chip">{{ t('evidence.round', number=item.source.round_number) }}</span></header>
+      {% if item.lineage_available %}<p class="evidence-lineage">{{ t('evidence.lineage_plain') }}</p>{% else %}<p class="notice warning">{{ t('evidence.lineage_unavailable_plain') }}</p>{% endif %}
+      {% if item.spatial_href %}<a class="button evidence-primary-action" href="{{ item.spatial_href }}">{{ t('evidence.action.watch_map') }}</a>{% elif item.temporal_round_href %}<a class="button evidence-primary-action" href="{{ item.temporal_round_href }}">{{ t('evidence.action.watch_round') }}</a>{% else %}<a class="button evidence-primary-action" href="{{ item.match_href }}">{{ t('evidence.action.watch_match') }}</a>{% endif %}
+      <details class="evidence-more"><summary>{{ t('evidence.more.summary') }}</summary><div class="button-row evidence-actions">
         <a class="button secondary" href="{{ item.match_href }}">{{ t('evidence.action.match') }}</a>
         {% if item.temporal_round_href %}<a class="button secondary" href="{{ item.temporal_round_href }}">{{ t('evidence.action.round') }}</a>{% endif %}
         {% if item.temporal_tick_href %}<a class="button secondary" href="{{ item.temporal_tick_href }}">{{ t('evidence.action.tick') }}</a>{% endif %}
         {% if item.snapshot_href %}<a class="button secondary" href="{{ item.snapshot_href }}">{{ t('evidence.action.snapshot') }}</a>{% endif %}
-        {% if item.spatial_href %}<a class="button secondary" href="{{ item.spatial_href }}">{{ t('evidence.action.map') }}</a>{% endif %}
         {% if item.feature_href %}<a class="button secondary" href="{{ item.feature_href }}">{{ t('evidence.action.features') }}</a>{% endif %}
         {% for event in item.event_links %}<a class="button secondary" href="{{ event.href }}">{{ t('evidence.action.event', number=loop.index) }}</a>{% endfor %}
-      </div>
-
+      </div></details>
       <details class="product-disclosure evidence-technical"><summary>{{ t('evidence.technical.summary') }}</summary><div class="product-disclosure__content"><dl class="technical-facts">
+        <dt>{{ t('evidence.technical.tick') }}</dt><dd>{% if item.source.tick_start is none %}{{ t('evidence.tick.unknown') }}{% elif item.source.tick_end is none or item.source.tick_end == item.source.tick_start %}{{ item.source.tick_start }}{% else %}{{ item.source.tick_start }}–{{ item.source.tick_end }}{% endif %}</dd>
         <dt>match_id</dt><dd><code>{{ item.source.match_id }}</code></dd>
         <dt>{{ t('evidence.technical.events') }}</dt><dd>{% for value in item.source.event_ids %}<code>{{ value }}</code>{% else %}{{ t('evidence.technical.none') }}{% endfor %}</dd>
         <dt>{{ t('evidence.technical.snapshots') }}</dt><dd>{% for value in item.source.snapshot_ids %}<code>{{ value }}</code>{% else %}{{ t('evidence.technical.none') }}{% endfor %}</dd>
@@ -59,8 +46,7 @@
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state evidence-empty"><strong>{{ t('evidence.empty.title') }}</strong><p>{{ t('evidence.empty.help') }}</p></div>{% endif %}
-
-  <nav class="report-pagination" aria-label="{{ t('evidence.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>
+  {% if page_view.page_count > 1 %}<nav class="report-pagination" aria-label="{{ t('evidence.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>{% endif %}
 </section>
 
 <section id="analyst-note" class="report-section analyst-note-panel">
@@ -68,15 +54,14 @@
   <p class="section-copy">{{ t('evidence.note.help') }}</p>
   {% if note_status %}<p class="notice good" role="status">{{ t('evidence.note.' ~ note_status) }}</p>{% endif %}
   <form class="analyst-note-form" method="post" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/note?run_id={{ summary.tactical_run_id }}" data-submit-feedback>
-    <label for="analyst-note-body">{{ t('evidence.note.label') }}</label>
-    <textarea id="analyst-note-body" name="body" maxlength="{{ analyst_note_max_length }}" rows="6" required placeholder="{{ t('evidence.note.placeholder') }}">{{ analyst_note.body if analyst_note else '' }}</textarea>
-    <div class="button-row analyst-note-actions">
-      <button type="submit" data-loading-label="{{ t('evidence.note.saving') }}">{{ t('evidence.note.save') }}</button>
-      <small>{{ t('evidence.note.local_only') }}</small>
-    </div>
+    <label for="analyst-note-body">{{ t('evidence.note.label') }}</label><textarea id="analyst-note-body" name="body" maxlength="{{ analyst_note_max_length }}" rows="6" required placeholder="{{ t('evidence.note.placeholder') }}">{{ analyst_note.body if analyst_note else '' }}</textarea>
+    <div class="button-row analyst-note-actions"><button type="submit" data-loading-label="{{ t('evidence.note.saving') }}">{{ t('evidence.note.save') }}</button><small>{{ t('evidence.note.local_only') }}</small></div>
   </form>
   {% if analyst_note %}<form method="post" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/note/delete?run_id={{ summary.tactical_run_id }}" data-submit-feedback data-confirm="{{ t('evidence.note.delete_confirm') }}"><button class="secondary" type="submit" data-loading-label="{{ t('evidence.note.deleting') }}">{{ t('evidence.note.delete') }}</button></form>{% endif %}
 </section>
 
-<details class="product-disclosure tactical-technical"><summary>{{ t('tactical.technical.summary') }}</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>{{ t('tactical.technical.versions') }}</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>{{ t('tactical.technical.run_id') }}</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>insight_id</dt><dd><code>{{ page_view.insight.insight_id }}</code></dd></dl><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('evidence.technical.json') }}</a></div></details>
+<details class="product-disclosure tactical-technical"><summary>{{ t('evidence.calculation_details') }}</summary><div class="product-disclosure__content">
+  <dl class="plain-facts compact"><div><dt>{{ t('tactical.card.exact_frequency') }}</dt><dd>{{ page_view.insight_card.frequency_percent }}</dd></div><div><dt>{{ t('tactical.card.ratio') }}</dt><dd>{{ page_view.insight.numerator }} / {{ page_view.insight.denominator }}</dd></div><div><dt>{{ t('tactical.card.matches') }}</dt><dd>{{ page_view.insight.match_count }}</dd></div><div><dt>{{ t('evidence.metric.references') }}</dt><dd>{{ page_view.total_count }}</dd></div></dl>
+  <details class="developer-details"><summary>{{ t('tactical.technical.summary') }}</summary><dl class="technical-facts"><dt>{{ t('tactical.technical.versions') }}</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>{{ t('tactical.technical.run_id') }}</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>insight_id</dt><dd><code>{{ page_view.insight.insight_id }}</code></dd></dl><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('evidence.technical.json') }}</a></details>
+</div></details>
 {% endblock %}

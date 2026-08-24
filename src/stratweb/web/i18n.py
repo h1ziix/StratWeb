@@ -10,7 +10,7 @@ from stratweb.web.locale_catalogs import CATALOGS
 
 DEFAULT_LOCALE: Final = "ru"
 SUPPORTED_LOCALES: Final = ("ru", "en")
-UI_LOCALE_SCHEMA_VERSION: Final = "2.2.0"
+UI_LOCALE_SCHEMA_VERSION: Final = "3.0.0"
 LOCALE_COOKIE_NAME: Final = "stratweb_locale"
 LOCALE_COOKIE_MAX_AGE_SECONDS: Final = 31_536_000
 

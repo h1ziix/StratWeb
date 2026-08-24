@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from stratweb.main import create_app
 from stratweb.web.i18n import (
     SUPPORTED_LOCALES,
+    UI_LOCALE_SCHEMA_VERSION,
     map_display_name,
     resolve_locale,
     team_display_name,
@@ -24,6 +25,7 @@ def test_style_guide_exposes_versioned_design_system(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert f'data-design-system-version="{DESIGN_SYSTEM_VERSION}"' in response.text
+    assert f'data-locale-schema-version="{UI_LOCALE_SCHEMA_VERSION}"' in response.text
     assert "StratWeb design system" in response.text
     assert "Primary action" in response.text
     assert "Available" in response.text
@@ -65,6 +67,8 @@ def test_tactical_mobile_and_submit_feedback_contract(tmp_path: Path) -> None:
     assert "@media (max-width: 700px)" in tactical_css.text
     assert "@media (max-width: 460px)" in tactical_css.text
     assert ".evidence-actions { grid-template-columns: 1fr; }" in tactical_css.text
+    assert ".tactical-coach-banner" in tactical_css.text
+    assert ".evidence-plain-summary" in tactical_css.text
     assert ".analyst-note-form textarea" in tactical_css.text
     assert feedback_js.status_code == 200
     assert "form[data-submit-feedback]" in feedback_js.text
