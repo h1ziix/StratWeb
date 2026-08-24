@@ -13,14 +13,16 @@ def delete_tactical_v2_runs(connection: duckdb.DuckDBPyConnection, run_ids: Sequ
         return
     placeholders = ", ".join("?" for _ in run_ids)
     for table in (
+        "analyst_notes",
         "tactical_v2_evidence",
         "tactical_v2_insights",
         "tactical_v2_run_inputs",
         "tactical_v2_runs",
     ):
-        connection.execute(
-            f"DELETE FROM {table} WHERE tactical_run_id IN ({placeholders})", list(run_ids)
-        )
+        if _table_exists(connection, table):
+            connection.execute(
+                f"DELETE FROM {table} WHERE tactical_run_id IN ({placeholders})", list(run_ids)
+            )
 
 
 def delete_tactical_v2_for_matches(

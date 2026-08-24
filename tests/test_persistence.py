@@ -64,6 +64,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         24,
         25,
         26,
+        27,
     )
     assert repository.initialize() == ()
 
@@ -71,7 +72,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         rows = connection.execute(
             "SELECT version, name, checksum FROM schema_migrations"
         ).fetchall()
-    assert len(rows) == 26
+    assert len(rows) == 27
     assert rows[0][0:2] == (1, "canonical_match_schema")
     assert len(rows[0][2]) == 64
     assert rows[1][0:2] == (2, "round_result_availability")
@@ -99,6 +100,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
     assert rows[23][0:2] == (24, "import_worker_v2")
     assert rows[24][0:2] == (25, "statistical_trust")
     assert rows[25][0:2] == (26, "tactical_intelligence_v2")
+    assert rows[26][0:2] == (27, "local_analyst_notes")
 
 
 def test_modified_applied_migration_checksum_is_rejected(tmp_path: Path) -> None:
@@ -193,6 +195,7 @@ def test_stage4_database_migration_preserves_match_round_and_event_rows(
         24,
         25,
         26,
+        27,
     )
     with duckdb.connect(str(database), read_only=True) as connection:
         after = {}

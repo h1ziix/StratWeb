@@ -5,9 +5,11 @@ from pathlib import Path
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import duckdb
+import pytest
 from fastapi.testclient import TestClient
 
 from stratweb.adapters.persistence import (
+    DuckDBAnalystNoteRepository,
     DuckDBMatchRepository,
     DuckDBOpponentRepository,
     DuckDBTacticalV2Repository,
@@ -15,6 +17,7 @@ from stratweb.adapters.persistence import (
 from stratweb.adapters.persistence._tactical_v2_cascade import (
     delete_tactical_v2_for_matches,
 )
+from stratweb.application.analyst_notes import normalize_analyst_note
 from stratweb.application.opponent_models import (
     OpponentMatchSelection,
     OpponentProfile,
@@ -544,6 +547,43 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         assert "Доказательства" in evidence_page.text
         assert f"run_id={_id('temporal')}" in evidence_page.text
         assert f"/ui/matches/{_id('match')}#rounds" in evidence_page.text
+        assert "Личная заметка аналитика" in evidence_page.text
+        assert "никогда не считается доказательством" in evidence_page.text
+        note_url = (
+            f"/ui/opponents/{_id('profile')}/tactical-v2/insights/"
+            f"{selected_insight.insight_id}/note"
+        )
+        saved_note = client.post(
+            note_url,
+            params={"run_id": state.tactical_run_id},
+            data={"body": "  Проверить выход A ещё раз.\r\nСравнить тайминг.  "},
+            headers={"accept": "text/html"},
+        )
+        assert saved_note.status_code == 200
+        assert "Заметка сохранена локально." in saved_note.text
+        assert "Проверить выход A ещё раз.\nСравнить тайминг." in saved_note.text
+        blocked_note = client.post(
+            note_url,
+            params={"run_id": state.tactical_run_id},
+            data={"body": "cross-site"},
+            headers={"origin": "https://example.invalid"},
+        )
+        assert blocked_note.status_code == 403
+        invalid_note = client.post(
+            note_url,
+            params={"run_id": state.tactical_run_id},
+            data={"body": "   "},
+            headers={"accept": "text/html"},
+        )
+        assert invalid_note.status_code == 422
+        assert "Заметку не удалось сохранить" in invalid_note.text
+        deleted_note = client.post(
+            f"{note_url}/delete",
+            params={"run_id": state.tactical_run_id},
+            headers={"accept": "text/html"},
+        )
+        assert deleted_note.status_code == 200
+        assert "Заметка удалена." in deleted_note.text
         event_insight = next(
             item
             for item in state.insights
@@ -564,6 +604,7 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
             params={"run_id": state.tactical_run_id},
         )
         assert missing_evidence.status_code == 404
+        assert "Observation not found" in missing_evidence.text
         english = client.get(
             f"/ui/opponents/{_id('profile')}/tactical-v2",
             params={"lang": "en"},
@@ -607,5 +648,20 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
     assert not runs[0].selected_by_default
 
     with duckdb.connect(str(database)) as connection:
+        DuckDBAnalystNoteRepository(database).save(
+            _id("profile"),
+            state.tactical_run_id,
+            state.insights[0].insight_id,
+            "Удалить вместе с run",
+        )
         delete_tactical_v2_for_matches(connection, [state.source_pins[0].match_id])
         assert connection.execute("SELECT count(*) FROM tactical_v2_runs").fetchone() == (0,)
+        assert connection.execute("SELECT count(*) FROM analyst_notes").fetchone() == (0,)
+
+
+def test_analyst_note_normalization_rejects_unknown_or_empty_content() -> None:
+    assert normalize_analyst_note(" one\r\ntwo ") == "one\ntwo"
+    with pytest.raises(ValueError):
+        normalize_analyst_note("   ")
+    with pytest.raises(ValueError):
+        normalize_analyst_note("unknown\x00content")

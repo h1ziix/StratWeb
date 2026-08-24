@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         TeamMatchAnalytics,
         TradeEvent,
     )
+    from stratweb.application.analyst_notes import AnalystNote
     from stratweb.application.canonical_models import (
         CanonicalGrenade,
         CanonicalKill,
@@ -854,6 +855,25 @@ class TacticalV2Repository(Protocol):
     ) -> tuple[TacticalEvidenceReference, ...]: ...
 
     def delete(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class AnalystNoteRepository(Protocol):
+    """Local annotations pinned to immutable Tactical V2 observations."""
+
+    def get(
+        self, profile_id: UUID, tactical_run_id: UUID, insight_id: UUID
+    ) -> AnalystNote | None: ...
+
+    def save(
+        self,
+        profile_id: UUID,
+        tactical_run_id: UUID,
+        insight_id: UUID,
+        body: str,
+    ) -> AnalystNote: ...
+
+    def delete(self, profile_id: UUID, tactical_run_id: UUID, insight_id: UUID) -> bool: ...
 
 
 @runtime_checkable

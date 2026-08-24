@@ -4,6 +4,27 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.10.4] - 2026-08-24
+
+### Added
+
+- Stage 9.6.4 adds one local analyst note per exact Tactical V2 run and observation.
+- DuckDB migration 027 stores notes separately from immutable evidence and statistics.
+- Tactical calculation and note forms expose explicit submitting states.
+- Missing or empty evidence receives dedicated Russian/English UI states.
+
+### Changed
+
+- Evidence actions, headings and note controls stack cleanly on phone-sized screens.
+- Locale schema `2.2.0` covers analyst-note, loading, empty and error messages.
+
+### Safety
+
+- Notes never participate in analytical fingerprints, ratios, evidence or recommendations.
+- Note mutation remains localhost- and same-origin-protected; deleting a Tactical run removes
+  only notes pinned to that run.
+- Missing evidence is presented as unavailable data and is never converted into a zero.
+
 ## [0.10.3] - 2026-08-24
 
 ### Added

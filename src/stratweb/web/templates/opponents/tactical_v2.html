@@ -13,7 +13,7 @@
     <h1>{{ profile.display_name }}</h1>
     <p>{{ t('tactical.intro') }}</p>
   </div>
-  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute"><button type="submit">{{ t('tactical.compute') }}</button></form>
+  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute" data-submit-feedback><button type="submit" data-loading-label="{{ t('tactical.computing') }}">{{ t('tactical.compute') }}</button></form>
 </section>
 {% if not summary or not page_view %}
 <div class="empty-state"><strong>{{ t('tactical.not_computed') }}</strong><p>{{ unavailable_reason }} {{ t('tactical.not_computed_help') }}</p></div>

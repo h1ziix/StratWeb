@@ -28,7 +28,7 @@
   <div class="section-heading"><div><p class="eyebrow">{{ t('evidence.section.eyebrow') }}</p><h2>{{ t('evidence.section.title') }}</h2></div><span>{{ t('evidence.section.count', count=page_view.total_count) }}</span></div>
   <p class="section-copy">{{ t('evidence.section.help') }}</p>
 
-  <div class="evidence-card-list">
+  {% if page_view.items %}<div class="evidence-card-list">
   {% for item in page_view.items %}
     <article class="evidence-card {% if not item.lineage_available %}partial{% endif %}">
       <header>
@@ -58,9 +58,24 @@
       </dl></div></details>
     </article>
   {% endfor %}
-  </div>
+  </div>{% else %}<div class="empty-state evidence-empty"><strong>{{ t('evidence.empty.title') }}</strong><p>{{ t('evidence.empty.help') }}</p></div>{% endif %}
 
   <nav class="report-pagination" aria-label="{{ t('evidence.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>
+</section>
+
+<section id="analyst-note" class="report-section analyst-note-panel">
+  <div class="section-heading"><div><p class="eyebrow">{{ t('evidence.note.eyebrow') }}</p><h2>{{ t('evidence.note.title') }}</h2></div>{% if analyst_note %}<span>{{ t('evidence.note.updated') }}</span>{% endif %}</div>
+  <p class="section-copy">{{ t('evidence.note.help') }}</p>
+  {% if note_status %}<p class="notice good" role="status">{{ t('evidence.note.' ~ note_status) }}</p>{% endif %}
+  <form class="analyst-note-form" method="post" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/note?run_id={{ summary.tactical_run_id }}" data-submit-feedback>
+    <label for="analyst-note-body">{{ t('evidence.note.label') }}</label>
+    <textarea id="analyst-note-body" name="body" maxlength="{{ analyst_note_max_length }}" rows="6" required placeholder="{{ t('evidence.note.placeholder') }}">{{ analyst_note.body if analyst_note else '' }}</textarea>
+    <div class="button-row analyst-note-actions">
+      <button type="submit" data-loading-label="{{ t('evidence.note.saving') }}">{{ t('evidence.note.save') }}</button>
+      <small>{{ t('evidence.note.local_only') }}</small>
+    </div>
+  </form>
+  {% if analyst_note %}<form method="post" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/note/delete?run_id={{ summary.tactical_run_id }}" data-submit-feedback data-confirm="{{ t('evidence.note.delete_confirm') }}"><button class="secondary" type="submit" data-loading-label="{{ t('evidence.note.deleting') }}">{{ t('evidence.note.delete') }}</button></form>{% endif %}
 </section>
 
 <details class="product-disclosure tactical-technical"><summary>{{ t('tactical.technical.summary') }}</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>{{ t('tactical.technical.versions') }}</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>{{ t('tactical.technical.run_id') }}</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>insight_id</dt><dd><code>{{ page_view.insight.insight_id }}</code></dd></dl><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ page_view.insight.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('evidence.technical.json') }}</a></div></details>

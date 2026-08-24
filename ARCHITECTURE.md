@@ -1570,3 +1570,19 @@ safe match-level link. It does not fall back to an unrelated latest run.
 Technical event/snapshot/feature/projectile/effect IDs remain available in a collapsed disclosure.
 Primary evidence cards show a stable corpus match ordinal, map, round and proven tick/range.
 Temporal round markup exposes stable tick and event anchors for deterministic navigation.
+
+## Stage 9.6.4 architectural decision — notes are not evidence
+
+An analyst note is mutable user context pinned to one exact `(tactical_run_id, insight_id)` pair.
+Migration 027 stores it in `analyst_notes`, outside immutable Tactical run, insight and evidence
+tables. Notes do not enter fingerprints, numerators, denominators, frequencies, capabilities,
+recommendations or exports; a future calculation never inherits an older note implicitly.
+
+The adapter verifies that profile, run and insight exist as one persisted Tactical lineage before
+an upsert. The browser mutation is localhost-only and rejects cross-origin requests. Deleting the
+source Tactical run deletes its notes first, preventing stale annotations from appearing on a
+different result. The note schema is independently versioned `1.0.0`.
+
+Tactical UI loading feedback is presentation-only. Missing evidence has a localized not-found or
+empty state and is never rendered as a zero result. Mobile CSS changes layout only: evidence
+references and all exact source links remain unchanged.

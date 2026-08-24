@@ -128,6 +128,22 @@
 .evidence-technical { margin-top: 0; }
 .evidence-technical code { display: inline-block; margin: 2px 5px 2px 0; }
 
+.analyst-note-panel {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.analyst-note-form { display: grid; gap: 9px; }
+.analyst-note-form label { color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
+.analyst-note-form textarea {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.analyst-note-actions { align-items: center; justify-content: space-between; }
+.analyst-note-actions small { color: var(--color-text-tertiary); }
+form[aria-busy="true"] { opacity: .72; }
+
 .tactical-capability-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -164,9 +180,17 @@
   .tactical-filters { grid-template-columns: 1fr 1fr; }
   .tactical-highlight { min-height: 0; }
   .evidence-card > header { align-items: flex-start; flex-direction: column; }
+  .evidence-heading { align-items: stretch; }
+  .evidence-heading > .button { width: 100%; }
+  .evidence-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .evidence-actions .button { min-width: 0; text-align: center; }
+  .analyst-note-actions { align-items: stretch; flex-direction: column; }
+  .analyst-note-actions button { width: 100%; }
 }
 
 @media (max-width: 460px) {
   .tactical-filters { grid-template-columns: 1fr; }
   .tactical-ratio dd { font-size: 15px; }
+  .evidence-actions { grid-template-columns: 1fr; }
+  .evidence-card { padding: 13px; }
 }

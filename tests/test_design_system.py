@@ -56,6 +56,23 @@ def test_polish_layer_hardens_narrow_screens_and_reduced_motion(tmp_path: Path) 
     assert "overflow-wrap: anywhere" in response.text
 
 
+def test_tactical_mobile_and_submit_feedback_contract(tmp_path: Path) -> None:
+    with TestClient(create_app(tmp_path / "tactical-mobile.duckdb")) as client:
+        tactical_css = client.get("/static/css/tactical-v2.css")
+        feedback_js = client.get("/static/js/form-feedback.js")
+
+    assert tactical_css.status_code == 200
+    assert "@media (max-width: 700px)" in tactical_css.text
+    assert "@media (max-width: 460px)" in tactical_css.text
+    assert ".evidence-actions { grid-template-columns: 1fr; }" in tactical_css.text
+    assert ".analyst-note-form textarea" in tactical_css.text
+    assert feedback_js.status_code == 200
+    assert "form[data-submit-feedback]" in feedback_js.text
+    assert 'form.setAttribute("aria-busy", "true")' in feedback_js.text
+    assert "button.disabled = true" in feedback_js.text
+    assert 'window.addEventListener("pageshow"' in feedback_js.text
+
+
 def test_russian_presentation_hides_technical_placeholders() -> None:
     assert team_display_name("TeamAlpha") == "Команда 1"
     assert team_display_name("TeamBravo · CT") == "Команда 2 · CT"

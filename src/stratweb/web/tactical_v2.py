@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Form, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from stratweb.adapters.persistence import (
+    DuckDBAnalystNoteRepository,
     DuckDBOpponentRepository,
     DuckDBTacticalV2Repository,
     DuckDBTacticalV2SourceRepository,
 )
+from stratweb.application.analyst_notes import ANALYST_NOTE_MAX_LENGTH
+from stratweb.application.opponent_models import OpponentProfile
 from stratweb.application.tactical_v2 import (
     ComputeTacticalV2Service,
     TacticalV2QueryService,
@@ -45,6 +48,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
     repository = DuckDBTacticalV2Repository(database_path)
     compute = ComputeTacticalV2Service(opponents, sources, repository)
     query = TacticalV2QueryService(repository)
+    notes = DuckDBAnalystNoteRepository(database_path)
 
     @router.post(
         "/api/opponents/{profile_id}/tactical-v2/compute",
@@ -189,6 +193,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         run_id: UUID | None = None,
         page: Annotated[int, Query(ge=1)] = 1,
         lang: Annotated[str | None, Query(max_length=20)] = None,
+        note_status: Literal["saved", "deleted"] | None = None,
     ) -> HTMLResponse:
         locale = resolve_locale(lang, request.cookies.get(LOCALE_COOKIE_NAME))
         profile = opponents.get_profile(profile_id)
@@ -206,8 +211,22 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
                 insight_id,
                 tactical_run_id=selected.tactical_run_id,
             )
-        except TacticalV2NotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except TacticalV2NotFoundError:
+            response = HTMLResponse(
+                render_template(
+                    "opponents/tactical_evidence_error.html",
+                    locale=locale,
+                    profile=profile,
+                    error_title_key="evidence.error.not_found_title",
+                    error_detail_key="evidence.error.not_found",
+                    match_context=None,
+                    locale_switcher=True,
+                    supported_locales=SUPPORTED_LOCALES,
+                ),
+                status_code=404,
+            )
+            _remember_locale(response, lang, locale)
+            return response
         page_view = build_tactical_evidence_page(
             selected,
             insight,
@@ -221,6 +240,13 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
                 profile=profile,
                 summary=selected,
                 page_view=page_view,
+                analyst_note=notes.get(
+                    profile_id,
+                    selected.tactical_run_id,
+                    insight.insight_id,
+                ),
+                analyst_note_max_length=ANALYST_NOTE_MAX_LENGTH,
+                note_status=note_status,
                 match_context=None,
                 locale_switcher=True,
                 supported_locales=SUPPORTED_LOCALES,
@@ -228,6 +254,65 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         )
         _remember_locale(response, lang, locale)
         return response
+
+    @router.post(
+        "/ui/opponents/{profile_id}/tactical-v2/insights/{insight_id}/note",
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def save_analyst_note(
+        request: Request,
+        profile_id: UUID,
+        insight_id: UUID,
+        run_id: UUID,
+        body: Annotated[str, Form()] = "",
+    ) -> Response:
+        require_localhost(request, "Analyst note editing")
+        locale = resolve_locale(None, request.cookies.get(LOCALE_COOKIE_NAME))
+        profile = opponents.get_profile(profile_id)
+        if profile is None:
+            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        try:
+            query.get_insight(profile_id, insight_id, tactical_run_id=run_id)
+            note = notes.save(profile_id, run_id, insight_id, body)
+        except TacticalV2NotFoundError:
+            return _note_error_response(locale, profile, status_code=404)
+        except ValueError:
+            return _note_error_response(locale, profile, status_code=422, invalid=True)
+        if "text/html" not in request.headers.get("accept", ""):
+            return JSONResponse(content=note.model_dump(mode="json"))
+        return RedirectResponse(
+            _evidence_note_href(profile_id, insight_id, run_id, "saved"),
+            status_code=303,
+        )
+
+    @router.post(
+        "/ui/opponents/{profile_id}/tactical-v2/insights/{insight_id}/note/delete",
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def delete_analyst_note(
+        request: Request,
+        profile_id: UUID,
+        insight_id: UUID,
+        run_id: UUID,
+    ) -> Response:
+        require_localhost(request, "Analyst note editing")
+        locale = resolve_locale(None, request.cookies.get(LOCALE_COOKIE_NAME))
+        profile = opponents.get_profile(profile_id)
+        if profile is None:
+            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        try:
+            query.get_insight(profile_id, insight_id, tactical_run_id=run_id)
+        except TacticalV2NotFoundError:
+            return _note_error_response(locale, profile, status_code=404)
+        deleted = notes.delete(profile_id, run_id, insight_id)
+        if "text/html" not in request.headers.get("accept", ""):
+            return JSONResponse(content={"deleted": deleted})
+        return RedirectResponse(
+            _evidence_note_href(profile_id, insight_id, run_id, "deleted"),
+            status_code=303,
+        )
 
     return router
 
@@ -241,6 +326,42 @@ def _remember_locale(response: Response, requested: str | None, resolved: str) -
         max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
         httponly=True,
         samesite="lax",
+    )
+
+
+def _evidence_note_href(
+    profile_id: UUID,
+    insight_id: UUID,
+    run_id: UUID,
+    status: Literal["saved", "deleted"],
+) -> str:
+    return (
+        f"/ui/opponents/{profile_id}/tactical-v2/insights/{insight_id}/evidence"
+        f"?run_id={run_id}&note_status={status}#analyst-note"
+    )
+
+
+def _note_error_response(
+    locale: str,
+    profile: OpponentProfile,
+    *,
+    status_code: int,
+    invalid: bool = False,
+) -> HTMLResponse:
+    return HTMLResponse(
+        render_template(
+            "opponents/tactical_evidence_error.html",
+            locale=locale,
+            profile=profile,
+            error_title_key=(
+                "evidence.note.invalid_title" if invalid else "evidence.error.not_found_title"
+            ),
+            error_detail_key=("evidence.note.invalid" if invalid else "evidence.error.not_found"),
+            match_context=None,
+            locale_switcher=True,
+            supported_locales=SUPPORTED_LOCALES,
+        ),
+        status_code=status_code,
     )
 
 

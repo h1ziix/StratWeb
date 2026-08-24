@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ t(error_title_key) }} · {{ profile.display_name }} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/tactical-v2.css') }}">{% endblock %}
+{% block content_class %}report-shell tactical-shell{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">{{ t('nav.opponents') }}</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / {{ t('evidence.breadcrumb') }}</nav>
+<section class="page-heading tactical-heading">
+  <div><p class="eyebrow">{{ t('evidence.eyebrow') }}</p><h1>{{ t(error_title_key) }}</h1><p>{{ t(error_detail_key) }}</p></div>
+  <a class="button secondary" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2">{{ t('evidence.back') }}</a>
+</section>
+{% endblock %}

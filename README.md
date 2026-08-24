@@ -1080,3 +1080,11 @@ round/event, post-tick snapshot, exact-mode 2D map and round facts when those ty
 available. Each link pins the source run recorded by Tactical V2, so pages never mix evidence from
 different calculations. Internal IDs remain in collapsed technical details. See
 [STAGE_9_6_3.md](STAGE_9_6_3.md).
+
+### Stage 9.6.4 Mobile states and analyst notes
+
+The evidence page is usable on narrow screens, shows explicit loading, missing and empty-data
+states, and provides a private analyst note for each exact Tactical V2 observation version. The
+note is stored only in local DuckDB and is deliberately excluded from statistics, evidence,
+fingerprints and recommendations. Save/delete requests are accepted only from localhost with
+same-origin browser protection. See [STAGE_9_6_4.md](STAGE_9_6_4.md).

@@ -1405,9 +1405,18 @@ Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 - [x] технические UUID сохранены в disclosure, но убраны из основного чтения;
 - [x] реальная FACEIT acceptance: event, snapshot и exact spatial links дают HTTP 200.
 
-### Следующие подэтапы (не начаты)
+### Stage 9.6.4 — mobile states and analyst notes (завершён)
 
-- Stage 9.6.4: mobile acceptance, loading/error/empty-state polish и analyst notes.
+- [x] отдельные loading-состояния для вычисления Tactical V2 и сохранения/удаления заметки;
+- [x] локализованные not-found и empty-evidence состояния без подмены unknown нулём;
+- [x] адаптивные evidence actions, заголовок и note form для узких экранов;
+- [x] одна локальная analyst note на точную пару Tactical run/insight;
+- [x] migration 027, repository port, upsert/delete и dependency-aware cascade;
+- [x] заметки отделены от immutable insights, evidence, fingerprints и analytics;
+- [x] localhost/same-origin защита изменений, RU/EN locale schema 2.2.0;
+- [x] unit, persistence, HTTP, locale и responsive contract tests.
+
+Следующий этап — Stage 9.7 Team/On-Prem Edition. Он не начат.
 
 Acceptance evidence: [STAGE_9_6_1.md](STAGE_9_6_1.md).
 

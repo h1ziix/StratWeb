@@ -1512,6 +1512,24 @@ CREATE INDEX idx_tactical_v2_evidence_round
 """
 
 
+ANALYST_NOTES_SCHEMA = r"""
+CREATE TABLE analyst_notes (
+    note_id UUID PRIMARY KEY,
+    profile_id UUID NOT NULL,
+    tactical_run_id UUID NOT NULL,
+    insight_id UUID NOT NULL,
+    body VARCHAR NOT NULL,
+    note_schema_version VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    UNIQUE (tactical_run_id, insight_id)
+);
+
+CREATE INDEX idx_analyst_notes_profile
+    ON analyst_notes(profile_id, updated_at);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1563,4 +1581,5 @@ MIGRATIONS: tuple[Migration, ...] = (
         name="tactical_intelligence_v2",
         sql=TACTICAL_INTELLIGENCE_V2_SCHEMA,
     ),
+    Migration(version=27, name="local_analyst_notes", sql=ANALYST_NOTES_SCHEMA),
 )
