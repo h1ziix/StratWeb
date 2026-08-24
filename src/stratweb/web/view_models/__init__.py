@@ -24,9 +24,12 @@ from stratweb.web.view_models.round_features import (
     feature_type_options,
 )
 from stratweb.web.view_models.scouting_report import (
+    CoachReportPageView,
+    CoachSignalView,
     ScoutingReportDetailView,
     ScoutingReportFilters,
     ScoutingReportPageView,
+    build_coach_report_page,
     build_scouting_report_detail,
     build_scouting_report_page,
 )
@@ -36,6 +39,8 @@ __all__ = [
     "EconomyPlayerView",
     "EconomyRoundView",
     "EconomyTeamView",
+    "CoachReportPageView",
+    "CoachSignalView",
     "HealthItemView",
     "FeatureCapabilityView",
     "MatchLibraryItemView",
@@ -47,6 +52,7 @@ __all__ = [
     "RoundFeatureRowView",
     "TeamScoreView",
     "build_economy_page",
+    "build_coach_report_page",
     "build_round_feature_page",
     "ScoutingReportDetailView",
     "ScoutingReportFilters",

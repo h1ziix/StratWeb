@@ -1,5 +1,5 @@
 .report-shell { max-width: 1540px; }
-.report-heading { background: radial-gradient(circle at 88% 18%, #3d3117 0, #182433 31%, #0e141d 72%); }
+.report-heading { background: radial-gradient(circle at 88% 18%, #173d35 0, #142225 31%, #0b1314 72%); }
 .report-acceptance { display: grid; min-width: 225px; padding: 15px 18px; text-align: right; border: 1px solid var(--line); border-radius: var(--radius); background: #0a1018cc; }
 .report-acceptance span, .report-acceptance small { color: var(--muted); }.report-acceptance strong { font-size: 34px; line-height: 1.1; }.report-acceptance.available strong { color: var(--green); }.report-acceptance.partial strong { color: var(--accent); }.report-acceptance.unavailable strong { color: var(--red); }
 .acceptance-banner { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 20px 24px; margin-bottom: 14px; border: 1px solid var(--line); border-left-width: 5px; border-radius: var(--radius); background: var(--surface); }.acceptance-banner.available { border-left-color: var(--green); }.acceptance-banner.partial { border-left-color: var(--accent); }.acceptance-banner.unavailable { border-left-color: var(--red); }.acceptance-banner h2, .acceptance-banner p { margin: 2px 0; }

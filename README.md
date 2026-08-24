@@ -1097,3 +1097,16 @@ Exact percentages, ratios, limitations, ticks and technical IDs remain available
 service-data disclosures. Selecting a finding family reveals every persisted variant; the default
 screen is only a reversible curated projection. The JSON API and analytical data are unchanged.
 See [STAGE_9_6_5.md](STAGE_9_6_5.md).
+
+### Stage 9.6.6 One-tap coach flow and visual identity
+
+The opponent report now opens in a simple coach mode. One primary action starts a six-step
+walkthrough of sample trust, attack, defence, risks, accepted responses and evidence. Each section
+contains at most three deterministically selected findings; exact ratios and source links remain
+behind “why” disclosures. Horizontal swipes, keyboard controls and a sticky mobile next action make
+the same flow usable on a phone. The former filters, exports, quality matrix and reproducibility
+tools remain intact at `?mode=analyst`.
+
+Design system `2.0.0` introduces a graphite/mint identity and restrained motion with a
+`prefers-reduced-motion` fallback. This is a presentation change: analytical runs, DuckDB rows,
+confidence, evidence and APIs are unchanged. See [STAGE_9_6_6.md](STAGE_9_6_6.md).

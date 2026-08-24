@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
@@ -41,6 +41,7 @@ from stratweb.reporting.presentation import (
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
     ScoutingReportFilters,
+    build_coach_report_page,
     build_scouting_report_detail,
     build_scouting_report_page,
 )
@@ -79,6 +80,7 @@ def scouting_report_router(database_path: Path) -> APIRouter:
         minimum_confidence: Annotated[float, Query(ge=0, le=1)] = 0,
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=10, le=100)] = 30,
+        mode: Literal["coach", "analyst"] = "coach",
     ) -> HTMLResponse:
         workspace = _workspace(opponents, profile_id)
         filters = ScoutingReportFilters(
@@ -99,17 +101,22 @@ def scouting_report_router(database_path: Path) -> APIRouter:
                     "opponents/report.html",
                     workspace=workspace,
                     report=None,
+                    coach_report=None,
+                    report_mode=mode,
                     unavailable_reason=str(exc),
                     match_context=None,
                 ),
                 status_code=404,
             )
         report = build_scouting_report_page(source, workspace, filters)
+        coach_report = build_coach_report_page(source, workspace)
         return HTMLResponse(
             render_template(
                 "opponents/report.html",
                 workspace=workspace,
                 report=report,
+                coach_report=coach_report,
+                report_mode=mode,
                 unavailable_reason=None,
                 match_context=None,
             )

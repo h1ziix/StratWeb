@@ -259,6 +259,9 @@ def test_opponent_ui_create_confirm_and_remove_flow(
     assert "faceit.dem" not in workspace.text
     assert "Alpha" in workspace.text
     assert "team_fizik" in workspace.text
+    assert "Показать план на матч" in workspace.text
+    assert "Другие действия" in workspace.text
+    assert "Открыть отчёт" not in workspace.text
     assert api_workspace.json()["selected_matches"][0]["selection"]["selection_source"] == (
         OpponentSelectionSource.USER_CONFIRMED.value
     )

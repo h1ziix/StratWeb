@@ -22,7 +22,7 @@ from stratweb.web.i18n import (
 )
 
 _STATIC_ROOT = Path(__file__).with_name("static")
-DESIGN_SYSTEM_VERSION = "1.1.0"
+DESIGN_SYSTEM_VERSION = "2.0.0"
 
 
 def static_asset(relative_path: str) -> str:

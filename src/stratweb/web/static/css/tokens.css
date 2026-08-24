@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  --design-system-version: "1.1.0";
+  --design-system-version: "2.0.0";
 
   /* Typography */
   --font-sans: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
@@ -8,37 +8,37 @@
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 
   /* Neutral foundation */
-  --color-canvas: #070a0f;
-  --color-canvas-raised: #0a0f16;
-  --color-surface-1: #101721;
-  --color-surface-2: #151f2b;
-  --color-surface-3: #1b2836;
-  --color-surface-hover: #202f40;
-  --color-border-subtle: #1b2735;
-  --color-border: #2a3a4d;
-  --color-border-strong: #40556d;
+  --color-canvas: #060b0c;
+  --color-canvas-raised: #091112;
+  --color-surface-1: #0e1719;
+  --color-surface-2: #142023;
+  --color-surface-3: #1a2a2d;
+  --color-surface-hover: #203438;
+  --color-border-subtle: #1a292c;
+  --color-border: #293d40;
+  --color-border-strong: #426064;
 
   /* Text */
   --color-text-primary: #f4f7fb;
-  --color-text-secondary: #aab7c8;
-  --color-text-tertiary: #73839a;
-  --color-text-inverse: #111015;
+  --color-text-secondary: #afbec0;
+  --color-text-tertiary: #74888a;
+  --color-text-inverse: #07110e;
 
   /* Product and data accents */
-  --color-brand: #ffb23f;
-  --color-brand-hover: #ffc365;
-  --color-accent: #52d8df;
-  --color-accent-hover: #79e8ed;
-  --color-success: #66dfa0;
+  --color-brand: #6ee7c7;
+  --color-brand-hover: #a0f2dc;
+  --color-accent: #6ee7c7;
+  --color-accent-hover: #a0f2dc;
+  --color-success: #70e3a7;
   --color-warning: #ffd173;
   --color-danger: #ff7c8d;
-  --color-info: #75a9ff;
-  --color-purple: #bd8dff;
+  --color-info: #a6b1ff;
+  --color-purple: #c39cff;
 
   /* Semantic surfaces */
-  --color-brand-soft: #3a2911;
-  --color-accent-soft: #102b31;
-  --color-success-soft: #102d22;
+  --color-brand-soft: #102c26;
+  --color-accent-soft: #102c26;
+  --color-success-soft: #102c22;
   --color-warning-soft: #332912;
   --color-danger-soft: #351820;
   --color-info-soft: #13243d;
@@ -67,7 +67,7 @@
   --shadow-xs: 0 1px 2px #0006;
   --shadow-sm: 0 8px 24px #0005;
   --shadow: 0 24px 70px #0009;
-  --ring: 0 0 0 3px #52d8df35;
+  --ring: 0 0 0 3px #6ee7c735;
   --transition-fast: 120ms ease;
   --transition: 180ms ease;
 
@@ -101,8 +101,8 @@ body {
   min-height: 100vh;
   color: var(--color-text-primary);
   background:
-    radial-gradient(circle at 84% -10%, #1c3046 0, transparent 34rem),
-    radial-gradient(circle at 5% 15%, #17272b55 0, transparent 30rem),
+    radial-gradient(circle at 82% -12%, #153c374f 0, transparent 36rem),
+    radial-gradient(circle at 4% 18%, #26314742 0, transparent 32rem),
     var(--color-canvas);
   font: 14px/1.55 var(--font-sans);
   text-rendering: optimizeLegibility;
@@ -111,7 +111,7 @@ body {
 
 ::selection {
   color: var(--color-text-primary);
-  background: #247079;
+  background: #247461;
 }
 
 h1,

@@ -1605,3 +1605,21 @@ Numerator, denominator, exact frequency, match/evidence counts, limitations, tic
 versions and fingerprints remain in progressive disclosures. The JSON API is unchanged. This
 separates a coach's reading path from the reproducibility path without forking the underlying
 truth.
+
+## Stage 9.6.6 architectural decision — one source, two reading modes
+
+The coach report and analyst report are two read-only projections over the same pinned
+`ScoutingReportSource`. The default coach projection ranks findings only by persisted sample and
+evidence fields, keeps one representative per pattern family, and caps each section at three. It
+does not invoke an analytical engine, generate prose with an LLM, relax readiness gates or write a
+new run. Empty risk and response sections remain typed empty states.
+
+The coach flow is deliberately state-light. Its active step lives in the URL fragment and browser
+DOM; it never enters DuckDB or an API request. JavaScript adds next/back, focus movement and
+horizontal swipe. Without JavaScript, all six sections remain readable as a document. Reduced
+motion disables entrance and ambient animations.
+
+The former report remains the analyst projection selected by `mode=analyst`. It retains filters,
+exact statistics, exports, quality checks and provenance. Both modes pin the same strategy run and
+link to the same finding/evidence routes, preventing a convenient reading layer from becoming a
+second source of tactical truth.

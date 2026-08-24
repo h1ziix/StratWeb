@@ -27,6 +27,7 @@ from stratweb.web.view_models.product import ViewModel
 
 REPORT_SCHEMA_VERSION = "1.0.0"
 REPORT_VIEW_RULE_VERSION = "scouting_report_view_v1"
+COACH_REPORT_RULE_VERSION = "coach_report_projection_v1"
 
 
 class ScoutingReportFilters(ViewModel):
@@ -170,6 +171,25 @@ class ScoutingReportPageView(ViewModel):
     report_pdf_href: str
 
 
+class CoachSignalView(ViewModel):
+    """Plain-language projection of one immutable finding."""
+
+    finding: ReportFindingView
+    frequency_key: str
+
+
+class CoachReportPageView(ViewModel):
+    """Small, deterministic set of signals for the one-tap report flow."""
+
+    rule_version: str = COACH_REPORT_RULE_VERSION
+    attack: tuple[CoachSignalView, ...]
+    defence: tuple[CoachSignalView, ...]
+    risks: tuple[CoachSignalView, ...]
+    individual: tuple[CoachSignalView, ...]
+    recommendations: tuple[ReportRecommendationView, ...]
+    evidence: tuple[CoachSignalView, ...]
+
+
 class ReportEvidenceView(ViewModel):
     evidence_id: UUID
     match_id: UUID
@@ -235,6 +255,7 @@ def build_scouting_report_page(
             ),
         )
     )
+
     page_count = max(1, (len(filtered) + filters.page_size - 1) // filters.page_size)
     page = min(filters.page, page_count)
     effective_filters = filters.model_copy(update={"page": page})
@@ -407,6 +428,131 @@ def build_scouting_report_page(
             f"?run_id={source.strategy.strategy_run_id}"
         ),
     )
+
+
+def build_coach_report_page(
+    source: ScoutingReportSource,
+    workspace: OpponentWorkspace,
+    *,
+    section_limit: int = 3,
+) -> CoachReportPageView:
+    """Build a concise UI projection without changing stored findings or statistics."""
+
+    if section_limit < 1:
+        raise ValueError("coach report section limit must be positive")
+    readiness = {item.finding_id: item for item in source.readiness.records}
+    skipped = {item.finding_id: item for item in source.skipped_findings}
+    recommendations_by_finding = {item.source_finding_id: item for item in source.recommendations}
+    cards = tuple(
+        _finding_view(
+            finding,
+            source=source,
+            readiness=readiness[finding.finding_id],
+            skipped=skipped.get(finding.finding_id),
+            recommendation=recommendations_by_finding.get(finding.finding_id),
+        )
+        for finding in source.findings
+    )
+    grouped = {
+        key: tuple(item for item in cards if _group_key(item) == key)
+        for key in ("t_side", "ct_side", "risks", "individual")
+    }
+    attack = _coach_signals(grouped["t_side"], section_limit)
+    defence = _coach_signals(grouped["ct_side"], section_limit)
+    risks = _coach_signals(grouped["risks"], section_limit)
+    individual = _coach_signals(grouped["individual"], section_limit)
+    evidence = _unique_signals((*attack, *defence, *risks, *individual), limit=4)
+    recommendations: tuple[ReportRecommendationView, ...] = ()
+    if source.validation.status is not StrategyAcceptanceStatus.FAILED:
+        recommendations = tuple(
+            sorted(
+                (
+                    _recommendation_view(item, workspace.profile.profile_id)
+                    for item in source.recommendations
+                ),
+                key=lambda item: (
+                    -item.evidence_matches,
+                    -_ratio_value(item.ratio),
+                    item.map_name,
+                    item.side,
+                    str(item.recommendation_id),
+                ),
+            )[:section_limit]
+        )
+    return CoachReportPageView(
+        attack=attack,
+        defence=defence,
+        risks=risks,
+        individual=individual,
+        recommendations=recommendations,
+        evidence=evidence,
+    )
+
+
+def _coach_signals(
+    findings: tuple[ReportFindingView, ...], limit: int
+) -> tuple[CoachSignalView, ...]:
+    ranked = sorted(
+        findings,
+        key=lambda item: (
+            item.small_sample_warning,
+            -item.evidence_matches,
+            -item.sample_size,
+            -(item.numerator / item.denominator),
+            item.pattern_type,
+            item.map_name,
+            str(item.finding_id),
+        ),
+    )
+    result: list[CoachSignalView] = []
+    used_patterns: set[str] = set()
+    for item in ranked:
+        if item.pattern_type in used_patterns:
+            continue
+        used_patterns.add(item.pattern_type)
+        result.append(
+            CoachSignalView(
+                finding=item,
+                frequency_key=_coach_frequency_key(item.numerator / item.denominator),
+            )
+        )
+        if len(result) == limit:
+            break
+    return tuple(result)
+
+
+def _unique_signals(
+    signals: tuple[CoachSignalView, ...], *, limit: int
+) -> tuple[CoachSignalView, ...]:
+    result: list[CoachSignalView] = []
+    used: set[UUID] = set()
+    for item in signals:
+        if item.finding.finding_id in used:
+            continue
+        used.add(item.finding.finding_id)
+        result.append(item)
+        if len(result) == limit:
+            break
+    return tuple(result)
+
+
+def _coach_frequency_key(value: float) -> str:
+    if value >= 1.0:
+        return "tactical.frequency.every_time"
+    if value >= 0.75:
+        return "tactical.frequency.almost_always"
+    if value >= 0.5:
+        return "tactical.frequency.often"
+    if value >= 0.25:
+        return "tactical.frequency.sometimes"
+    if value > 0:
+        return "tactical.frequency.rarely"
+    return "tactical.frequency.not_seen"
+
+
+def _ratio_value(value: str) -> float:
+    numerator, _, denominator = value.partition("/")
+    return int(numerator) / int(denominator)
 
 
 def build_scouting_report_detail(
@@ -818,11 +964,15 @@ def _percent(value: float) -> str:
 
 
 __all__ = [
+    "COACH_REPORT_RULE_VERSION",
     "REPORT_SCHEMA_VERSION",
     "REPORT_VIEW_RULE_VERSION",
+    "CoachReportPageView",
+    "CoachSignalView",
     "ScoutingReportDetailView",
     "ScoutingReportFilters",
     "ScoutingReportPageView",
+    "build_coach_report_page",
     "build_scouting_report_detail",
     "build_scouting_report_page",
 ]

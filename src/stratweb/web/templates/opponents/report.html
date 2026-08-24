@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Отчёт: {{ workspace.profile.display_name }} · StratWeb{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% if report_mode == 'coach' %}<link rel="stylesheet" href="{{ static_asset('css/coach-report.css') }}">{% endif %}{% endblock %}
 {% block content_class %}report-shell{% endblock %}
 {% block content %}
-<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Отчёт</nav>
+<nav class="breadcrumbs {% if report_mode == 'coach' %}coach-breadcrumbs{% endif %}"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Отчёт</nav>
 {% if not report %}
 <section class="page-heading report-heading"><div><p class="eyebrow">Stage 8.8</p><h1>Отчёт недоступен</h1><p>{{ unavailable_reason }}</p></div></section>
 <div class="empty-state"><p>Сначала рассчитайте совместимые паттерны, наблюдения, готовность и контрстратегии.</p><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">К сопернику</a></div>
+{% else %}
+{% if report_mode == 'coach' %}
+{% include "opponents/report_coach.html" %}
 {% else %}
 <section class="page-heading report-heading">
   <div><p class="eyebrow">Доказательный отчёт о сопернике</p><h1>{{ report.display_name }}</h1><p>Исторические наблюдения по завершённым демкам. Без live-данных, причинных утверждений и статистики от LLM.</p></div>
@@ -26,7 +29,7 @@
 </section>
 
 <nav class="report-index" aria-label="Разделы отчёта">
-  <a href="#data-quality">Качество данных</a><a href="#observations">Наблюдения</a><a href="#recommendations">Ответы</a><a href="#corpus">Корпус</a><a href="#provenance">Версии</a>
+  <a href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}">Простой режим</a><a href="#data-quality">Качество данных</a><a href="#observations">Наблюдения</a><a href="#recommendations">Ответы</a><a href="#corpus">Корпус</a><a href="#provenance">Версии</a>
 </nav>
 
 <section id="data-quality" class="report-section">
@@ -46,13 +49,14 @@
   <p class="section-copy">Фильтры только показывают или скрывают готовые наблюдения. Числитель, знаменатель, уверенность и корпус доказательств не пересчитываются.</p>
   <form class="report-filters" method="get" action="/ui/opponents/{{ report.profile_id }}/report">
     <input type="hidden" name="run_id" value="{{ report.strategy_run_id }}">
+    <input type="hidden" name="mode" value="analyst">
     <label>Карта<select name="map"><option value="">Все карты</option>{% for value in report.filter_options.maps %}<option value="{{ value }}" {% if report.filters.map_name == value %}selected{% endif %}>{{ value|map_name }}</option>{% endfor %}</select></label>
     <label>Сторона<select name="side"><option value="">T + CT</option>{% for value in ['T', 'CT'] %}<option value="{{ value }}" {% if report.filters.side and report.filters.side.value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
     <label>Закуп<select name="buy_type"><option value="">Все закупы</option>{% for value in report.filter_options.buy_types %}<option value="{{ value }}" {% if report.filters.buy_type and report.filters.buy_type.value == value %}selected{% endif %}>{{ value|buy_type }}</option>{% endfor %}</select></label>
     <label>Паттерн<select name="pattern_type"><option value="">Все паттерны</option>{% for value, label in report.filter_options.pattern_types %}<option value="{{ value }}" {% if report.filters.pattern_type and report.filters.pattern_type.value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
     <label>Минимальная выборка<input type="number" name="minimum_sample_size" min="1" value="{{ report.filters.minimum_sample_size }}"></label>
     <label>Минимальная оценка Уилсона<input type="number" name="minimum_confidence" min="0" max="1" step="0.01" value="{{ report.filters.minimum_confidence }}"></label>
-    <button type="submit">Применить</button><a class="button secondary" href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}">Сбросить</a>
+    <button type="submit">Применить</button><a class="button secondary" href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}&mode=analyst">Сбросить</a>
   </form>
   {% if report.finding_groups %}
     {% for group in report.finding_groups %}
@@ -72,7 +76,7 @@
     </section>
     {% endfor %}
   {% else %}<div class="empty-state"><p>Сохранённых наблюдений по этим фильтрам нет. Неизвестные данные не превращались в отрицательные выводы.</p></div>{% endif %}
-  <nav class="report-pagination" aria-label="Страницы наблюдений">{% if report.previous_href %}<a class="button secondary" href="{{ report.previous_href }}">Назад</a>{% else %}<span></span>{% endif %}<span>Страница {{ report.page }} из {{ report.page_count }}</span>{% if report.next_href %}<a class="button secondary" href="{{ report.next_href }}">Вперёд</a>{% endif %}</nav>
+  <nav class="report-pagination" aria-label="Страницы наблюдений">{% if report.previous_href %}<a class="button secondary" href="{{ report.previous_href }}&mode=analyst">Назад</a>{% else %}<span></span>{% endif %}<span>Страница {{ report.page }} из {{ report.page_count }}</span>{% if report.next_href %}<a class="button secondary" href="{{ report.next_href }}&mode=analyst">Вперёд</a>{% endif %}</nav>
 </section>
 
 <section id="recommendations" class="report-section">
@@ -88,4 +92,6 @@
 
 <details id="provenance" class="product-disclosure"><summary>Воспроизводимость, версии и исходные данные</summary><div class="product-disclosure__content"><dl class="technical-facts"><dt>Схема / представление</dt><dd><code>{{ report.report_schema_version }} / {{ report.report_view_rule_version }}</code></dd><dt>Расчёт стратегии</dt><dd><code>{{ report.strategy_run_id }}</code></dd><dt>Отпечаток стратегии</dt><dd><code>{{ report.strategy_fingerprint }}</code></dd><dt>Расчёт анализа</dt><dd><code>{{ report.source_analysis_run_id }}</code></dd><dt>Проверка</dt><dd><code>{{ report.validation_id }}</code></dd><dt>Отпечаток проверки</dt><dd><code>{{ report.validation_fingerprint }}</code></dd><dt>Охват</dt><dd>{{ report.maps|join(', ') or 'нет' }} · {{ report.sides|join(', ') or 'нет' }} · {{ report.buy_types|join(', ') or 'нет' }}</dd></dl><div class="button-row"><a class="button" href="{{ report.report_export_json_href }}">Скачать отчёт JSON</a><a class="button secondary" href="{{ report.report_print_href }}">Версия для печати</a><a class="button secondary" href="{{ report.report_pdf_href }}">Скачать PDF</a><a class="button secondary" href="{{ report.report_json_href }}">JSON текущего представления</a></div></div></details>
 {% endif %}
+{% endif %}
 {% endblock %}
+{% block scripts %}{% if report_mode == 'coach' %}<script src="{{ static_asset('js/coach-report.js') }}" defer></script>{% endif %}{% endblock %}

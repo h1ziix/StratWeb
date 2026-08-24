@@ -119,6 +119,9 @@ body { overflow-x: hidden; }
   .finding-stats div { border-bottom: 1px solid var(--color-border-subtle); }
   .finding-stats div:last-child { grid-column: 1 / -1; }
   .product-disclosure__content { padding: 12px; }
+  .workspace-primary-action { align-items: stretch; flex-direction: column; }
+  .workspace-primary-action > .button { width: 100%; }
+  .workspace-actions-menu > div { position: static; width: 100%; margin-top: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

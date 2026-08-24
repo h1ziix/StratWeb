@@ -83,6 +83,7 @@ from stratweb.spatial.models import SpatialExtraction, SpatialSourceSample
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models.scouting_report import (
     ScoutingReportFilters,
+    build_coach_report_page,
     build_scouting_report_page,
 )
 
@@ -640,21 +641,39 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert accepted.coverage.recommendations == 1
     assert accepted.blockers == ()
     assert accepted.failures == ()
+    accepted_source = ScoutingReportSource(
+        strategy=strategy_twenty_summary,
+        analysis=analysis_twenty,
+        readiness=readiness_twenty,
+        validation=accepted,
+        findings=(ready_finding,),
+        recommendations=strategy_twenty.recommendations,
+        skipped_findings=strategy_twenty.skipped_findings,
+    )
     accepted_report = build_scouting_report_page(
-        ScoutingReportSource(
-            strategy=strategy_twenty_summary,
-            analysis=analysis_twenty,
-            readiness=readiness_twenty,
-            validation=accepted,
-            findings=(ready_finding,),
-            recommendations=strategy_twenty.recommendations,
-            skipped_findings=strategy_twenty.skipped_findings,
-        ),
+        accepted_source,
         opponent_service.get_workspace(profile.profile_id),
         ScoutingReportFilters(),
     )
+    coach_report = build_coach_report_page(
+        accepted_source, opponent_service.get_workspace(profile.profile_id)
+    )
     assert accepted_report.acceptance_status == "passed"
     assert len(accepted_report.recommendations) == 1
+    assert coach_report.rule_version == "coach_report_projection_v1"
+    assert len(coach_report.recommendations) == 1
+    assert (
+        len(
+            (
+                *coach_report.attack,
+                *coach_report.defence,
+                *coach_report.risks,
+                *coach_report.individual,
+            )
+        )
+        == 1
+    )
+    assert coach_report.evidence[0].finding.finding_id == ready_finding.finding_id
     assert "Наблюдение подтверждено" in accepted_report.recommendations[0].observation
     accepted_html = render_template(
         "opponents/report.html",
@@ -816,13 +835,23 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert api_validation.json()["validation_fingerprint"] == validation.validation_fingerprint
         report_page = client.get(f"/ui/opponents/{profile_id}/report")
         assert report_page.status_code == 200
-        assert "Доказательный отчёт о сопернике" in report_page.text
-        assert "подтверждено матчей: 3 / 20" in report_page.text
-        assert "Пока нет рекомендации, пригодной для публикации" in report_page.text
-        assert "Фильтры только показывают или скрывают готовые наблюдения" in report_page.text
-        assert "Показать все проверки" in report_page.text
-        assert "детерминированных проверок" in report_page.text
-        assert "Скачать отчёт JSON" in report_page.text
+        assert "Показать план на матч" in report_page.text
+        assert "Сначала — насколько этому доверять" in report_page.text
+        assert "Что они повторяют за атаку" in report_page.text
+        assert "Что они повторяют за защиту" in report_page.text
+        assert "Пока рано давать готовую тактику" in report_page.text
+        assert "data-coach-step" in report_page.text
+        assert "data-coach-next" in report_page.text
+        assert "data-coach-deck" in report_page.text and "hidden" in report_page.text
+        assert "Минимальная оценка Уилсона" not in report_page.text
+        analyst_page = client.get(f"/ui/opponents/{profile_id}/report", params={"mode": "analyst"})
+        assert analyst_page.status_code == 200
+        assert "Доказательный отчёт о сопернике" in analyst_page.text
+        assert 'name="mode" value="analyst"' in analyst_page.text
+        assert "Простой режим" in analyst_page.text
+        assert "Фильтры только показывают или скрывают готовые наблюдения" in analyst_page.text
+        assert "Показать все проверки" in analyst_page.text
+        assert "Скачать отчёт JSON" in analyst_page.text
         report_json = client.get(f"/api/opponents/{profile_id}/report")
         assert report_json.status_code == 200
         report_payload = report_json.json()

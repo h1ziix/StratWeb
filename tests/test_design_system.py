@@ -77,6 +77,28 @@ def test_tactical_mobile_and_submit_feedback_contract(tmp_path: Path) -> None:
     assert 'window.addEventListener("pageshow"' in feedback_js.text
 
 
+def test_one_tap_coach_flow_and_visual_identity_assets(tmp_path: Path) -> None:
+    with TestClient(create_app(tmp_path / "coach-assets.duckdb")) as client:
+        coach_css = client.get("/static/css/coach-report.css")
+        coach_js = client.get("/static/js/coach-report.js")
+        tokens = client.get("/static/css/tokens.css")
+
+    assert coach_css.status_code == 200
+    assert ".coach-hero" in coach_css.text
+    assert ".coach-navigation" in coach_css.text
+    assert "@media (max-width: 460px)" in coach_css.text
+    assert "prefers-reduced-motion" in coach_css.text
+    assert coach_js.status_code == 200
+    assert "[data-coach-start]" in coach_js.text
+    assert "coachDeck.hidden = false" in coach_js.text
+    assert 'addEventListener("touchend"' in coach_js.text
+    assert "replaceState" in coach_js.text
+    assert tokens.status_code == 200
+    assert '--design-system-version: "2.0.0"' in tokens.text
+    assert "--color-brand: #6ee7c7" in tokens.text
+    assert "--color-brand: #ffb23f" not in tokens.text
+
+
 def test_russian_presentation_hides_technical_placeholders() -> None:
     assert team_display_name("TeamAlpha") == "Команда 1"
     assert team_display_name("TeamBravo · CT") == "Команда 2 · CT"

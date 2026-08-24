@@ -9,9 +9,9 @@ button {
   padding: 8px 14px;
   color: var(--color-text-inverse);
   background: linear-gradient(180deg, var(--color-brand-hover), var(--color-brand));
-  border: 1px solid #ffc869;
+  border: 1px solid #a0f2dc;
   border-radius: var(--radius-sm);
-  box-shadow: 0 1px 0 #ffffff52 inset, 0 5px 15px #ffb23f18;
+  box-shadow: 0 1px 0 #ffffff52 inset, 0 5px 18px #6ee7c722;
   font-weight: 760;
   line-height: 1.1;
   text-decoration: none;
@@ -24,7 +24,7 @@ button:hover {
   color: var(--color-text-inverse);
   filter: brightness(1.05);
   transform: translateY(-1px);
-  box-shadow: 0 1px 0 #ffffff52 inset, 0 8px 22px #ffb23f26;
+  box-shadow: 0 1px 0 #ffffff52 inset, 0 8px 26px #6ee7c738;
 }
 
 .button:active,
@@ -122,7 +122,7 @@ input[type="file"]::file-selector-button {
 .match-card,
 .opponent-card,
 .candidate-match {
-  background: linear-gradient(155deg, var(--color-surface-1), #0d141e);
+  background: linear-gradient(155deg, var(--color-surface-1), #0a1213);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-xs), inset 0 1px #ffffff05;
@@ -157,6 +157,22 @@ input[type="file"]::file-selector-button {
 .scoreline span { color: var(--color-text-secondary); }
 .card-actions { margin-top: 4px; }
 .warning-count { color: var(--color-warning); font-size: 11px; }
+
+.workspace-primary-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.workspace-primary-action > .button { min-height: 52px; padding-inline: 22px; font-size: 16px; }
+.workspace-actions-menu { position: relative; }
+.workspace-actions-menu > summary,
+.workspace-settings > summary { color: var(--color-text-secondary); cursor: pointer; font-weight: 700; }
+.workspace-actions-menu > div { position: absolute; top: 34px; left: 0; z-index: 10; display: grid; min-width: 220px; padding: 6px; background: #0c1516f8; border: 1px solid var(--color-border); border-radius: 12px; box-shadow: var(--shadow); }
+.workspace-actions-menu a { padding: 9px 11px; color: var(--color-text-secondary); border-radius: 8px; text-decoration: none; }
+.workspace-actions-menu a:hover { color: var(--color-text-primary); background: #ffffff08; }
+.workspace-settings { max-width: 680px; padding: 13px 15px; margin-bottom: 18px; background: var(--color-surface-1); border: 1px solid var(--color-border-subtle); border-radius: var(--radius); }
+.workspace-settings .opponent-create { margin: 13px 0 0; }
 
 /* Status vocabulary */
 .status,
@@ -294,7 +310,7 @@ input[type="file"]::file-selector-button {
   padding: 13px 14px;
   color: var(--color-text-secondary);
   background: var(--color-accent-soft);
-  border: 1px solid #52d8df28;
+  border: 1px solid #6ee7c728;
   border-left: 3px solid var(--color-accent);
   border-radius: var(--radius-sm);
 }

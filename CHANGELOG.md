@@ -4,6 +4,33 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.12.0] - 2026-08-24
+
+### Added
+
+- Stage 9.6.6 adds a one-tap coach report with six short, swipeable steps: trust, attack,
+  defence, risks, verified responses and source rounds.
+- A deterministic coach projection selects at most three representative findings per section
+  from the complete immutable report source.
+- The former full report remains available as an explicit analyst mode.
+- Keyboard, touch-swipe, reduced-motion and no-JavaScript fallbacks cover the new flow.
+
+### Changed
+
+- The opponent workspace now leads with one “Show match plan” action; tactical, trust and JSON
+  tools moved into a secondary menu.
+- Design system `2.0.0` replaces the orange/blue product identity with a graphite/mint palette,
+  deeper surfaces and restrained functional motion.
+- Locale schema `3.1.0` adds complete Russian/English coach-flow copy.
+
+### Safety
+
+- Coach curation is presentation-only and cannot change findings, ratios, confidence, evidence,
+  source pins or recommendation gates.
+- Empty risk and recommendation steps remain explicitly empty; weak evidence is never promoted
+  into a tactical instruction.
+- Exact statistics and exports remain available in analyst mode and evidence disclosures.
+
 ## [0.11.0] - 2026-08-24
 
 ### Added

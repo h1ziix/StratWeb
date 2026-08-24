@@ -22,7 +22,7 @@
   gap: var(--space-5);
   min-height: 64px;
   padding: 0 max(20px, calc((100% - 1460px) / 2));
-  background: #070a0fef;
+  background: #060c0ded;
   border-bottom: 1px solid var(--color-border-subtle);
   box-shadow: 0 1px 0 #ffffff05, 0 12px 35px #0005;
   backdrop-filter: blur(18px) saturate(130%);
@@ -108,7 +108,7 @@
   padding: 5px 10px;
   color: var(--color-accent);
   background: var(--color-accent-soft);
-  border: 1px solid #52d8df42;
+  border: 1px solid #6ee7c742;
   border-radius: var(--radius-pill);
   font-size: 10px;
   font-weight: 800;
@@ -132,7 +132,7 @@
   min-height: 52px;
   padding: 5px max(20px, calc((100% - 1460px) / 2));
   color: var(--color-text-secondary);
-  background: #0b1119ed;
+  background: #091112ed;
   border-bottom: 1px solid var(--color-border-subtle);
   box-shadow: inset 0 1px #ffffff03;
 }
@@ -194,7 +194,7 @@
   content: "";
   background: var(--color-accent);
   border-radius: var(--radius-pill) var(--radius-pill) 0 0;
-  box-shadow: 0 0 10px #52d8df66;
+  box-shadow: 0 0 10px #6ee7c766;
 }
 
 .app-content {
@@ -215,7 +215,7 @@
   padding: clamp(24px, 4vw, 38px);
   margin-bottom: var(--space-5);
   background:
-    linear-gradient(120deg, #151f2bfa, #0d141eeb),
+    linear-gradient(120deg, #142024fa, #0b1213eb),
     var(--color-surface-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -230,7 +230,7 @@
   width: 25rem;
   height: 18rem;
   content: "";
-  background: radial-gradient(circle, #52d8df13, transparent 67%);
+  background: radial-gradient(circle, #6ee7c71a, transparent 67%);
   pointer-events: none;
 }
 
@@ -310,7 +310,7 @@ td {
 
 th {
   color: var(--color-text-tertiary);
-  background: #0c131c;
+  background: #0a1314;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .1em;

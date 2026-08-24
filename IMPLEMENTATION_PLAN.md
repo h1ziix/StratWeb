@@ -1428,9 +1428,22 @@ Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 - [x] добавить прямой путь к готовому отчёту с рекомендациями;
 - [x] обновить RU/EN locale contract до 3.0.0 и проверить API invariance.
 
+### Stage 9.6.6 — One-Tap UX & Visual Identity (завершён)
+
+- [x] сделать простой режим отчёта маршрутом по умолчанию;
+- [x] собрать шесть последовательных экранов с одной кнопкой запуска и одной основной кнопкой продолжения;
+- [x] ограничить каждый раздел тремя детерминированно выбранными сигналами;
+- [x] не превращать пустые риски или неготовые рекомендации в придуманный совет;
+- [x] сохранить полный прежний отчёт в отдельном режиме аналитика;
+- [x] сократить верхние действия профиля соперника до одной основной кнопки;
+- [x] добавить touch swipe, keyboard/focus contract, no-JS и reduced-motion fallback;
+- [x] заменить основную orange/blue палитру на graphite/mint design system 2.0.0;
+- [x] обновить RU/EN locale contract до 3.1.0;
+- [x] подтвердить неизменность analytical/API/evidence contracts.
+
 Stage 9.7 не начат.
 
-Acceptance evidence: [STAGE_9_6_5.md](STAGE_9_6_5.md).
+Acceptance evidence: [STAGE_9_6_6.md](STAGE_9_6_6.md).
 
 ## Stage 9.7 — Team/On-Prem Edition (не начат)
 
