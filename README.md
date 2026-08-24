@@ -1126,3 +1126,12 @@ playback selected. The dense-event render loop commits state once instead of dra
 frame and a smooth frame back-to-back, and Play waits for a small demo-time buffer before moving.
 Persisted coordinates, events and evidence are unchanged. See
 [STAGE_9_6_6_2.md](STAGE_9_6_6_2.md).
+
+### Stage 9.6.7 Match readiness experience
+
+The former match diagnostics landing page now answers one product question: whether the demo is
+ready to view and which visible limitations remain. It presents one primary action, three simple
+capability cards and user-impact explanations without exposing percentages, UUIDs or rule
+versions by default. Exact coverage, warnings, run lineage and JSON exports remain together in a
+collapsed technical section. The readiness result is derived only from existing deterministic
+outputs and does not alter analytics or evidence. See [STAGE_9_6_7.md](STAGE_9_6_7.md).

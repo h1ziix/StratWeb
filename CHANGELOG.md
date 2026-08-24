@@ -4,6 +4,32 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.13.0] - 2026-08-24
+
+### Added
+
+- Stage 9.6.7 replaces the match diagnostics landing page with a human-facing demo-quality
+  experience: one readiness answer, one primary action and three plainly described capabilities.
+- Deterministic presentation models translate existing availability and map/zone metadata into
+  user-impact limitations without changing or guessing analytical results.
+- A dedicated responsive visual layer adds the map backdrop, graphite/mint depth, restrained
+  motion and a single-column phone layout with reduced-motion support.
+
+### Changed
+
+- The match navigation now calls the page “Demo quality” / “Качество демки”.
+- Locale contract `3.2.0` records the renamed navigation label.
+- Coverage percentages, run IDs, schema versions, internal warnings and JSON exports are hidden
+  by default inside one technical disclosure instead of dominating the page.
+- Limitations explain what the user may notice in the report; raw diagnostic wording remains
+  available for exact verification.
+
+### Safety
+
+- Readiness is a deterministic projection of existing canonical, analytics, Temporal, Spatial,
+  map-revision and zone-assignment state. No parser, calculation, persistence or API contract was
+  changed.
+
 ## [0.12.2] - 2026-08-24
 
 ### Fixed

@@ -34,7 +34,11 @@ from stratweb.maps.registry import DEFAULT_MAP_REGISTRY, MapRegistry
 from stratweb.spatial.map_overviews import MapOverviewRegistry
 from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
-from stratweb.web.view_models import MatchLibraryItemView, MatchOverviewView
+from stratweb.web.view_models import (
+    MatchLibraryItemView,
+    MatchOverviewView,
+    build_match_readiness,
+)
 
 
 def product_router(
@@ -194,6 +198,7 @@ def product_router(
                 overview=overview,
                 map_overview=map_overview,
                 zone_summary=zone_summary,
+                readiness=build_match_readiness(overview, map_overview, zone_summary),
                 map_revisions=(
                     definitions.revisions(overview.match.map_name)
                     if definitions.canonicalize(overview.match.map_name) is not None

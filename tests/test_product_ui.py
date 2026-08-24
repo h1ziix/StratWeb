@@ -49,9 +49,11 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert "Обзор матча" in overview.text
     assert "Технические сведения" in overview.text
     assert diagnostics.status_code == 200
-    assert "Режим диагностики" in diagnostics.text
+    assert "Качество демки" in diagnostics.text
+    assert "Разбор готов" in diagnostics.text
+    assert "Разбор без технического шума" in diagnostics.text
+    assert "Технические детали" in diagnostics.text
     assert "dataset_fingerprint" in diagnostics.text
-    assert "Сначала понятные страницы, затем JSON" in diagnostics.text
     assert "Исходные данные JSON" in diagnostics.text
     assert '<details class="developer-details" open>' not in diagnostics.text
 
