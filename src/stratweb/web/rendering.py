@@ -6,7 +6,8 @@ from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, PackageLoader, pass_context, select_autoescape
+from jinja2.runtime import Context
 from markupsafe import Markup
 
 from stratweb.web.i18n import (
@@ -47,19 +48,44 @@ def environment() -> Environment:
     )
     result.globals["static_asset"] = static_asset
     result.globals["design_system_version"] = DESIGN_SYSTEM_VERSION
-    result.globals["t"] = translate
-    result.globals["ui_locale"] = DEFAULT_LOCALE
+    result.globals["t"] = _translate_for_context
     result.globals["ui_locale_schema_version"] = UI_LOCALE_SCHEMA_VERSION
-    result.filters["status_label"] = status_label
-    result.filters["team_name"] = team_display_name
+    result.filters["status_label"] = _status_for_context
+    result.filters["team_name"] = _team_for_context
     result.filters["map_name"] = map_display_name
-    result.filters["buy_type"] = buy_type_label
-    result.filters["warning_label"] = warning_label
+    result.filters["buy_type"] = _buy_type_for_context
+    result.filters["warning_label"] = _warning_for_context
     return result
 
 
+@pass_context
+def _translate_for_context(context: Context, key: str, **values: object) -> str:
+    return translate(key, locale=str(context.get("ui_locale", DEFAULT_LOCALE)), **values)
+
+
+@pass_context
+def _status_for_context(context: Context, value: object) -> str:
+    return status_label(value, locale=str(context.get("ui_locale", DEFAULT_LOCALE)))
+
+
+@pass_context
+def _team_for_context(context: Context, value: str | None) -> str:
+    return team_display_name(value, locale=str(context.get("ui_locale", DEFAULT_LOCALE)))
+
+
+@pass_context
+def _buy_type_for_context(context: Context, value: object) -> str:
+    return buy_type_label(value, locale=str(context.get("ui_locale", DEFAULT_LOCALE)))
+
+
+@pass_context
+def _warning_for_context(context: Context, value: object) -> str:
+    return warning_label(value, locale=str(context.get("ui_locale", DEFAULT_LOCALE)))
+
+
 def render_template(name: str, **context: Any) -> str:
-    return environment().get_template(name).render(**context)
+    locale = str(context.pop("locale", DEFAULT_LOCALE))
+    return environment().get_template(name).render(ui_locale=locale, **context)
 
 
 def render_legacy_content(title: str, content: str, **context: Any) -> str:

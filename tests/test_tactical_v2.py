@@ -279,7 +279,7 @@ def test_tactical_v2_product_view_filters_without_changing_insights() -> None:
         and card.source.side is Side.T
         for card in filtered.cards
     )
-    assert all("site:" not in card.title for card in view.cards)
+    assert all("site:" not in str(card.title_values) for card in view.cards)
 
 
 def _persist_sources(database: Path) -> None:
@@ -490,13 +490,34 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
     assert repository.get_summary(_id("profile")) is not None
 
     with TestClient(create_app(database)) as client:
-        assert client.get(f"/api/opponents/{_id('profile')}/tactical-v2/summary").status_code == 200
+        api_url = f"/api/opponents/{_id('profile')}/tactical-v2/summary"
+        api_before_locale_change = client.get(api_url)
+        assert api_before_locale_change.status_code == 200
         page = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")
         assert page.status_code == 200
         assert "Тактический обзор" in page.text
         assert "Главное в выбранном срезе" in page.text
         assert 'name="type"' in page.text
         assert "site:A|" not in page.text
+        english = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2",
+            params={"lang": "en"},
+        )
+        assert english.status_code == 200
+        assert '<html lang="en"' in english.text
+        assert "Tactical overview" in english.text
+        assert "Key signals in this slice" in english.text
+        assert "Тактический обзор" not in english.text
+        assert "stratweb_locale=en" in english.headers["set-cookie"]
+        persisted_locale = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")
+        assert "Tactical overview" in persisted_locale.text
+        unsupported = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2",
+            params={"lang": "es"},
+        )
+        assert "Tactical overview" in unsupported.text
+        assert "set-cookie" not in unsupported.headers
+        assert client.get(api_url).json() == api_before_locale_change.json()
         filtered = client.get(
             f"/ui/opponents/{_id('profile')}/tactical-v2",
             params={"type": "entry_structure", "side": "T"},

@@ -23,8 +23,10 @@ class TacticalV2Filters:
 @dataclass(frozen=True, slots=True)
 class TacticalInsightCard:
     source: TacticalInsight
-    title: str
-    description: str
+    title_key: str
+    title_values: dict[str, object]
+    description_key: str
+    description_values: dict[str, object]
     frequency_percent: str
     evidence_rounds: int
 
@@ -137,63 +139,61 @@ def _ordered(insights: tuple[TacticalInsight, ...]) -> tuple[TacticalInsight, ..
 
 
 def _card(item: TacticalInsight) -> TacticalInsightCard:
-    title = _title(item)
+    title_key, title_values = _title(item)
     if item.insight_type in {
         TacticalInsightType.PATH_CLUSTER,
         TacticalInsightType.EXECUTE_PACKAGE,
         TacticalInsightType.ROTATION_TRANSITION,
         TacticalInsightType.HEATMAP_CELL,
     }:
-        description = (
-            f"Наблюдалось {item.numerator} из {item.denominator} раз "
-            "в доказанной выборке этого типа."
-        )
+        description_key = "tactical.card.description.observed"
     else:
-        description = (
-            f"Условие подтвердилось в {item.numerator} из {item.denominator} доступных случаев."
-        )
+        description_key = "tactical.card.description.confirmed"
     return TacticalInsightCard(
         source=item,
-        title=title,
-        description=description,
+        title_key=title_key,
+        title_values=title_values,
+        description_key=description_key,
+        description_values={"numerator": item.numerator, "denominator": item.denominator},
         frequency_percent=f"{item.frequency * 100:.1f}%",
         evidence_rounds=len(item.evidence_references),
     )
 
 
-def _title(item: TacticalInsight) -> str:
+def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
     if item.insight_type is TacticalInsightType.PATH_CLUSTER:
-        return "Схожая расстановка в контрольных точках"
+        return "tactical.card.title.path_cluster", {}
     if item.insight_type is TacticalInsightType.EXECUTE_PACKAGE:
         site = item.key.partition("site:")[2].partition("|")[0]
-        return f"Выход с подтверждённой установкой на {site or 'неизвестном пленте'}"
+        return "tactical.card.title.execute_package", {"site": site or "?"}
     if item.insight_type is TacticalInsightType.UTILITY_OUTCOME:
         return (
-            "Осколочная граната нанесла связанный урон"
+            "tactical.card.title.utility_he"
             if item.key == "he"
-            else "Зажигательная граната нанесла связанный урон"
-        )
+            else "tactical.card.title.utility_fire"
+        ), {}
     if item.insight_type is TacticalInsightType.SPACING_PROFILE:
         checkpoint = item.key.partition(":")[2]
-        moment = {"640": "ранней", "1280": "средней", "1920": "поздней"}.get(
-            checkpoint, "контрольной"
-        )
-        return f"Игрок оставался далеко от тиммейтов в {moment} фазе раунда"
+        moment = {"640": "early", "1280": "middle", "1920": "late"}.get(checkpoint, "checkpoint")
+        return f"tactical.card.title.spacing_{moment}", {}
     if item.insight_type is TacticalInsightType.ENTRY_STRUCTURE:
-        return "Команда выиграла первый подтверждённый контакт"
+        return "tactical.card.title.entry_structure", {}
     if item.insight_type is TacticalInsightType.TRADE_STRUCTURE:
-        return "Первая смерть команды была разменяна"
+        return "tactical.card.title.trade_structure", {}
     if item.insight_type is TacticalInsightType.CLUTCH_BEHAVIOR:
-        return "Команда выиграла доказанную ситуацию 1 против 2+"
+        return "tactical.card.title.clutch_behavior", {}
     if item.insight_type is TacticalInsightType.SAVE_BEHAVIOR:
-        return "Команда сохранила оружие в доказанном save-контексте"
+        return "tactical.card.title.save_behavior", {}
     if item.insight_type is TacticalInsightType.HEATMAP_CELL:
         cell_x = _numeric_metric(item, "cell_x_median")
         cell_y = _numeric_metric(item, "cell_y_median")
         if cell_x is not None and cell_y is not None:
-            return f"Часто наблюдаемый сектор карты ({round(cell_x)}, {round(cell_y)})"
-        return "Часто наблюдаемый сектор карты"
-    return item.label
+            return "tactical.card.title.heatmap_cell_xy", {
+                "x": round(cell_x),
+                "y": round(cell_y),
+            }
+        return "tactical.card.title.heatmap_cell", {}
+    return "tactical.card.title.fallback", {"label": item.label}
 
 
 def _numeric_metric(item: TacticalInsight, key: str) -> float | None:

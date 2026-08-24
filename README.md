@@ -1062,3 +1062,12 @@ raw diagnostic table. It provides a representative overview, plain-language card
 filters, pagination and readable coverage limitations. Technical run IDs and JSON exports remain
 in one collapsed reproducibility section. UI filtering does not recalculate or mutate statistics.
 See [STAGE_9_6_1.md](STAGE_9_6_1.md).
+
+### Stage 9.6.2 Russian/English locale contract
+
+The Tactical V2 product page and shared shell support Russian and English through a versioned,
+request-local translation contract. Use the language selector in the page header or open the page
+with `?lang=en`; the valid choice is remembered locally. Language changes affect presentation
+only—stored observations, evidence, ratios, fingerprints and JSON APIs are unchanged. Spanish and
+Chinese stay disabled until their complete catalogs are accepted. See
+[STAGE_9_6_2.md](STAGE_9_6_2.md) and [UI_LOCALIZATION.md](UI_LOCALIZATION.md).

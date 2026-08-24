@@ -1538,3 +1538,19 @@ source pin. The overview is labelled as neither ranking nor recommendation.
 Primary cards omit internal insight keys and UUIDs. Exact schema/rule/run/fingerprint values and
 JSON exports remain available inside a collapsed reproducibility section. Server-side filters are
 encoded in query parameters and retain the exact selected tactical run across pagination.
+
+## Stage 9.6.2 architectural decision — locale is request-local presentation state
+
+The Jinja renderer binds a locale to one render call. Translation helpers and presentation
+filters read that immutable render context, so concurrent requests cannot overwrite a shared
+process-global language. Tactical presenters return stable message keys and interpolation values;
+they do not preformat Russian prose.
+
+Locale resolution is explicit and deterministic: a supported `lang` query value wins, followed by
+the `stratweb_locale` cookie and then the Russian default. Invalid values are ignored and never
+stored. The cookie affects only fully localized UI surfaces. Canonical enums, DuckDB rows,
+statistics, evidence and JSON APIs remain locale-neutral and byte-for-byte unchanged.
+
+Russian and English are the current supported catalogs. Key and placeholder parity is validated
+as a contract. Spanish and Chinese remain disabled until complete catalogs pass the same
+surface-level no-mixed-language checks.

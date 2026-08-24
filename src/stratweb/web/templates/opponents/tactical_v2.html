@@ -1,66 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Тактический обзор · {{ profile.display_name }} · StratWeb{% endblock %}
+{% block title %}{{ t('tactical.page_title') }} · {{ profile.display_name }} · StratWeb{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">
 <link rel="stylesheet" href="{{ static_asset('css/tactical-v2.css') }}">
 {% endblock %}
 {% block content_class %}report-shell tactical-shell{% endblock %}
 {% block content %}
-<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / Тактический обзор</nav>
+<nav class="breadcrumbs"><a href="/ui/opponents">{{ t('nav.opponents') }}</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / {{ t('tactical.breadcrumb') }}</nav>
 <section class="page-heading tactical-heading">
   <div>
-    <p class="eyebrow">Тактический обзор завершённых матчей</p>
+    <p class="eyebrow">{{ t('tactical.eyebrow') }}</p>
     <h1>{{ profile.display_name }}</h1>
-    <p>Повторяющиеся действия команды с проверяемой выборкой. Здесь нет догадок о намерении игроков и автоматических советов.</p>
+    <p>{{ t('tactical.intro') }}</p>
   </div>
-  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute"><button type="submit">Обновить расчёт</button></form>
+  <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute"><button type="submit">{{ t('tactical.compute') }}</button></form>
 </section>
 {% if not summary or not page_view %}
-<div class="empty-state"><strong>Тактический обзор ещё не рассчитан.</strong><p>{{ unavailable_reason }} Нужен хотя бы один подтверждённый и полностью обработанный матч.</p></div>
+<div class="empty-state"><strong>{{ t('tactical.not_computed') }}</strong><p>{{ unavailable_reason }} {{ t('tactical.not_computed_help') }}</p></div>
 {% else %}
-<section class="report-metrics" aria-label="Сводка тактического обзора">
-  <article><span>Матчи</span><strong>{{ summary.summary.included_matches }}</strong><small>выбраны владельцем профиля</small></article>
-  <article><span>Раунды</span><strong>{{ summary.summary.eligible_rounds }}</strong><small>без разминки и незавершённых</small></article>
-  <article class="available"><span>Наблюдения</span><strong>{{ page_view.total_count }}</strong><small>каждое с собственной выборкой</small></article>
-  <article class="partial"><span>Корпус</span><strong>{{ summary.summary.included_matches }}/{{ summary.config.target_corpus_matches }}</strong><small>до рекомендуемого размера</small></article>
+<section class="report-metrics" aria-label="{{ t('tactical.summary_label') }}">
+  <article><span>{{ t('tactical.metric.matches') }}</span><strong>{{ summary.summary.included_matches }}</strong><small>{{ t('tactical.metric.matches_help') }}</small></article>
+  <article><span>{{ t('tactical.metric.rounds') }}</span><strong>{{ summary.summary.eligible_rounds }}</strong><small>{{ t('tactical.metric.rounds_help') }}</small></article>
+  <article class="available"><span>{{ t('tactical.metric.insights') }}</span><strong>{{ page_view.total_count }}</strong><small>{{ t('tactical.metric.insights_help') }}</small></article>
+  <article class="partial"><span>{{ t('tactical.metric.corpus') }}</span><strong>{{ summary.summary.included_matches }}/{{ summary.config.target_corpus_matches }}</strong><small>{{ t('tactical.metric.corpus_help') }}</small></article>
 </section>
 
 {% if summary.warnings %}<div class="report-warning-list tactical-warnings">{% for warning in summary.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}</div>{% endif %}
 
-<nav class="report-index" aria-label="Разделы тактического обзора">
-  <a href="#overview">Кратко</a><a href="#signals">Все наблюдения</a><a href="#coverage">Покрытие</a><a href="#technical">Методика</a>
+<nav class="report-index" aria-label="{{ t('tactical.index_label') }}">
+  <a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a><a href="#technical">{{ t('tactical.index.technical') }}</a>
 </nav>
 
 <section id="overview" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">Быстрый просмотр</p><h2>Главное в выбранном срезе</h2></div><span>до 6 типов наблюдений</span></div>
-  <p class="section-copy">Для каждого типа показано наблюдение с наибольшей доказанной выборкой. Это не рейтинг силы и не тактическая рекомендация.</p>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.overview.eyebrow') }}</p><h2>{{ t('tactical.overview.title') }}</h2></div><span>{{ t('tactical.overview.limit') }}</span></div>
+  <p class="section-copy">{{ t('tactical.overview.help') }}</p>
   {% if page_view.highlights %}<div class="tactical-highlight-grid">
   {% for card in page_view.highlights %}
     <article class="tactical-highlight">
       <header><span class="side-chip {{ card.source.side.value|lower }}">{{ card.source.side.value }}</span><span>{{ card.source.map_name|map_name }}</span></header>
       <small>{{ t('tactical.' ~ card.source.insight_type.value) }}</small>
-      <h3>{{ card.title }}</h3>
-      <div><strong>{{ card.frequency_percent }}</strong><span>{{ card.source.numerator }} из {{ card.source.denominator }} случаев</span></div>
+      <h3>{{ t(card.title_key, **card.title_values) }}</h3>
+      <div><strong>{{ card.frequency_percent }}</strong><span>{{ t('tactical.overview.frequency', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
     </article>
   {% endfor %}
-  </div>{% else %}<div class="empty-state"><p>В выбранном срезе нет наблюдений для краткого обзора.</p></div>{% endif %}
+  </div>{% else %}<div class="empty-state"><p>{{ t('tactical.overview.empty') }}</p></div>{% endif %}
 </section>
 
 <section id="signals" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">Проверяемые данные</p><h2>Наблюдения</h2></div><span>найдено: {{ page_view.filtered_count }}</span></div>
-  <p class="section-copy">Фильтры не пересчитывают статистику — они только скрывают неподходящие готовые наблюдения.</p>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.signals.eyebrow') }}</p><h2>{{ t('tactical.signals.title') }}</h2></div><span>{{ t('tactical.signals.found', count=page_view.filtered_count) }}</span></div>
+  <p class="section-copy">{{ t('tactical.signals.help') }}</p>
   <form class="tactical-filters" method="get" action="/ui/opponents/{{ profile.profile_id }}/tactical-v2">
     <input type="hidden" name="run_id" value="{{ summary.tactical_run_id }}">
-    <label>Тип
-      <select name="type"><option value="">Все типы</option>{% for kind, count in page_view.type_counts.items() %}{% if count %}<option value="{{ kind.value }}" {% if page_view.filters.insight_type == kind %}selected{% endif %}>{{ t('tactical.' ~ kind.value) }} · {{ count }}</option>{% endif %}{% endfor %}</select>
+    <label>{{ t('tactical.filter.type') }}
+      <select name="type"><option value="">{{ t('tactical.filter.all_types') }}</option>{% for kind, count in page_view.type_counts.items() %}{% if count %}<option value="{{ kind.value }}" {% if page_view.filters.insight_type == kind %}selected{% endif %}>{{ t('tactical.' ~ kind.value) }} · {{ count }}</option>{% endif %}{% endfor %}</select>
     </label>
-    <label>Карта
-      <select name="map"><option value="">Все карты</option>{% for map_name in page_view.maps %}<option value="{{ map_name }}" {% if page_view.filters.map_name == map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select>
+    <label>{{ t('tactical.filter.map') }}
+      <select name="map"><option value="">{{ t('tactical.filter.all_maps') }}</option>{% for map_name in page_view.maps %}<option value="{{ map_name }}" {% if page_view.filters.map_name == map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select>
     </label>
-    <label>Сторона
+    <label>{{ t('tactical.filter.side') }}
       <select name="side"><option value="">T + CT</option>{% for value in ['T', 'CT'] %}<option value="{{ value }}" {% if page_view.filters.side and page_view.filters.side.value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
     </label>
-    <button type="submit">Применить</button><a class="button secondary" href="{{ page_view.reset_href }}">Сбросить</a>
+    <button type="submit">{{ t('action.apply') }}</button><a class="button secondary" href="{{ page_view.reset_href }}">{{ t('action.reset') }}</a>
   </form>
 
   {% if page_view.cards %}<div class="tactical-card-grid">
@@ -71,34 +71,34 @@
         <span class="status {{ card.source.availability.value }}">{{ card.source.availability.value|status_label }}</span>
       </header>
       <p class="tactical-card__type">{{ t('tactical.' ~ card.source.insight_type.value) }}</p>
-      <h3>{{ card.title }}</h3>
-      <p>{{ card.description }}</p>
+      <h3>{{ t(card.title_key, **card.title_values) }}</h3>
+      <p>{{ t(card.description_key, **card.description_values) }}</p>
       <dl class="tactical-ratio">
-        <div><dt>Частота</dt><dd>{{ card.frequency_percent }}</dd></div>
-        <div><dt>Доля</dt><dd>{{ card.source.numerator }}/{{ card.source.denominator }}</dd></div>
-        <div><dt>Матчи</dt><dd>{{ card.source.match_count }}</dd></div>
+        <div><dt>{{ t('tactical.card.frequency') }}</dt><dd>{{ card.frequency_percent }}</dd></div>
+        <div><dt>{{ t('tactical.card.ratio') }}</dt><dd>{{ card.source.numerator }}/{{ card.source.denominator }}</dd></div>
+        <div><dt>{{ t('tactical.card.matches') }}</dt><dd>{{ card.source.match_count }}</dd></div>
       </dl>
-      <footer><span>Раундов с доказательствами: {{ card.evidence_rounds }}</span>{% if card.source.small_sample_warning %}<span class="badge warn">малая выборка</span>{% endif %}</footer>
-      <details class="tactical-card__limitations"><summary>Как правильно читать</summary><ul>{% for limitation in card.source.limitations %}{% if '_rule:' not in limitation %}<li>{{ limitation|warning_label }}</li>{% endif %}{% endfor %}</ul></details>
+      <footer><span>{{ t('tactical.card.evidence_rounds', count=card.evidence_rounds) }}</span>{% if card.source.small_sample_warning %}<span class="badge warn">{{ t('tactical.card.small_sample') }}</span>{% endif %}</footer>
+      <details class="tactical-card__limitations"><summary>{{ t('tactical.card.reading') }}</summary><ul>{% for limitation in card.source.limitations %}{% if '_rule:' not in limitation %}<li>{{ limitation|warning_label }}</li>{% endif %}{% endfor %}</ul></details>
     </article>
   {% endfor %}
-  </div>{% else %}<div class="empty-state"><strong>Ничего не найдено.</strong><p>Измените фильтры. Неизвестные данные не превращались в отрицательные наблюдения.</p></div>{% endif %}
+  </div>{% else %}<div class="empty-state"><strong>{{ t('tactical.card.empty') }}</strong><p>{{ t('tactical.card.empty_help') }}</p></div>{% endif %}
 
-  <nav class="report-pagination" aria-label="Страницы наблюдений">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">Назад</a>{% else %}<span></span>{% endif %}<span>Страница {{ page_view.page }} из {{ page_view.page_count }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">Вперёд</a>{% else %}<span></span>{% endif %}</nav>
+  <nav class="report-pagination" aria-label="{{ t('tactical.pagination_label') }}">{% if page_view.previous_href %}<a class="button secondary" href="{{ page_view.previous_href }}">{{ t('action.back') }}</a>{% else %}<span></span>{% endif %}<span>{{ t('tactical.page', page=page_view.page, count=page_view.page_count) }}</span>{% if page_view.next_href %}<a class="button secondary" href="{{ page_view.next_href }}">{{ t('action.next') }}</a>{% else %}<span></span>{% endif %}</nav>
 </section>
 
 <section id="coverage" class="report-section">
-  <div class="section-heading"><div><p class="eyebrow">Границы данных</p><h2>Что удалось рассчитать</h2></div></div>
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.coverage.eyebrow') }}</p><h2>{{ t('tactical.coverage.title') }}</h2></div></div>
   <div class="tactical-capability-grid">{% for kind, capability in summary.capabilities.items() %}
     <article class="tactical-capability {{ capability.status.value }}">
       <header><strong>{{ t('tactical.' ~ kind.value) }}</strong><span class="status {{ capability.status.value }}">{{ capability.status.value|status_label }}</span></header>
       <progress max="{{ capability.eligible_units or 1 }}" value="{{ capability.covered_units }}">{{ capability.covered_units }}/{{ capability.eligible_units }}</progress>
-      <p>Покрыто {{ capability.covered_units }} из {{ capability.eligible_units }} доступных случаев · наблюдений: {{ capability.insight_count }}</p>
+      <p>{{ t('tactical.coverage.detail', covered=capability.covered_units, eligible=capability.eligible_units, insights=capability.insight_count) }}</p>
       {% for reason in capability.unavailable_reasons %}<small>{{ reason|warning_label }}</small>{% endfor %}
     </article>
   {% endfor %}</div>
 </section>
 
-<details id="technical" class="product-disclosure tactical-technical"><summary>Методика, версии и технические данные</summary><div class="product-disclosure__content"><p>Эти сведения нужны для воспроизводимости и обычно не требуются при чтении обзора.</p><dl class="technical-facts"><dt>Версия схемы и правил</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>Идентификатор расчёта</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>Отпечаток</dt><dd><code>{{ summary.tactical_fingerprint }}</code></dd><dt>Источники</dt><dd>{{ summary.source_pins|length }} точных наборов исходных расчётов</dd></dl><div class="button-row"><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/summary?run_id={{ summary.tactical_run_id }}">Сводка JSON</a><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights?run_id={{ summary.tactical_run_id }}">Наблюдения JSON</a></div></div></details>
+<details id="technical" class="product-disclosure tactical-technical"><summary>{{ t('tactical.technical.summary') }}</summary><div class="product-disclosure__content"><p>{{ t('tactical.technical.help') }}</p><dl class="technical-facts"><dt>{{ t('tactical.technical.versions') }}</dt><dd><code>{{ summary.tactical_schema_version }} / {{ summary.tactical_rule_version }}</code></dd><dt>{{ t('tactical.technical.run_id') }}</dt><dd><code>{{ summary.tactical_run_id }}</code></dd><dt>{{ t('tactical.technical.fingerprint') }}</dt><dd><code>{{ summary.tactical_fingerprint }}</code></dd><dt>{{ t('tactical.technical.sources') }}</dt><dd>{{ t('tactical.technical.sources_value', count=summary.source_pins|length) }}</dd></dl><div class="button-row"><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/summary?run_id={{ summary.tactical_run_id }}">{{ t('tactical.technical.summary_json') }}</a><a class="button secondary" href="/api/opponents/{{ profile.profile_id }}/tactical-v2/insights?run_id={{ summary.tactical_run_id }}">{{ t('tactical.technical.insights_json') }}</a></div></div></details>
 {% endif %}
 {% endblock %}

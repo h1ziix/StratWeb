@@ -14,25 +14,33 @@
   <link rel="stylesheet" href="{{ static_asset('css/polish.css') }}">
 </head>
 <body>
-  <a class="skip-link" href="#content">Перейти к содержимому</a>
+  <a class="skip-link" href="#content">{{ t('app.skip_to_content') }}</a>
   <header class="app-bar">
-    <a class="brand" href="/ui" aria-label="Библиотека матчей StratWeb">STRAT<span>WEB</span></a>
-    <nav class="primary-nav" aria-label="Основная навигация">
+    <a class="brand" href="/ui" aria-label="{{ t('app.match_library') }}">STRAT<span>WEB</span></a>
+    <nav class="primary-nav" aria-label="{{ t('nav.primary') }}">
       <a href="/ui" data-nav-exact="/ui">{{ t('nav.matches') }}</a>
       <a href="/ui/opponents" data-nav-prefix="/ui/opponents">{{ t('nav.opponents') }}</a>
     </nav>
+    {% if locale_switcher %}
+    <label class="locale-switcher">
+      <span>{{ t('locale.label') }}</span>
+      <select data-locale-switch aria-label="{{ t('locale.label') }}">
+        {% for code in supported_locales %}<option value="{{ code }}" {% if code == ui_locale %}selected{% endif %}>{{ t('locale.' ~ code) }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
     <span class="offline-badge">{{ t('app.offline_evidence') }}</span>
   </header>
   {% if match_context %}
-  <section class="match-shell" aria-label="Текущий матч">
+  <section class="match-shell" aria-label="{{ t('app.match_context') }}">
     <div class="match-shell__context">
       <a class="match-identity" href="/ui/matches/{{ match_context.match_id }}">
         <span class="match-identity__map">{{ match_context.map_name|map_name }}</span>
-        <span class="match-identity__teams">{% for name in match_context.team_names %}{{ name|team_name }}{% if not loop.last %} против {% endif %}{% endfor %}</span>
+        <span class="match-identity__teams">{% for name in match_context.team_names %}{{ name|team_name }}{% if not loop.last %} {{ t('app.versus') }} {% endif %}{% endfor %}</span>
         <strong class="match-identity__score">{{ match_context.score }}</strong>
       </a>
     </div>
-    <nav class="match-nav" aria-label="Навигация матча">
+    <nav class="match-nav" aria-label="{{ t('nav.match') }}">
       <a href="/ui/matches/{{ match_context.match_id }}" data-nav-exact="/ui/matches/{{ match_context.match_id }}" data-nav-empty-hash>{{ t('nav.overview') }}</a>
       <a href="/ui/matches/{{ match_context.match_id }}#rounds" data-nav-exact="/ui/matches/{{ match_context.match_id }}" data-nav-hash="#rounds">{{ t('nav.rounds') }}</a>
       <a href="/ui/spatial/{{ match_context.match_id }}/rounds/1" data-nav-prefix="/ui/spatial/{{ match_context.match_id }}">{{ t('nav.map') }}</a>
@@ -49,6 +57,7 @@
   </main>
   <script src="{{ static_asset('js/shell-nav.js') }}" defer></script>
   <script src="{{ static_asset('js/api-client.js') }}" defer></script>
+  {% if locale_switcher %}<script src="{{ static_asset('js/locale-switcher.js') }}" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

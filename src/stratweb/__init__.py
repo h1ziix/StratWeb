@@ -1,3 +1,3 @@
 """StratWeb: offline, evidence-based analysis of completed CS2 demos."""
 
-__version__ = "0.10.1"
+__version__ = "0.10.2"

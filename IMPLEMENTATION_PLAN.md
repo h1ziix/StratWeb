@@ -1386,9 +1386,17 @@ Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 - [x] responsive layout и сохранение полного provenance в сворачиваемом разделе;
 - [x] доказать тестами, что UI-фильтры не изменяют persisted insight payload.
 
+### Stage 9.6.2 — versioned locale contract (завершён)
+
+- [x] request-local render context вместо изменяемой глобальной локали;
+- [x] одинаковый набор стабильных ключей и placeholder contract для `ru` и `en`;
+- [x] полный русский/английский Tactical V2 и общий shell без смешения языков;
+- [x] явный `?lang=` → same-site cookie → русский default;
+- [x] доказать тестом, что переключение языка не меняет JSON/API payload;
+- [ ] испанский и китайский каталоги — отдельное расширение после полного перевода ключей.
+
 ### Следующие подэтапы (не начаты)
 
-- Stage 9.6.2: полный locale contract для русского, затем английский/испанский/китайский;
 - Stage 9.6.3: HTML-навигация от observation к match/round/tick evidence;
 - Stage 9.6.4: mobile acceptance, loading/error/empty-state polish и analyst notes.
 

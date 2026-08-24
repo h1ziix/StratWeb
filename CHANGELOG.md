@@ -4,6 +4,32 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.10.2] - 2026-08-24
+
+### Added
+
+- Stage 9.6.2 introduces a versioned `2.0.0` locale contract for the shared shell and
+  Tactical V2 product surface.
+- Russian and English catalogs have identical stable keys and formatting placeholders.
+- A page-level language selector persists a valid explicit choice in a same-site cookie.
+
+### Changed
+
+- Tactical card titles and descriptions are now locale-neutral presenter keys plus proven
+  values instead of preformatted Russian strings.
+- Status, neutral team labels and limitation messages render through the selected locale
+  without changing canonical values or persisted analytical output.
+
+### Safety
+
+- Locale selection is presentation-only and cannot alter observations, ratios, evidence,
+  fingerprints or JSON API responses.
+- Unsupported locale values never poison the cookie and fall back deterministically.
+- The release script resolves the installed package version instead of expecting obsolete
+  `0.7.0` artifacts.
+- Spanish and Chinese are not advertised until each catalog and surface passes the same
+  no-mixed-language acceptance gate.
+
 ## [0.10.1] - 2026-08-23
 
 ### Changed

@@ -26,6 +26,13 @@ from stratweb.exceptions import (
 )
 from stratweb.tactical_v2.models import TacticalInsightType, TacticalV2Config
 from stratweb.web.context import require_localhost
+from stratweb.web.i18n import (
+    LOCALE_COOKIE_MAX_AGE_SECONDS,
+    LOCALE_COOKIE_NAME,
+    SUPPORTED_LOCALES,
+    normalize_locale,
+    resolve_locale,
+)
 from stratweb.web.rendering import render_template
 from stratweb.web.tactical_v2_presenter import TacticalV2Filters, build_tactical_v2_page
 
@@ -119,13 +126,16 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         include_in_schema=False,
     )
     def tactical_page(
+        request: Request,
         profile_id: UUID,
         run_id: UUID | None = None,
         insight_type: Annotated[TacticalInsightType | None, Query(alias="type")] = None,
         map_name: Annotated[str | None, Query(alias="map", max_length=100)] = None,
         side: Side | None = None,
         page: Annotated[int, Query(ge=1)] = 1,
+        lang: Annotated[str | None, Query(max_length=20)] = None,
     ) -> HTMLResponse:
+        locale = resolve_locale(lang, request.cookies.get(LOCALE_COOKIE_NAME))
         profile = opponents.get_profile(profile_id)
         if profile is None:
             raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
@@ -150,16 +160,28 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
             selected = None
             page_view = None
             unavailable_reason = str(exc)
-        return HTMLResponse(
+        response = HTMLResponse(
             render_template(
                 "opponents/tactical_v2.html",
+                locale=locale,
                 profile=profile,
                 summary=selected,
                 page_view=page_view,
                 unavailable_reason=unavailable_reason,
                 match_context=None,
+                locale_switcher=True,
+                supported_locales=SUPPORTED_LOCALES,
             )
         )
+        if lang is not None and normalize_locale(lang) is not None:
+            response.set_cookie(
+                LOCALE_COOKIE_NAME,
+                locale,
+                max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
+                httponly=True,
+                samesite="lax",
+            )
+        return response
 
     return router
 

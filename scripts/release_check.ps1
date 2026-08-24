@@ -72,8 +72,12 @@ try {
     }
     Invoke-Checked "Application import" $pythonPath @(
         "-c",
-        "import stratweb; from stratweb.main import create_app; assert stratweb.__version__ == '0.7.0'; assert create_app().title == 'StratWeb'"
+        "import importlib.metadata as metadata; import stratweb; from stratweb.main import create_app; assert metadata.version('stratweb') == stratweb.__version__; assert create_app().title == 'StratWeb'"
     )
+    $packageVersion = (& $pythonPath -c "import stratweb; print(stratweb.__version__)").Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $packageVersion) {
+        throw "Could not resolve the installed StratWeb version."
+    }
     Invoke-Checked "Golden Corpus contract" $pythonPath @(
         "-m", "stratweb.cli", "corpus", "validate",
         "--manifest", "corpus/golden-corpus-v1.json"
@@ -84,11 +88,11 @@ try {
     Invoke-Checked "Wheel build" $uvCommand.Source @(
         "build", "--wheel", "--out-dir", $artifactDirectory
     )
-    $wheel = Get-ChildItem -LiteralPath $artifactDirectory -Filter "stratweb-0.7.0-*.whl" |
+    $wheel = Get-ChildItem -LiteralPath $artifactDirectory -Filter "stratweb-$packageVersion-*.whl" |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
     if ($null -eq $wheel) {
-        throw "The expected StratWeb 0.7.0 wheel was not produced."
+        throw "The expected StratWeb $packageVersion wheel was not produced."
     }
 
     if (-not $SkipContainerCheck) {

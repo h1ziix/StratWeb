@@ -3,52 +3,33 @@
 from __future__ import annotations
 
 import re
+from string import Formatter
 from typing import Final
 
-DEFAULT_LOCALE: Final = "ru"
-SUPPORTED_LOCALES: Final = ("ru",)
-UI_LOCALE_SCHEMA_VERSION: Final = "1.0.0"
+from stratweb.web.locale_catalogs import CATALOGS
 
-_RU: Final[dict[str, str]] = {
-    "nav.matches": "Матчи",
-    "nav.opponents": "Соперники",
-    "nav.overview": "Обзор",
-    "nav.rounds": "Раунды",
-    "nav.map": "Карта",
-    "nav.timeline": "Таймлайн",
-    "nav.economy": "Экономика",
-    "nav.facts": "Факты",
-    "nav.players": "Игроки",
-    "nav.diagnostics": "Диагностика",
-    "app.offline_evidence": "Офлайн-анализ",
-    "action.open": "Открыть",
-    "action.apply": "Применить",
-    "action.reset": "Сбросить",
-    "action.details": "Подробнее",
-    "action.copy": "Копировать",
-    "status.available": "Готово",
-    "status.partial": "Частично",
-    "status.unavailable": "Недоступно",
-    "status.unresolved": "Не определено",
-    "status.good": "Готово",
-    "status.warn": "Внимание",
-    "status.bad": "Ошибка",
-    "team.one": "Команда 1",
-    "team.two": "Команда 2",
-    "team.unknown": "Команда не определена",
-    "value.unknown": "Неизвестно",
-    "value.unavailable": "Недоступно",
-    "tactical.path_cluster": "Формации и маршруты",
-    "tactical.execute_package": "Выходы на плент",
-    "tactical.utility_outcome": "Результат гранат",
-    "tactical.spacing_profile": "Дистанции игроков",
-    "tactical.entry_structure": "Первый контакт",
-    "tactical.trade_structure": "Размены",
-    "tactical.rotation_transition": "Переходы после контакта",
-    "tactical.clutch_behavior": "Клатч-ситуации",
-    "tactical.save_behavior": "Сохранение оружия",
-    "tactical.heatmap_cell": "Присутствие на карте",
-}
+DEFAULT_LOCALE: Final = "ru"
+SUPPORTED_LOCALES: Final = ("ru", "en")
+UI_LOCALE_SCHEMA_VERSION: Final = "2.0.0"
+LOCALE_COOKIE_NAME: Final = "stratweb_locale"
+LOCALE_COOKIE_MAX_AGE_SECONDS: Final = 31_536_000
+
+
+def _validate_catalogs() -> None:
+    reference = CATALOGS[DEFAULT_LOCALE]
+    formatter = Formatter()
+    for locale in SUPPORTED_LOCALES:
+        catalog = CATALOGS[locale]
+        if catalog.keys() != reference.keys():
+            raise RuntimeError(f"Locale catalog key mismatch: {locale}")
+        for key, template in catalog.items():
+            reference_fields = {name for _, name, _, _ in formatter.parse(reference[key]) if name}
+            translated_fields = {name for _, name, _, _ in formatter.parse(template) if name}
+            if translated_fields != reference_fields:
+                raise RuntimeError(f"Locale placeholder mismatch: {locale}:{key}")
+
+
+_validate_catalogs()
 
 _WARNING_LABELS: Final[dict[str, str]] = {
     "match is ready": "Матч готов",
@@ -185,27 +166,45 @@ _BUY_TYPE_LABELS: Final[dict[str, str]] = {
 }
 
 
-def translate(key: str, **values: object) -> str:
+def normalize_locale(value: str | None) -> str | None:
+    """Return a supported locale code without guessing from partial values."""
+
+    if value is None:
+        return None
+    normalized = value.strip().casefold().replace("_", "-")
+    aliases = {"ru-ru": "ru", "en-us": "en", "en-gb": "en"}
+    candidate = aliases.get(normalized, normalized)
+    return candidate if candidate in SUPPORTED_LOCALES else None
+
+
+def resolve_locale(query_value: str | None, cookie_value: str | None) -> str:
+    """Resolve locale deterministically: valid query, valid cookie, Russian default."""
+
+    return normalize_locale(query_value) or normalize_locale(cookie_value) or DEFAULT_LOCALE
+
+
+def translate(key: str, *, locale: str = DEFAULT_LOCALE, **values: object) -> str:
     """Translate a stable message key; missing keys stay visible to developers."""
 
-    template = _RU.get(key, key)
+    selected = normalize_locale(locale) or DEFAULT_LOCALE
+    template = CATALOGS[selected].get(key, key)
     return template.format(**values) if values else template
 
 
-def team_display_name(value: str | None) -> str:
+def team_display_name(value: str | None, *, locale: str = DEFAULT_LOCALE) -> str:
     """Hide canonical placeholder identities without inventing a real team name."""
 
     if value is None or not value.strip():
-        return translate("team.unknown")
+        return translate("team.unknown", locale=locale)
     stripped = value.strip()
     normalized = stripped.casefold().replace(" ", "")
     if normalized in {"teamalpha", "team_a", "teama"}:
-        return translate("team.one")
+        return translate("team.one", locale=locale)
     if normalized in {"teambravo", "team_b", "teamb"}:
-        return translate("team.two")
+        return translate("team.two", locale=locale)
     technical_labels = (
-        ("TeamAlpha", translate("team.one")),
-        ("TeamBravo", translate("team.two")),
+        ("TeamAlpha", translate("team.one", locale=locale)),
+        ("TeamBravo", translate("team.two", locale=locale)),
     )
     for technical, label in technical_labels:
         if stripped.casefold().startswith(technical.casefold()):
@@ -213,9 +212,9 @@ def team_display_name(value: str | None) -> str:
     return stripped
 
 
-def status_label(value: object) -> str:
+def status_label(value: object, *, locale: str = DEFAULT_LOCALE) -> str:
     normalized = str(value).strip().casefold()
-    return translate(f"status.{normalized}")
+    return translate(f"status.{normalized}", locale=locale)
 
 
 def map_display_name(value: object) -> str:
@@ -223,33 +222,52 @@ def map_display_name(value: object) -> str:
     return _MAP_LABELS.get(raw.casefold(), raw)
 
 
-def buy_type_label(value: object) -> str:
+def buy_type_label(value: object, *, locale: str = DEFAULT_LOCALE) -> str:
     raw = str(value).strip()
+    if locale != "ru":
+        return raw.replace("_", " ").title()
     return _BUY_TYPE_LABELS.get(raw.casefold(), raw)
 
 
-def warning_label(value: object) -> str:
+def warning_label(value: object, *, locale: str = DEFAULT_LOCALE) -> str:
     raw = str(value).strip()
     normalized = raw.casefold()
-    if normalized in _WARNING_LABELS:
+    if locale == "ru" and normalized in _WARNING_LABELS:
         return _WARNING_LABELS[normalized]
     if match := re.fullmatch(r"(\d+) player summaries", normalized):
-        return f"Игроков в статистике: {match.group(1)}"
+        return (
+            f"Игроков в статистике: {match.group(1)}"
+            if locale == "ru"
+            else f"Player summaries: {match.group(1)}"
+        )
     if match := re.fullmatch(r"(\d+) authoritative samples", normalized):
-        return f"Подтверждённых снимков: {match.group(1)}"
+        return (
+            f"Подтверждённых снимков: {match.group(1)}"
+            if locale == "ru"
+            else f"Authoritative samples: {match.group(1)}"
+        )
     if match := re.fullmatch(r"small_corpus:(\d+)/(\d+)_matches", normalized):
-        return f"Малая выборка: {match.group(1)} из рекомендуемых {match.group(2)} матчей"
+        if locale == "ru":
+            return f"Малая выборка: {match.group(1)} из рекомендуемых {match.group(2)} матчей"
+        return f"Small sample: {match.group(1)} of {match.group(2)} recommended matches"
     if normalized.startswith("temporal "):
-        return f"Версия состояний раунда: {raw.removeprefix('Temporal ')}"
-    return raw.replace("_", " ")
+        if locale == "ru":
+            return f"Версия состояний раунда: {raw.removeprefix('Temporal ')}"
+        return f"Round-state version: {raw.removeprefix('Temporal ')}"
+    readable = raw.replace("_", " ")
+    return readable if locale == "ru" else readable[:1].upper() + readable[1:]
 
 
 __all__ = [
     "DEFAULT_LOCALE",
+    "LOCALE_COOKIE_MAX_AGE_SECONDS",
+    "LOCALE_COOKIE_NAME",
     "SUPPORTED_LOCALES",
     "UI_LOCALE_SCHEMA_VERSION",
     "buy_type_label",
     "map_display_name",
+    "normalize_locale",
+    "resolve_locale",
     "status_label",
     "team_display_name",
     "translate",
