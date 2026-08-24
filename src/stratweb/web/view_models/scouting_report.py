@@ -23,11 +23,12 @@ from stratweb.economy.models import BuyType
 from stratweb.findings.models import AnalysisFinding, EvidenceReference, FindingCategory
 from stratweb.patterns.models import PatternType, PlayerPatternValue
 from stratweb.readiness.models import FindingReadinessRecord
+from stratweb.reporting.coach_presentation import coach_pattern_text, is_useful_coach_signal
 from stratweb.web.view_models.product import ViewModel
 
 REPORT_SCHEMA_VERSION = "1.0.0"
 REPORT_VIEW_RULE_VERSION = "scouting_report_view_v1"
-COACH_REPORT_RULE_VERSION = "coach_report_projection_v1"
+COACH_REPORT_RULE_VERSION = "coach_report_projection_v2"
 
 
 class ScoutingReportFilters(ViewModel):
@@ -176,6 +177,9 @@ class CoachSignalView(ViewModel):
 
     finding: ReportFindingView
     frequency_key: str
+    kind_label: str
+    plain_title: str
+    plain_explanation: str
 
 
 class CoachReportPageView(ViewModel):
@@ -457,10 +461,11 @@ def build_coach_report_page(
         key: tuple(item for item in cards if _group_key(item) == key)
         for key in ("t_side", "ct_side", "risks", "individual")
     }
-    attack = _coach_signals(grouped["t_side"], section_limit)
-    defence = _coach_signals(grouped["ct_side"], section_limit)
-    risks = _coach_signals(grouped["risks"], section_limit)
-    individual = _coach_signals(grouped["individual"], section_limit)
+    findings_by_id = {item.finding_id: item for item in source.findings}
+    attack = _coach_signals(grouped["t_side"], findings_by_id, section_limit)
+    defence = _coach_signals(grouped["ct_side"], findings_by_id, section_limit)
+    risks = _coach_signals(grouped["risks"], findings_by_id, section_limit)
+    individual = _coach_signals(grouped["individual"], findings_by_id, section_limit)
     evidence = _unique_signals((*attack, *defence, *risks, *individual), limit=4)
     recommendations: tuple[ReportRecommendationView, ...] = ()
     if source.validation.status is not StrategyAcceptanceStatus.FAILED:
@@ -490,8 +495,18 @@ def build_coach_report_page(
 
 
 def _coach_signals(
-    findings: tuple[ReportFindingView, ...], limit: int
+    findings: tuple[ReportFindingView, ...],
+    source_findings: dict[UUID, AnalysisFinding],
+    limit: int,
 ) -> tuple[CoachSignalView, ...]:
+    findings = tuple(
+        item
+        for item in findings
+        if is_useful_coach_signal(
+            source_findings[item.finding_id].pattern_type,
+            source_findings[item.finding_id].pattern_value,
+        )
+    )
     ranked = sorted(
         findings,
         key=lambda item: (
@@ -510,10 +525,15 @@ def _coach_signals(
         if item.pattern_type in used_patterns:
             continue
         used_patterns.add(item.pattern_type)
+        source = source_findings[item.finding_id]
+        plain = coach_pattern_text(source.pattern_type, source.pattern_value)
         result.append(
             CoachSignalView(
                 finding=item,
                 frequency_key=_coach_frequency_key(item.numerator / item.denominator),
+                kind_label=plain.kind,
+                plain_title=plain.title,
+                plain_explanation=plain.explanation,
             )
         )
         if len(result) == limit:

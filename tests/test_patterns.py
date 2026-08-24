@@ -660,7 +660,7 @@ def test_pattern_service_persistence_and_feature_cascade(
     )
     assert accepted_report.acceptance_status == "passed"
     assert len(accepted_report.recommendations) == 1
-    assert coach_report.rule_version == "coach_report_projection_v1"
+    assert coach_report.rule_version == "coach_report_projection_v2"
     assert len(coach_report.recommendations) == 1
     assert (
         len(
@@ -674,6 +674,8 @@ def test_pattern_service_persistence_and_feature_cascade(
         == 1
     )
     assert coach_report.evidence[0].finding.finding_id == ready_finding.finding_id
+    assert coach_report.evidence[0].plain_title
+    assert coach_report.evidence[0].plain_explanation
     assert "Наблюдение подтверждено" in accepted_report.recommendations[0].observation
     accepted_html = render_template(
         "opponents/report.html",

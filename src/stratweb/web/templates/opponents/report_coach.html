@@ -3,12 +3,12 @@
   {% for item in items %}
     <article class="coach-signal">
       <header><span>{{ item.finding.map_name|map_name }}</span><span>{{ item.finding.buy_type|buy_type }}</span></header>
-      <p class="coach-signal__kind">{{ item.finding.pattern_label }}</p>
-      <h3>{{ item.finding.value_label }}</h3>
+      <p class="coach-signal__kind">{{ item.kind_label }}</p>
+      <h3>{{ item.plain_title }}</h3>
       <p class="coach-signal__frequency"><strong>{{ t(item.frequency_key) }}</strong> {{ t('coach.signal.in_sample') }}</p>
       {% if item.finding.small_sample_warning %}<p class="coach-signal__warning">{{ t('coach.signal.preliminary') }}</p>{% endif %}
       <details><summary>{{ t('coach.signal.why') }}</summary><div>
-        <p>{{ item.finding.observation }}</p>
+        <p>{{ item.plain_explanation }}</p>
         <p>{{ t('coach.signal.exact', ratio=item.finding.numerator ~ '/' ~ item.finding.denominator, matches=item.finding.evidence_matches) }}</p>
         <a href="{{ item.finding.detail_href }}">{{ t('coach.signal.evidence') }}</a>
       </div></details>
@@ -83,7 +83,7 @@
 
     <section class="coach-step" id="coach-step-6" data-coach-step>
       <p class="eyebrow">{{ t('coach.step.evidence.eyebrow') }}</p><h2>{{ t('coach.step.evidence.title') }}</h2><p class="coach-step__lead">{{ t('coach.step.evidence.help') }}</p>
-      {% if coach_report.evidence %}<div class="coach-evidence-list">{% for item in coach_report.evidence %}<a href="{{ item.finding.detail_href }}"><span><small>{{ item.finding.map_name|map_name }} · {{ t('tactical.side.' ~ item.finding.side|lower) }}</small><strong>{{ item.finding.value_label }}</strong></span><span aria-hidden="true">↗</span></a>{% endfor %}</div>{% else %}<div class="coach-empty"><p>{{ t('coach.evidence.empty') }}</p></div>{% endif %}
+      {% if coach_report.evidence %}<div class="coach-evidence-list">{% for item in coach_report.evidence %}<a href="{{ item.finding.detail_href }}"><span><small>{{ item.finding.map_name|map_name }} · {{ t('tactical.side.' ~ item.finding.side|lower) }}</small><strong>{{ item.plain_title }}</strong></span><span aria-hidden="true">↗</span></a>{% endfor %}</div>{% else %}<div class="coach-empty"><p>{{ t('coach.evidence.empty') }}</p></div>{% endif %}
       <details class="coach-exact"><summary>{{ t('coach.quality.open') }}</summary><p>{{ report.acceptance_message }}</p>{% for warning in report.warnings %}<p>{{ warning|warning_label }}</p>{% endfor %}</details>
     </section>
   </div>

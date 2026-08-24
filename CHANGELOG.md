@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.12.1] - 2026-08-24
+
+### Fixed
+
+- The one-tap coach report now converts typed pattern values into short Russian phrases instead
+  of exposing parser-oriented English labels and long arrow-separated routes.
+- Bomb routes are reduced to their proven destination and a known corridor, for example
+  “Бомбу несли через лонг к точке A”; the full source route remains in analyst mode.
+- Internal outcome labels, grenade names, common zone names and starting setups no longer leak
+  into coach cards as raw technical text.
+- Unknown utility locations are described as not determined and are never guessed.
+
+### Changed
+
+- Trivial spawn-presence findings, spawn-only CT setups and utility findings without a resolved
+  zone no longer consume one of the three representative coach cards.
+- Coach projection rule `coach_report_projection_v2` keeps this selection and wording change
+  independently identifiable from the immutable analytical run.
+
+### Safety
+
+- Findings, source values, ratios, confidence, evidence, recommendations, APIs and DuckDB rows
+  are unchanged; only the short coach projection is affected.
+
 ## [0.12.0] - 2026-08-24
 
 ### Added

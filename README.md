@@ -1110,3 +1110,11 @@ tools remain intact at `?mode=analyst`.
 Design system `2.0.0` introduces a graphite/mint identity and restrained motion with a
 `prefers-reduced-motion` fallback. This is a presentation change: analytical runs, DuckDB rows,
 confidence, evidence and APIs are unchanged. See [STAGE_9_6_6.md](STAGE_9_6_6.md).
+
+### Stage 9.6.6.1 Tactical language cleanup
+
+The one-tap coach report now replaces parser-facing English labels with deterministic,
+plain-Russian tactical phrases. Long bomb routes are summarized by a proven destination and a
+known corridor, while unresolved locations remain explicitly unknown. Trivial spawn-only
+signals no longer displace useful cards. Full raw values and all evidence remain available in
+analyst mode. See [STAGE_9_6_6_1.md](STAGE_9_6_6_1.md).
