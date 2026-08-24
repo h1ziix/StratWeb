@@ -1395,9 +1395,18 @@ Acceptance evidence: [STAGE_9_5.md](STAGE_9_5.md).
 - [x] доказать тестом, что переключение языка не меняет JSON/API payload;
 - [ ] испанский и китайский каталоги — отдельное расширение после полного перевода ключей.
 
+### Stage 9.6.3 — HTML evidence drill-down (завершён)
+
+- [x] отдельная ru/en страница каждого Tactical V2 observation;
+- [x] ссылки на match, round, tick и individual Temporal event;
+- [x] conditional links на post-tick snapshot, exact 2D и round facts;
+- [x] каждый переход закрепляет source Temporal/Spatial/Feature run;
+- [x] bounded lookup одного insight и пагинация по 24 evidence references;
+- [x] технические UUID сохранены в disclosure, но убраны из основного чтения;
+- [x] реальная FACEIT acceptance: event, snapshot и exact spatial links дают HTTP 200.
+
 ### Следующие подэтапы (не начаты)
 
-- Stage 9.6.3: HTML-навигация от observation к match/round/tick evidence;
 - Stage 9.6.4: mobile acceptance, loading/error/empty-state polish и analyst notes.
 
 Acceptance evidence: [STAGE_9_6_1.md](STAGE_9_6_1.md).

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stratweb"
-version = "0.10.2"
+version = "0.10.3"
 description = "Offline, evidence-based analysis of completed Counter-Strike 2 demos"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"

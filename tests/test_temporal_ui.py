@@ -114,6 +114,8 @@ def test_ui_exposes_group_snapshots_without_inventing_event_order(
     assert "промежуточное: неоднозначно" in round_page.text
     assert "финальное: детерминировано" in round_page.text
     assert "Возможные промежуточные состояния" in round_page.text
+    assert 'id="tick-120"' in round_page.text
+    assert f'id="event-{dataset.kills[0].event_id}"' in round_page.text
     assert "Alpha" in round_page.text and "Bravo" in round_page.text
     assert "физический порядок не определяется по event ID" in round_page.text
     assert group_page.status_code == 200

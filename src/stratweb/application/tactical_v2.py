@@ -132,5 +132,24 @@ class TacticalV2QueryService:
             profile_id, insight_id, tactical_run_id=summary.tactical_run_id
         )
 
+    def get_insight(
+        self,
+        profile_id: UUID,
+        insight_id: UUID,
+        *,
+        tactical_run_id: UUID | None = None,
+    ) -> TacticalInsight:
+        summary = self.get_summary(profile_id, tactical_run_id=tactical_run_id)
+        result = self._repository.get_insight(
+            profile_id,
+            insight_id,
+            tactical_run_id=summary.tactical_run_id,
+        )
+        if result is None:
+            raise TacticalV2NotFoundError(
+                f"Tactical V2 insight not found in selected run: {insight_id}."
+            )
+        return result
+
 
 __all__ = ["ComputeTacticalV2Service", "TacticalV2QueryService"]

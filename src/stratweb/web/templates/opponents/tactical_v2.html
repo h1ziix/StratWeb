@@ -41,6 +41,7 @@
       <small>{{ t('tactical.' ~ card.source.insight_type.value) }}</small>
       <h3>{{ t(card.title_key, **card.title_values) }}</h3>
       <div><strong>{{ card.frequency_percent }}</strong><span>{{ t('tactical.overview.frequency', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
+      <a class="button secondary" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_evidence') }}</a>
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state"><p>{{ t('tactical.overview.empty') }}</p></div>{% endif %}
@@ -79,6 +80,7 @@
         <div><dt>{{ t('tactical.card.matches') }}</dt><dd>{{ card.source.match_count }}</dd></div>
       </dl>
       <footer><span>{{ t('tactical.card.evidence_rounds', count=card.evidence_rounds) }}</span>{% if card.source.small_sample_warning %}<span class="badge warn">{{ t('tactical.card.small_sample') }}</span>{% endif %}</footer>
+      <a class="button secondary tactical-card__evidence" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_evidence') }}</a>
       <details class="tactical-card__limitations"><summary>{{ t('tactical.card.reading') }}</summary><ul>{% for limitation in card.source.limitations %}{% if '_rule:' not in limitation %}<li>{{ limitation|warning_label }}</li>{% endif %}{% endfor %}</ul></details>
     </article>
   {% endfor %}

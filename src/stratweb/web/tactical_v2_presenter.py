@@ -69,8 +69,8 @@ def build_tactical_v2_page(
     base_path = f"/ui/opponents/{profile_id}/tactical-v2"
     return TacticalV2Page(
         filters=filters,
-        cards=tuple(_card(item) for item in visible),
-        highlights=tuple(_card(item) for item in highlights),
+        cards=tuple(build_tactical_insight_card(item) for item in visible),
+        highlights=tuple(build_tactical_insight_card(item) for item in highlights),
         maps=tuple(sorted({item.map_name for item in insights})),
         type_counts={
             insight_type: sum(item.insight_type is insight_type for item in insights)
@@ -138,7 +138,7 @@ def _ordered(insights: tuple[TacticalInsight, ...]) -> tuple[TacticalInsight, ..
     )
 
 
-def _card(item: TacticalInsight) -> TacticalInsightCard:
+def build_tactical_insight_card(item: TacticalInsight) -> TacticalInsightCard:
     title_key, title_values = _title(item)
     if item.insight_type in {
         TacticalInsightType.PATH_CLUSTER,
@@ -224,5 +224,6 @@ __all__ = [
     "TacticalInsightCard",
     "TacticalV2Filters",
     "TacticalV2Page",
+    "build_tactical_insight_card",
     "build_tactical_v2_page",
 ]

@@ -1071,3 +1071,12 @@ with `?lang=en`; the valid choice is remembered locally. Language changes affect
 only—stored observations, evidence, ratios, fingerprints and JSON APIs are unchanged. Spanish and
 Chinese stay disabled until their complete catalogs are accepted. See
 [STAGE_9_6_2.md](STAGE_9_6_2.md) and [UI_LOCALIZATION.md](UI_LOCALIZATION.md).
+
+### Stage 9.6.3 Tactical evidence navigation
+
+Every Tactical V2 observation card now opens a Russian/English evidence page. It lists the exact
+matches, rounds and ticks in the observation numerator and links to the source match, Temporal
+round/event, post-tick snapshot, exact-mode 2D map and round facts when those typed references are
+available. Each link pins the source run recorded by Tactical V2, so pages never mix evidence from
+different calculations. Internal IDs remain in collapsed technical details. See
+[STAGE_9_6_3.md](STAGE_9_6_3.md).

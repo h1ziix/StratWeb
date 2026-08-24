@@ -650,6 +650,28 @@ class DuckDBTacticalV2Repository:
             ).fetchall()
         return tuple(TacticalEvidenceReference.model_validate(_json(row[0])) for row in rows)
 
+    def get_insight(
+        self,
+        profile_id: UUID,
+        insight_id: UUID,
+        *,
+        tactical_run_id: UUID | None = None,
+    ) -> TacticalInsight | None:
+        summary = (
+            self.get_summary_for_run(profile_id, tactical_run_id)
+            if tactical_run_id
+            else self.get_summary(profile_id)
+        )
+        if summary is None:
+            return None
+        with read_connection(self._database_path, "Tactical V2") as connection:
+            row = connection.execute(
+                "SELECT payload FROM tactical_v2_insights "
+                "WHERE tactical_run_id = ? AND profile_id = ? AND insight_id = ?",
+                [summary.tactical_run_id, profile_id, insight_id],
+            ).fetchone()
+        return TacticalInsight.model_validate(_json(row[0])) if row is not None else None
+
     def delete(self, profile_id: UUID) -> int:
         self.initialize()
         try:

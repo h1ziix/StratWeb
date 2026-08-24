@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.10.3] - 2026-08-24
+
+### Added
+
+- Stage 9.6.3 adds a Russian/English HTML evidence drill-down for every Tactical V2
+  observation.
+- Evidence cards navigate to the exact source match, round, tick, event detail, post-tick
+  snapshot, exact-mode 2D map and round facts when the corresponding reference exists.
+- Temporal tick groups and event rows now expose stable HTML anchors.
+
+### Changed
+
+- Tactical V2 persistence exposes one bounded insight lookup instead of loading the complete
+  observation set for a detail page.
+- Locale schema `2.1.0` includes all evidence navigation labels in both supported catalogs.
+
+### Safety
+
+- Every deep link pins the Temporal, Spatial or Feature run stored in the selected Tactical
+  source lineage; latest-run data is never silently mixed into the page.
+- Missing lineage or unavailable reference types remove the precise action instead of creating
+  an inferred link.
+- Evidence navigation is read-only and does not recalculate observations or mutate DuckDB.
+
 ## [0.10.2] - 2026-08-24
 
 ### Added

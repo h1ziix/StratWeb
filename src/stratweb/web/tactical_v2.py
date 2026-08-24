@@ -34,6 +34,7 @@ from stratweb.web.i18n import (
     resolve_locale,
 )
 from stratweb.web.rendering import render_template
+from stratweb.web.tactical_evidence_presenter import build_tactical_evidence_page
 from stratweb.web.tactical_v2_presenter import TacticalV2Filters, build_tactical_v2_page
 
 
@@ -173,17 +174,74 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
                 supported_locales=SUPPORTED_LOCALES,
             )
         )
-        if lang is not None and normalize_locale(lang) is not None:
-            response.set_cookie(
-                LOCALE_COOKIE_NAME,
-                locale,
-                max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
-                httponly=True,
-                samesite="lax",
+        _remember_locale(response, lang, locale)
+        return response
+
+    @router.get(
+        "/ui/opponents/{profile_id}/tactical-v2/insights/{insight_id}/evidence",
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def tactical_evidence_page(
+        request: Request,
+        profile_id: UUID,
+        insight_id: UUID,
+        run_id: UUID | None = None,
+        page: Annotated[int, Query(ge=1)] = 1,
+        lang: Annotated[str | None, Query(max_length=20)] = None,
+    ) -> HTMLResponse:
+        locale = resolve_locale(lang, request.cookies.get(LOCALE_COOKIE_NAME))
+        profile = opponents.get_profile(profile_id)
+        if profile is None:
+            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        try:
+            selected = query.get_summary(profile_id, tactical_run_id=run_id)
+            insight = query.get_insight(
+                profile_id,
+                insight_id,
+                tactical_run_id=selected.tactical_run_id,
             )
+            evidence_values = query.list_evidence(
+                profile_id,
+                insight_id,
+                tactical_run_id=selected.tactical_run_id,
+            )
+        except TacticalV2NotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        page_view = build_tactical_evidence_page(
+            selected,
+            insight,
+            evidence_values,
+            page=page,
+        )
+        response = HTMLResponse(
+            render_template(
+                "opponents/tactical_evidence.html",
+                locale=locale,
+                profile=profile,
+                summary=selected,
+                page_view=page_view,
+                match_context=None,
+                locale_switcher=True,
+                supported_locales=SUPPORTED_LOCALES,
+            )
+        )
+        _remember_locale(response, lang, locale)
         return response
 
     return router
+
+
+def _remember_locale(response: Response, requested: str | None, resolved: str) -> None:
+    if requested is None or normalize_locale(requested) is None:
+        return
+    response.set_cookie(
+        LOCALE_COOKIE_NAME,
+        resolved,
+        max_age=LOCALE_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+    )
 
 
 __all__ = ["tactical_v2_router"]

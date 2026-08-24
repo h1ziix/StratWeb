@@ -841,6 +841,14 @@ class TacticalV2Repository(Protocol):
         offset: int = 0,
     ) -> tuple[TacticalInsight, ...]: ...
 
+    def get_insight(
+        self,
+        profile_id: UUID,
+        insight_id: UUID,
+        *,
+        tactical_run_id: UUID | None = None,
+    ) -> TacticalInsight | None: ...
+
     def list_evidence(
         self, profile_id: UUID, insight_id: UUID, *, tactical_run_id: UUID | None = None
     ) -> tuple[TacticalEvidenceReference, ...]: ...

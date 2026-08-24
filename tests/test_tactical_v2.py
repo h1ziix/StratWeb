@@ -37,6 +37,10 @@ from stratweb.tactical_v2.models import (
     TacticalUtilitySample,
     TacticalV2Input,
 )
+from stratweb.web.tactical_evidence_presenter import (
+    TACTICAL_EVIDENCE_PAGE_SIZE,
+    build_tactical_evidence_page,
+)
 from stratweb.web.tactical_v2_presenter import (
     TACTICAL_V2_PAGE_SIZE,
     TacticalV2Filters,
@@ -466,6 +470,36 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
             ),
         )
     )
+    assert (
+        repository.get_insight(
+            _id("profile"),
+            state.insights[0].insight_id,
+            tactical_run_id=state.tactical_run_id,
+        )
+        == state.insights[0]
+    )
+    assert (
+        repository.get_insight(
+            _id("profile"),
+            _id("missing-insight"),
+            tactical_run_id=state.tactical_run_id,
+        )
+        is None
+    )
+    evidence_fixture = tuple(
+        state.insights[0].evidence_references[0].model_copy(update={"round_number": number})
+        for number in range(1, TACTICAL_EVIDENCE_PAGE_SIZE + 2)
+    )
+    evidence_view = build_tactical_evidence_page(
+        summary,
+        state.insights[0],
+        evidence_fixture,
+        page=2,
+    )
+    assert evidence_view.page == 2
+    assert len(evidence_view.items) == 1
+    assert evidence_view.previous_href is not None
+    assert evidence_view.next_href is None
 
     opponents = DuckDBOpponentRepository(database)
     opponents.save_selection(
@@ -499,6 +533,37 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         assert "Главное в выбранном срезе" in page.text
         assert 'name="type"' in page.text
         assert "site:A|" not in page.text
+        selected_insight = state.insights[0]
+        assert f"/tactical-v2/insights/{selected_insight.insight_id}/evidence" in page.text
+        evidence_page = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2/insights/"
+            f"{selected_insight.insight_id}/evidence",
+            params={"run_id": state.tactical_run_id, "lang": "ru"},
+        )
+        assert evidence_page.status_code == 200
+        assert "Доказательства" in evidence_page.text
+        assert f"run_id={_id('temporal')}" in evidence_page.text
+        assert f"/ui/matches/{_id('match')}#rounds" in evidence_page.text
+        event_insight = next(
+            item
+            for item in state.insights
+            if any(reference.event_ids for reference in item.evidence_references)
+        )
+        event_page = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2/insights/"
+            f"{event_insight.insight_id}/evidence",
+            params={"run_id": state.tactical_run_id, "lang": "en"},
+        )
+        assert event_page.status_code == 200
+        assert "Observation evidence" in event_page.text
+        assert "Доказательства" not in event_page.text
+        assert "/events/" in event_page.text
+        missing_evidence = client.get(
+            f"/ui/opponents/{_id('profile')}/tactical-v2/insights/"
+            f"{_id('missing-insight')}/evidence",
+            params={"run_id": state.tactical_run_id},
+        )
+        assert missing_evidence.status_code == 404
         english = client.get(
             f"/ui/opponents/{_id('profile')}/tactical-v2",
             params={"lang": "en"},

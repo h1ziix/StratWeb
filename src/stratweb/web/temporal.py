@@ -442,7 +442,7 @@ def _tick_bucket(
             else ""
         )
         return f"""
-        <section class="tick-bucket"><div class="tick-marker">тик {tick}</div>
+        <section class="tick-bucket" id="tick-{tick}"><div class="tick-marker">тик {tick}</div>
           <div class="tick-card"><div class="tick-heading"><strong>событий: {len(events)}</strong>
           <span><a href="{snapshot_link}">снимок после тика</a> ·
           <a href="/ui/spatial/{summary.match_id}/rounds/{timeline.round_number}?tick={tick}">2D-карта</a></span></div>{bucket_note}
@@ -454,7 +454,7 @@ def _tick_bucket(
     )
     intermediate = _possible_states(group, player_labels)
     return f"""
-    <section class="tick-bucket group"><div class="tick-marker">тик {tick}</div>
+    <section class="tick-bucket group" id="tick-{tick}"><div class="tick-marker">тик {tick}</div>
       <div class="tick-card group-card">
         <div class="tick-heading"><strong>Одновременная группа · событий тика: {len(events)} · событий состояния: {group.event_count}</strong>
           <a href="{group_link}">открыть группу</a></div>
@@ -502,7 +502,7 @@ def _event_row(
     if event.kind is TemporalEventKind.BOMB and event.event_type == "bomb:planted":
         badges.append('<span class="badge bomb">установка</span>')
     return f"""
-    <a class="event-row {"victimless" if victimless else ""}" href="{link}">
+    <a class="event-row {"victimless" if victimless else ""}" id="event-{event.event_id}" href="{link}">
       <span><b>{escape(label)}</b> {"".join(badges)}</span>
       <details><summary>Технические данные</summary><code>{escape(str(event.event_id))}</code></details>
       <span>участник {_optional_player_label(event.actor_player_id, player_labels)} · жертва

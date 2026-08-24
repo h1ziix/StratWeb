@@ -106,6 +106,27 @@
 .tactical-card__limitations { padding-top: 8px; border-top: 1px solid var(--color-border-subtle); }
 .tactical-card__limitations summary { color: var(--color-text-secondary); font-size: 11px; cursor: pointer; }
 .tactical-card__limitations ul { display: grid; gap: 5px; margin: 9px 0 0; padding-left: 18px; color: var(--color-text-secondary); font-size: 11px; }
+.tactical-card__evidence { justify-self: start; }
+
+.evidence-heading { align-items: end; }
+.evidence-card-list { display: grid; gap: 10px; margin-top: 16px; }
+.evidence-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(145deg, var(--color-surface-2), var(--color-surface-1));
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius);
+}
+.evidence-card.partial { border-left-color: var(--color-warning); }
+.evidence-card > header { display: flex; justify-content: space-between; gap: 12px; }
+.evidence-card > header > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.evidence-card > header span,
+.evidence-lineage { margin: 0; color: var(--color-text-secondary); }
+.evidence-actions { margin: 0; }
+.evidence-technical { margin-top: 0; }
+.evidence-technical code { display: inline-block; margin: 2px 5px 2px 0; }
 
 .tactical-capability-grid {
   display: grid;
@@ -142,6 +163,7 @@
   .tactical-capability-grid { grid-template-columns: 1fr; }
   .tactical-filters { grid-template-columns: 1fr 1fr; }
   .tactical-highlight { min-height: 0; }
+  .evidence-card > header { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 460px) {

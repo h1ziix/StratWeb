@@ -1554,3 +1554,19 @@ statistics, evidence and JSON APIs remain locale-neutral and byte-for-byte uncha
 Russian and English are the current supported catalogs. Key and placeholder parity is validated
 as a contract. Spanish and Chinese remain disabled until complete catalogs pass the same
 surface-level no-mixed-language checks.
+
+## Stage 9.6.3 architectural decision — evidence links pin their source runs
+
+The Tactical evidence page is a read-only projection over one persisted insight and its normalized
+evidence rows. A bounded indexed lookup selects the insight by profile, Tactical run and insight ID;
+the detail route never loads all observations and never invokes an analytical engine.
+
+Each evidence match is resolved against the selected Tactical run's `source_pins`. Temporal event,
+tick and snapshot links carry that source's exact `temporal_run_id`; 2D links carry the exact
+`spatial_run_id` and request exact playback mode; round-fact links carry the exact `feature_run_id`.
+When a source pin or artifact family is absent, the UI omits that precise action and keeps only the
+safe match-level link. It does not fall back to an unrelated latest run.
+
+Technical event/snapshot/feature/projectile/effect IDs remain available in a collapsed disclosure.
+Primary evidence cards show a stable corpus match ordinal, map, round and proven tick/range.
+Temporal round markup exposes stable tick and event anchors for deterministic navigation.
