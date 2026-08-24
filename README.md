@@ -1118,3 +1118,11 @@ plain-Russian tactical phrases. Long bomb routes are summarized by a proven dest
 known corridor, while unresolved locations remain explicitly unknown. Trivial spawn-only
 signals no longer displace useful cards. Full raw values and all evidence remain available in
 analyst mode. See [STAGE_9_6_6_1.md](STAGE_9_6_6_1.md).
+
+### Stage 9.6.6.2 Evidence playback smoothness
+
+Links from findings, Tactical V2 and round features now open the exact evidence tick with smooth
+playback selected. The dense-event render loop commits state once instead of drawing an exact
+frame and a smooth frame back-to-back, and Play waits for a small demo-time buffer before moving.
+Persisted coordinates, events and evidence are unchanged. See
+[STAGE_9_6_6_2.md](STAGE_9_6_6_2.md).

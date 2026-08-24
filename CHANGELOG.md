@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.12.2] - 2026-08-24
+
+### Fixed
+
+- Evidence links now keep their exact source tick but open the round player in smooth mode;
+  report, Tactical V2 and round-feature entry points no longer force stepwise playback.
+- Dense combat and utility sequences no longer perform a complete exact render immediately
+  before the smooth render of the same animation frame.
+- Playback waits for a small time-based buffer before starting, reducing stalls when event-dense
+  chunks cover fewer seconds than ordinary movement chunks.
+
+### Performance
+
+- Stored state, labels and the bomb marker are committed without a redundant player, projectile,
+  effect and event draw pass.
+- Prefetching remains based on demo time rather than sample count, so fights do not change the
+  playback clock or analytical evidence.
+
+### Safety
+
+- The initially selected tick is still the exact persisted evidence tick. Smooth mode only
+  interpolates the visual movement after playback begins; API responses and authoritative
+  snapshots remain unchanged.
+
 ## [0.12.1] - 2026-08-24
 
 ### Fixed

@@ -24,6 +24,7 @@ from stratweb.findings.models import AnalysisFinding, EvidenceReference, Finding
 from stratweb.patterns.models import PatternType, PlayerPatternValue
 from stratweb.readiness.models import FindingReadinessRecord
 from stratweb.reporting.coach_presentation import coach_pattern_text, is_useful_coach_signal
+from stratweb.reporting.links import prefer_smooth_playback
 from stratweb.web.view_models.product import ViewModel
 
 REPORT_SCHEMA_VERSION = "1.0.0"
@@ -755,7 +756,7 @@ def _evidence_view(reference: EvidenceReference) -> ReportEvidenceView:
         snapshot_ids=tuple(str(item) for item in reference.snapshot_ids),
         economy_snapshot_ids=tuple(str(item) for item in reference.economy_snapshot_ids),
         limitations=reference.limitations,
-        map_href=reference.map_href,
+        map_href=prefer_smooth_playback(reference.map_href),
         timeline_href=reference.timeline_href,
     )
 

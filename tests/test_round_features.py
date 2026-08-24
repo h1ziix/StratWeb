@@ -224,6 +224,8 @@ def test_round_feature_ui_renders_cards_filters_evidence_and_links(
     assert "Стартовая расстановка" in page.text
     assert "Технические данные" in page.text
     assert "Карта на этом тике" in page.text
+    assert "mode=smooth" in page.text
+    assert "mode=exact" not in page.text
     assert "Alpha" in page.text
     assert filtered.status_code == 200
     assert 'option value="first_contact" selected' in filtered.text

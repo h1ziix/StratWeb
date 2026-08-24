@@ -21,6 +21,7 @@
   });
   const UI_UPDATE_INTERVAL = 200;
   const PREFETCH_WALL_RESERVE_MS = 2500;
+  const START_PLAYBACK_RESERVE_MS = 1200;
   const elementIds = [
     "scrubber", "sampleIndex", "playPause", "playbackMode", "playbackSpeed", "frameStatus",
     "tickStatus", "bufferStatus", "loadingState", "errorState", "errorMessage", "emptyState",
@@ -313,6 +314,26 @@
     if (nextStart != null) void fetchChunk(nextStart, { prefetch: true });
   }
 
+  function bufferedWallTime(index) {
+    const range = state.ranges.find((item) => item[0] <= index && index <= item[1]);
+    if (!range) return 0;
+    return Math.max(0, config.ticks[range[1]] - config.ticks[index])
+      * config.playback_clock.tick_duration_ms / state.speed;
+  }
+
+  async function ensureStartBuffer(index, request) {
+    while (bufferedWallTime(index) < START_PLAYBACK_RESERVE_MS) {
+      const range = state.ranges.find((item) => item[0] <= index && index <= item[1]);
+      if (!range || range[1] + 1 >= config.total_samples) break;
+      const chunk = await fetchChunk(
+        range[1] + 1,
+        { retentionIndex: index },
+      );
+      if (request !== state.playRequest || !chunk) return false;
+    }
+    return state.samples.has(index + 1) || index >= config.total_samples - 1;
+  }
+
   function latestSampleIndex(series, tick) {
     let low = 0;
     let high = series.length - 1;
@@ -522,6 +543,13 @@
           return;
         }
       }
+      setPlaybackStatus("buffering");
+      const bufferReady = await ensureStartBuffer(state.index, request);
+      if (request !== state.playRequest) return;
+      if (!bufferReady) {
+        setPlaybackStatus("unavailable");
+        return;
+      }
       state.playing = true;
       state.lastFrame = 0;
       const now = performance.now();
@@ -598,7 +626,7 @@
       state.crossedSamples += crossed;
       state.maxCrossedSamplesPerFrame = Math.max(state.maxCrossedSamplesPerFrame, crossed);
       collectCrossedEvents(state.index, bracket.leftIndex, timestamp);
-      commitExact(bracket.leftIndex, "replace", timestamp);
+      state.index = bracket.leftIndex;
     }
     const currentStored = state.samples.get(bracket.leftIndex);
     const followingStored = bracket.rightIndex == null
@@ -620,6 +648,12 @@
     }
     const frameEvidence = dynamicEvidence(currentStored, bracket.playheadTick, timestamp);
     renderer.beginFrame();
+    if (crossed > 0) {
+      renderer.commitPlaybackSample(frameEvidence.sample);
+      setHidden(elements.emptyState, frameEvidence.sample.players.length > 0);
+      applyAutoFocus(frameEvidence.sample);
+      updatePlaybackUi(frameEvidence.sample, bracket.leftIndex, "replace");
+    }
     if (frameEvidence.key !== state.lastDynamicEvidenceKey) {
       renderer.updateDynamicEvidence(frameEvidence.sample);
       state.lastDynamicEvidenceKey = frameEvidence.key;

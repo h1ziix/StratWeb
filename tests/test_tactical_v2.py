@@ -543,6 +543,22 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
     assert len(evidence_view.items) == 1
     assert evidence_view.previous_href is not None
     assert evidence_view.next_href is None
+    spatial_source = evidence_fixture[0].model_copy(
+        update={
+            "tick_start": 12345,
+            "tick_end": 12345,
+            "snapshot_ids": (_id("evidence-snapshot"),),
+        }
+    )
+    spatial_view = build_tactical_evidence_page(
+        summary,
+        state.insights[0],
+        (spatial_source,),
+        page=1,
+    )
+    assert spatial_view.items[0].spatial_href is not None
+    assert "mode=smooth" in spatial_view.items[0].spatial_href
+    assert "mode=exact" not in spatial_view.items[0].spatial_href
 
     opponents = DuckDBOpponentRepository(database)
     opponents.save_selection(

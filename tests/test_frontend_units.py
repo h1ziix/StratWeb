@@ -210,6 +210,11 @@ def test_viewer_renderer_uses_persistent_diffed_nodes() -> None:
     assert "disableAutoFocus" in player
     assert "renderer.beginFrame()" in player
     assert "renderer.endFrame()" in player
+    assert "commitPlaybackSample(sample)" in renderer
+    assert "renderer.commitPlaybackSample(frameEvidence.sample)" in player
+    assert 'commitExact(bracket.leftIndex, "replace", timestamp);' not in player
+    assert "function ensureStartBuffer(index, request)" in player
+    assert "START_PLAYBACK_RESERVE_MS" in player
     assert "await selectExact(" in player
     assert "state.index >= config.total_samples - 1" in player
     assert "state.starting" in player

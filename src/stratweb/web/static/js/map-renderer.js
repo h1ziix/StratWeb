@@ -503,6 +503,13 @@
       return this.endFrame();
     }
 
+    commitPlaybackSample(sample) {
+      this.currentSample = sample;
+      this.updatePlayerState(sample);
+      this.updateLabels(sample);
+      this.updateBomb(sample);
+    }
+
     updateDynamicEvidence(sample) {
       this.updateProjectiles(sample.projectile_samples || [], sample.projectile_trails || []);
       this.updateEffects(sample.utility_effects || []);

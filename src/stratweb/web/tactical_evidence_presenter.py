@@ -170,7 +170,7 @@ def _evidence_item(
                 {
                     "tick": evidence.tick_start,
                     "run_id": str(pin.spatial_run_id),
-                    "mode": "exact",
+                    "mode": "smooth",
                 }
             )
         )

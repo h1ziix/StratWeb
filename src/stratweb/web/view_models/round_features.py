@@ -212,7 +212,7 @@ def _feature_row(
         payload_json=payload_json,
         playback_href=(
             f"/ui/spatial/{feature.match_id}/rounds/{feature.round_number}"
-            + (f"?tick={feature.tick_start}&mode=exact" if feature.tick_start is not None else "")
+            + (f"?tick={feature.tick_start}&mode=smooth" if feature.tick_start is not None else "")
         ),
         playback_label="Карта на этом тике" if feature.tick_start is not None else "Карта раунда",
         timeline_href=f"/ui/temporal/{feature.match_id}/rounds/{feature.round_number}",
