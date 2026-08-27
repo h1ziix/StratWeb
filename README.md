@@ -21,6 +21,8 @@ presentation-слой, а проверенные вручную названия
 identity ([UI_LOCALIZATION.md](UI_LOCALIZATION.md)). Детерминированные рекомендации,
 evidence-first UI и стабильные JSON/PDF/printable exports описаны в
 [SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md) и [REPORT_EXPORT.md](REPORT_EXPORT.md).
+Понятный разбор каждого раунда отделяет подтверждённые события, перелом и проблему от
+полной технической таблицы ([STAGE_9_7_1.md](STAGE_9_7_1.md)).
 Все движки parser-independent и детерминированы; tick — authoritative единица времени.
 Дальнейшее production hardening — в [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 

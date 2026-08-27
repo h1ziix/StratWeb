@@ -1,86 +1,110 @@
 {% extends "base.html" %}
-{% block title %}Факты раундов · {{ match_context.map_name|map_name }} · StratWeb{% endblock %}
+{% block title %}Разбор раундов · {{ match_context.map_name|map_name }} · StratWeb{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/round-features.css') }}">{% endblock %}
 
 {% block content %}
 <section class="page-heading feature-heading">
-  <div><p class="eyebrow">Stage 8.4 · проверяемые данные</p><h1>Тактические факты раундов</h1>
-    <p>Только зафиксированные наблюдения. Неизвестные позиции, намерения и порядок событий не додумываются.</p></div>
-  {% if features %}<div class="feature-total"><strong>{{ features.total_features }}</strong><span>фактов в выбранном расчёте</span></div>{% endif %}
+  <div>
+    <p class="eyebrow">Разбор по раундам</p>
+    <h1>Что происходило в каждом раунде</h1>
+    <p>Короткий пересказ подтверждённых событий: ключевые моменты, возможный перелом и конкретные проблемы без догадок о намерениях игроков.</p>
+  </div>
+  <a class="button secondary" href="/ui/matches/{{ match_context.match_id }}">К матчу</a>
 </section>
 
 {% if not features %}
-<section class="empty-state"><h2>Факты раундов недоступны</h2><p>Для матча нет совместимого расчёта Stage 8.4. Исходные данные матча не изменены.</p><div class="button-row"><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}">К матчу</a><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}/diagnostics">Диагностика</a></div></section>
+<section class="empty-state"><h2>Разбор раундов пока недоступен</h2><p>Для матча ещё нет совместимого расчёта фактов. Исходные данные матча не изменены.</p><div class="button-row"><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}">К матчу</a><a class="button secondary" href="/ui/matches/{{ match_context.match_id }}/quality">Проверить готовность</a></div></section>
 {% else %}
-<section class="feature-summary-grid" aria-label="Сводка фактов раундов">
-  <article><span>Подходящие раунды</span><strong>{{ features.eligible_rounds }}</strong><small>исключено: {{ features.excluded_rounds }}</small></article>
-  <article class="available"><span>Доступно</span><strong>{{ features.available }}</strong><small>полностью подтверждено</small></article>
-  <article class="partial"><span>Частично</span><strong>{{ features.partial }}</strong><small>можно использовать с ограничениями</small></article>
-  <article class="unavailable"><span>Недоступно</span><strong>{{ features.unavailable }}</strong><small>утверждение не сформировано</small></article>
-  <article><span>Не применимо</span><strong>{{ features.not_applicable }}</strong><small>условие не возникло</small></article>
+<section class="round-story-list" aria-label="Понятный разбор раундов">
+  {% for story in features.stories %}
+  <article class="round-story" id="round-{{ story.round_number }}">
+    <header class="round-story-header">
+      <div><span class="round-kicker">Раунд</span><strong>{{ story.round_number }}</strong></div>
+      <div class="round-story-actions"><a class="button" href="{{ story.primary_href }}">Посмотреть раунд</a></div>
+    </header>
+    <div class="round-story-grid">
+      <section class="story-panel story-events">
+        <div class="story-panel-heading"><span class="story-number">1</span><div><p>Ход раунда</p><h2>Что произошло</h2></div></div>
+        {% if story.events %}
+        <ol class="story-event-list">
+          {% for event in story.events %}
+          <li class="story-event {{ event.availability }}">
+            <span class="story-event-line" aria-hidden="true"></span>
+            <div class="story-event-body">
+              <div class="story-meta"><span class="side-label">{{ event.side }}</span><span>{{ event.team_name|team_name }}</span>{% if event.availability == 'partial' %}<span class="story-caution">данные неполные</span>{% endif %}</div>
+              <h3>{{ event.feature_label }}</h3>
+              <p>{{ event.observation }}</p>
+              <div class="story-foot">{% if event.zone_label != 'Зона не определена' %}<span>{{ event.zone_label }}</span>{% endif %}<a href="{{ event.playback_href }}">Показать момент →</a></div>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}<div class="story-empty"><strong>Краткий пересказ недоступен</strong><p>В выбранных данных нет подтверждённых событий, пригодных для понятного пересказа.</p></div>{% endif %}
+      </section>
+
+      <div class="story-conclusions">
+        <section class="story-panel story-beat {{ story.turning_point.status }}">
+          <div class="story-panel-heading"><span class="story-number">2</span><div><p>Ключевой момент</p><h2>Где был перелом</h2></div></div>
+          <h3>{{ story.turning_point.title }}</h3>
+          <p>{{ story.turning_point.observation }}</p>
+          {% if story.turning_point.team_name %}<div class="story-meta"><span class="side-label">{{ story.turning_point.side }}</span><span>{{ story.turning_point.team_name|team_name }}</span>{% if story.turning_point.status == 'partial' %}<span class="story-caution">данные неполные</span>{% endif %}</div>{% endif %}
+          {% if story.turning_point.playback_href %}<a class="story-link" href="{{ story.turning_point.playback_href }}">Показать момент →</a>{% endif %}
+        </section>
+
+        <section class="story-panel story-beat {{ story.problem.status }}">
+          <div class="story-panel-heading"><span class="story-number">3</span><div><p>Подтверждённый риск</p><h2>Какая проблема найдена</h2></div></div>
+          <h3>{{ story.problem.title }}</h3>
+          <p>{{ story.problem.observation }}</p>
+          {% if story.problem.team_name %}<div class="story-meta"><span class="side-label">{{ story.problem.side }}</span><span>{{ story.problem.team_name|team_name }}</span>{% if story.problem.status == 'partial' %}<span class="story-caution">данные неполные</span>{% endif %}</div>{% endif %}
+          {% if story.problem.playback_href %}<a class="story-link" href="{{ story.problem.playback_href }}">Показать момент →</a>{% endif %}
+        </section>
+      </div>
+    </div>
+    <details class="round-extra"><summary>Ещё о раунде</summary><div><a href="{{ story.timeline_href }}">Открыть хронологию</a><span>Точные статусы и все доказательства находятся ниже в режиме аналитика.</span></div></details>
+  </article>
+  {% else %}<div class="empty-state"><h2>По этим фильтрам раундов нет</h2><p>Откройте режим аналитика и сбросьте фильтры.</p></div>{% endfor %}
 </section>
 
-<details class="feature-capabilities">
-  <summary>Покрытие по типам фактов</summary>
-  <div class="feature-capability-grid">
-  {% for capability in features.capabilities %}
-    <a href="{{ capability.href }}"><strong>{{ capability.label }}</strong><span>{{ capability.population }} записей</span><small><b class="available">{{ capability.available }}</b> доступно · <b class="partial">{{ capability.partial }}</b> частично · <b class="unavailable">{{ capability.unavailable }}</b> недоступно · {{ capability.not_applicable }} не применимо</small></a>
-  {% endfor %}
+<details class="analyst-mode">
+  <summary><span><strong>Режим аналитика</strong><small>Фильтры, точные статусы, идентификаторы и исходные доказательства</small></span><span class="analyst-chevron">⌄</span></summary>
+  <div class="analyst-content">
+    <section class="feature-summary-grid" aria-label="Сводка фактов раундов">
+      <article><span>Подходящие раунды</span><strong>{{ features.eligible_rounds }}</strong><small>исключено: {{ features.excluded_rounds }}</small></article>
+      <article class="available"><span>Доступно</span><strong>{{ features.available }}</strong><small>полностью подтверждено</small></article>
+      <article class="partial"><span>Частично</span><strong>{{ features.partial }}</strong><small>можно использовать с ограничениями</small></article>
+      <article class="unavailable"><span>Недоступно</span><strong>{{ features.unavailable }}</strong><small>утверждение не сформировано</small></article>
+      <article><span>Не применимо</span><strong>{{ features.not_applicable }}</strong><small>условие не возникло</small></article>
+    </section>
+
+    <details class="feature-capabilities"><summary>Покрытие по типам фактов</summary><div class="feature-capability-grid">{% for capability in features.capabilities %}<a href="{{ capability.href }}"><strong>{{ capability.label }}</strong><span>{{ capability.population }} записей</span><small><b class="available">{{ capability.available }}</b> доступно · <b class="partial">{{ capability.partial }}</b> частично · <b class="unavailable">{{ capability.unavailable }}</b> недоступно · {{ capability.not_applicable }} не применимо</small></a>{% endfor %}</div></details>
+
+    <form class="feature-filters" method="get" action="/ui/matches/{{ features.match_id }}/features">
+      <input type="hidden" name="run_id" value="{{ features.feature_run_id }}">
+      <label>Раунд<input type="number" name="round" min="1" value="{{ selected_round or '' }}" placeholder="Все раунды"></label>
+      <label>Команда<select name="team"><option value="">Все команды</option>{% for value, label in team_options %}<option value="{{ value }}" {% if selected_team == value %}selected{% endif %}>{{ label|team_name }}</option>{% endfor %}</select></label>
+      <label>Сторона<select name="side"><option value="">Обе стороны</option><option value="T" {% if selected_side == 'T' %}selected{% endif %}>T</option><option value="CT" {% if selected_side == 'CT' %}selected{% endif %}>CT</option></select></label>
+      <label>Тип факта<select name="type"><option value="">Все факты</option>{% for value, label in feature_types %}<option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Доступность<select name="availability"><option value="">Все статусы</option>{% for value in availability_values %}<option value="{{ value }}" {% if selected_availability == value %}selected{% endif %}>{{ value|status_label }}</option>{% endfor %}</select></label>
+      <label>Закуп<select name="buy_type"><option value="">Все закупы</option>{% for value in buy_types %}<option value="{{ value }}" {% if selected_buy_type == value %}selected{% endif %}>{{ value|buy_type }}</option>{% endfor %}</select></label>
+      <button type="submit">Применить</button><a class="button secondary" href="/ui/matches/{{ features.match_id }}/features?run_id={{ features.feature_run_id }}">Сбросить</a>
+    </form>
+
+    {% if features.warnings %}<section class="warnings"><h2>Предупреждения расчёта</h2><ul>{% for warning in features.warnings %}<li>{{ warning|warning_label }}</li>{% endfor %}</ul></section>{% endif %}
+
+    <section class="feature-results"><div class="section-heading"><h2>Таблица доказательств</h2><span>показано: {{ features.visible_features }} · страница {{ features.page }}</span></div>
+      {% for round in features.rounds %}<article class="feature-round"><header><strong>Раунд {{ round.round_number }}</strong><span>фактов на странице: {{ round.features|length }}</span><a href="/ui/spatial/{{ features.match_id }}/rounds/{{ round.round_number }}">Открыть карту</a><a href="/ui/temporal/{{ features.match_id }}/rounds/{{ round.round_number }}">Хронология</a></header>
+        <div class="table-wrap"><table class="feature-table"><thead><tr><th>Команда</th><th>Факт</th><th>Наблюдение</th><th>Тик / зона</th><th>Статус</th><th>Доказательства</th></tr></thead><tbody>{% for fact in round.features %}<tr class="feature-row {{ fact.availability }}">
+          <td data-label="Команда"><span class="side-label">{{ fact.side }}</span><strong>{{ fact.team_name|team_name }}</strong><small class="buy-chip {{ fact.buy_type }}">{{ fact.buy_type|buy_type }}</small></td>
+          <td data-label="Факт"><strong>{{ fact.feature_label }}</strong><code>{{ fact.feature_type }}</code></td>
+          <td data-label="Наблюдение"><p>{{ fact.observation }}</p>{% if fact.limitations %}<div class="feature-limitations">{% for item in fact.limitations %}<code>{{ item }}</code>{% endfor %}</div>{% endif %}</td>
+          <td data-label="Тик / зона"><strong>тик {{ fact.tick_label }}</strong><span>{{ fact.zone_label }}</span></td><td data-label="Статус"><span class="status {{ fact.availability }}">{{ fact.availability|status_label }}</span></td>
+          <td data-label="Доказательства"><details class="feature-evidence"><summary>Подробнее</summary><div class="feature-actions"><a href="{{ fact.playback_href }}">{{ fact.playback_label }}</a><a href="{{ fact.timeline_href }}">Хронология</a></div><dl><dt>ID факта</dt><dd><code>{{ fact.feature_id }}</code></dd><dt>События</dt><dd>{% for item in fact.evidence_event_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd><dt>Снимки позиций</dt><dd>{% for item in fact.evidence_snapshot_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd><dt>Снимки экономики</dt><dd>{% for item in fact.evidence_economy_snapshot_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd></dl>{% if fact.warnings %}<div class="feature-limitations">{% for item in fact.warnings %}<code>{{ item }}</code>{% endfor %}</div>{% endif %}{% if fact.payload_json %}<details class="feature-payload"><summary>Технические данные</summary><pre>{{ fact.payload_json }}</pre></details>{% endif %}</details></td>
+        </tr>{% endfor %}</tbody></table></div></article>{% else %}<div class="empty-state"><h2>По этим фильтрам фактов нет</h2><p>Сбросьте фильтры или выберите другой раунд, сторону, закуп либо статус.</p></div>{% endfor %}
+    </section>
+
+    <nav class="feature-pagination" aria-label="Страницы доказательств">{% if features.previous_href %}<a class="button secondary" href="{{ features.previous_href }}">← Назад</a>{% else %}<span></span>{% endif %}<span>Страница {{ features.page }} · до {{ features.page_size }} фактов</span>{% if features.next_href %}<a class="button secondary" href="{{ features.next_href }}">Вперёд →</a>{% else %}<span></span>{% endif %}</nav>
+    <details class="developer-details"><summary>Версии и исходные данные</summary><dl><dt>Расчёт фактов</dt><dd><code>{{ features.feature_run_id }}</code></dd><dt>Схема / правила</dt><dd><code>{{ features.feature_schema_version }} / {{ features.feature_rule_version }}</code></dd><dt>Отпечаток</dt><dd><code>{{ features.feature_fingerprint }}</code></dd><dt>Исходные доказательства</dt><dd><a href="/api/features/{{ features.match_id }}/summary?run_id={{ features.feature_run_id }}">Сводка JSON</a> · <a href="/api/features/{{ features.match_id }}/records?run_id={{ features.feature_run_id }}&limit=5000">Записи JSON</a> · <a href="/api/features/{{ features.match_id }}/runs">Расчёты JSON</a></dd></dl></details>
   </div>
 </details>
-
-<form class="feature-filters" method="get" action="/ui/matches/{{ features.match_id }}/features">
-  <input type="hidden" name="run_id" value="{{ features.feature_run_id }}">
-  <label>Раунд<input type="number" name="round" min="1" value="{{ selected_round or '' }}" placeholder="Все раунды"></label>
-  <label>Команда<select name="team"><option value="">Все команды</option>{% for value, label in team_options %}<option value="{{ value }}" {% if selected_team == value %}selected{% endif %}>{{ label|team_name }}</option>{% endfor %}</select></label>
-  <label>Сторона<select name="side"><option value="">Обе стороны</option><option value="T" {% if selected_side == 'T' %}selected{% endif %}>T</option><option value="CT" {% if selected_side == 'CT' %}selected{% endif %}>CT</option></select></label>
-  <label>Тип факта<select name="type"><option value="">Все факты</option>{% for value, label in feature_types %}<option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-  <label>Доступность<select name="availability"><option value="">Все статусы</option>{% for value in availability_values %}<option value="{{ value }}" {% if selected_availability == value %}selected{% endif %}>{{ value|status_label }}</option>{% endfor %}</select></label>
-  <label>Закуп<select name="buy_type"><option value="">Все закупы</option>{% for value in buy_types %}<option value="{{ value }}" {% if selected_buy_type == value %}selected{% endif %}>{{ value|buy_type }}</option>{% endfor %}</select></label>
-  <button type="submit">Применить</button><a class="button secondary" href="/ui/matches/{{ features.match_id }}/features?run_id={{ features.feature_run_id }}">Сбросить</a>
-</form>
-
-{% if features.warnings %}<section class="warnings"><h2>Предупреждения расчёта</h2><ul>{% for warning in features.warnings %}<li>{{ warning|warning_label }}</li>{% endfor %}</ul></section>{% endif %}
-
-<section class="feature-results">
-  <div class="section-heading"><h2>Таблица доказательств</h2><span>показано: {{ features.visible_features }} · страница {{ features.page }}</span></div>
-  {% for round in features.rounds %}
-  <article class="feature-round" id="round-{{ round.round_number }}">
-    <header><strong>Раунд {{ round.round_number }}</strong><span>фактов на странице: {{ round.features|length }}</span><a href="/ui/spatial/{{ features.match_id }}/rounds/{{ round.round_number }}">Открыть карту</a><a href="/ui/temporal/{{ features.match_id }}/rounds/{{ round.round_number }}">Хронология</a></header>
-    <div class="table-wrap"><table class="feature-table">
-      <thead><tr><th>Команда</th><th>Факт</th><th>Наблюдение</th><th>Тик / зона</th><th>Статус</th><th>Доказательства</th></tr></thead>
-      <tbody>{% for fact in round.features %}<tr class="feature-row {{ fact.availability }}">
-        <td data-label="Команда"><span class="side-label">{{ fact.side }}</span><strong>{{ fact.team_name|team_name }}</strong><small class="buy-chip {{ fact.buy_type }}">{{ fact.buy_type|buy_type }}</small></td>
-        <td data-label="Fact"><strong>{{ fact.feature_label }}</strong><code>{{ fact.feature_type }}</code></td>
-        <td data-label="Observation"><p>{{ fact.observation }}</p>{% if fact.limitations %}<div class="feature-limitations">{% for item in fact.limitations %}<code>{{ item }}</code>{% endfor %}</div>{% endif %}</td>
-        <td data-label="Тик / зона"><strong>тик {{ fact.tick_label }}</strong><span>{{ fact.zone_label }}</span></td>
-        <td data-label="Статус"><span class="status {{ fact.availability }}">{{ fact.availability|status_label }}</span></td>
-        <td data-label="Доказательства"><details class="feature-evidence"><summary>Подробнее</summary>
-          <div class="feature-actions"><a href="{{ fact.playback_href }}">{{ fact.playback_label }}</a><a href="{{ fact.timeline_href }}">Хронология</a></div>
-          <dl><dt>ID факта</dt><dd><code>{{ fact.feature_id }}</code></dd>
-            <dt>События</dt><dd>{% for item in fact.evidence_event_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd>
-            <dt>Снимки позиций</dt><dd>{% for item in fact.evidence_snapshot_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd>
-            <dt>Снимки экономики</dt><dd>{% for item in fact.evidence_economy_snapshot_ids %}<code title="{{ item }}">{{ item[:8] }}</code>{% else %}<span>Нет</span>{% endfor %}</dd></dl>
-          {% if fact.warnings %}<div class="feature-limitations">{% for item in fact.warnings %}<code>{{ item }}</code>{% endfor %}</div>{% endif %}
-          {% if fact.payload_json %}<details class="feature-payload"><summary>Технические данные</summary><pre>{{ fact.payload_json }}</pre></details>{% endif %}
-        </details></td>
-      </tr>{% endfor %}</tbody>
-    </table></div>
-  </article>
-  {% else %}<div class="empty-state"><h2>По этим фильтрам фактов нет</h2><p>Сбросьте фильтры или выберите другой раунд, сторону, закуп либо статус.</p></div>{% endfor %}
-</section>
-
-<nav class="feature-pagination" aria-label="Страницы доказательств">
-  {% if features.previous_href %}<a class="button secondary" href="{{ features.previous_href }}">← Назад</a>{% else %}<span></span>{% endif %}
-  <span>Страница {{ features.page }} · до {{ features.page_size }} фактов</span>
-  {% if features.next_href %}<a class="button secondary" href="{{ features.next_href }}">Вперёд →</a>{% else %}<span></span>{% endif %}
-</nav>
-
-<details class="developer-details"><summary>Версии и исходные данные</summary><dl>
-  <dt>Расчёт фактов</dt><dd><code>{{ features.feature_run_id }}</code></dd>
-  <dt>Схема / правила</dt><dd><code>{{ features.feature_schema_version }} / {{ features.feature_rule_version }}</code></dd>
-  <dt>Отпечаток</dt><dd><code>{{ features.feature_fingerprint }}</code></dd>
-  <dt>Исходные доказательства</dt><dd><a href="/api/features/{{ features.match_id }}/summary?run_id={{ features.feature_run_id }}">Сводка JSON</a> · <a href="/api/features/{{ features.match_id }}/records?run_id={{ features.feature_run_id }}&limit=5000">Записи JSON</a> · <a href="/api/features/{{ features.match_id }}/runs">Расчёты JSON</a></dd>
-</dl></details>
 {% endif %}
 {% endblock %}

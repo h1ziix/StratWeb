@@ -21,6 +21,7 @@ from stratweb.web.rendering import render_template
 from stratweb.web.view_models import build_round_feature_page, feature_type_options
 
 _UI_PAGE_SIZE = 100
+_UI_STORY_LIMIT = 5000
 
 
 def round_feature_router(database_path: Path) -> APIRouter:
@@ -91,6 +92,18 @@ def round_feature_router(database_path: Path) -> APIRouter:
         )
         has_next = len(selected) > _UI_PAGE_SIZE
         visible = selected[:_UI_PAGE_SIZE]
+        story_features = service.list_features(
+            match_id,
+            feature_run_id=pinned_run_id,
+            round_number=round_number,
+            team_id=team_id,
+            side=side,
+            feature_type=feature_type,
+            availability=availability,
+            buy_type=buy_type,
+            limit=_UI_STORY_LIMIT,
+            offset=0,
+        )
         query_values: dict[str, str | int] = {"run_id": str(pinned_run_id)}
         for key, value in (
             ("round", round_number),
@@ -124,6 +137,7 @@ def round_feature_router(database_path: Path) -> APIRouter:
             page_size=_UI_PAGE_SIZE,
             previous_href=page_href(page - 1) if page > 1 else None,
             next_href=page_href(page + 1) if has_next else None,
+            story_features=story_features,
         )
         return HTMLResponse(
             render_template(

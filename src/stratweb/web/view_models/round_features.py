@@ -86,6 +86,37 @@ class RoundFeatureRoundView(ViewModel):
     features: tuple[RoundFeatureRowView, ...]
 
 
+class RoundStoryEventView(ViewModel):
+    feature_label: str
+    observation: str
+    team_name: str
+    side: str
+    availability: str
+    tick_label: str
+    zone_label: str
+    playback_href: str
+
+
+class RoundStoryBeatView(ViewModel):
+    title: str
+    observation: str
+    status: str
+    team_name: str | None = None
+    side: str | None = None
+    tick_label: str | None = None
+    zone_label: str | None = None
+    playback_href: str | None = None
+
+
+class RoundStoryView(ViewModel):
+    round_number: int = Field(ge=1)
+    events: tuple[RoundStoryEventView, ...]
+    turning_point: RoundStoryBeatView
+    problem: RoundStoryBeatView
+    primary_href: str
+    timeline_href: str
+
+
 class RoundFeaturePageView(ViewModel):
     match_id: UUID
     feature_run_id: UUID
@@ -105,6 +136,7 @@ class RoundFeaturePageView(ViewModel):
     previous_href: str | None = None
     next_href: str | None = None
     capabilities: tuple[FeatureCapabilityView, ...]
+    stories: tuple[RoundStoryView, ...]
     rounds: tuple[RoundFeatureRoundView, ...]
     warnings: tuple[str, ...]
 
@@ -123,6 +155,7 @@ def build_round_feature_page(
     page_size: int,
     previous_href: str | None,
     next_href: str | None,
+    story_features: tuple[RoundFeature, ...] | None = None,
 ) -> RoundFeaturePageView:
     rows = tuple(
         _feature_row(item, team_names=team_names, player_names=player_names) for item in features
@@ -144,6 +177,11 @@ def build_round_feature_page(
         )
         for feature_type, value in summary.capabilities.items()
     )
+    story_source = features if story_features is None else story_features
+    story_rows = tuple(
+        _feature_row(item, team_names=team_names, player_names=player_names)
+        for item in story_source
+    )
     return RoundFeaturePageView(
         match_id=summary.match_id,
         feature_run_id=summary.feature_run_id,
@@ -163,6 +201,7 @@ def build_round_feature_page(
         previous_href=previous_href,
         next_href=next_href,
         capabilities=capabilities,
+        stories=_build_round_stories(story_source, story_rows, summary.match_id),
         rounds=tuple(
             RoundFeatureRoundView(
                 round_number=round_number,
@@ -172,6 +211,149 @@ def build_round_feature_page(
         ),
         warnings=summary.warnings,
     )
+
+
+_STORY_EVENT_GROUPS = (
+    (RoundFeatureType.OPENING_DUEL, RoundFeatureType.FIRST_CONTACT),
+    (RoundFeatureType.FIRST_UTILITY,),
+    (RoundFeatureType.BOMBSITE,),
+    (RoundFeatureType.PLANT_TIMING,),
+    (RoundFeatureType.RETAKE_ATTEMPT, RoundFeatureType.SAVE_EXIT),
+)
+_STORY_EVENT_LIMIT = 5
+_USABLE_AVAILABILITY = {"available", "partial"}
+
+
+def _build_round_stories(
+    features: tuple[RoundFeature, ...],
+    rows: tuple[RoundFeatureRowView, ...],
+    match_id: UUID,
+) -> tuple[RoundStoryView, ...]:
+    pairs = tuple(zip(features, rows, strict=True))
+    stories: list[RoundStoryView] = []
+    for round_number in sorted({item.round_number for item in features}):
+        round_pairs = tuple(pair for pair in pairs if pair[0].round_number == round_number)
+        selected_events: list[tuple[RoundFeature, RoundFeatureRowView]] = []
+        for feature_group in _STORY_EVENT_GROUPS:
+            selected = next(
+                (
+                    candidate
+                    for feature_type in feature_group
+                    if (candidate := _best_story_fact(round_pairs, feature_type)) is not None
+                ),
+                None,
+            )
+            if selected is not None:
+                selected_events.append(selected)
+        selected_events.sort(
+            key=lambda pair: (
+                pair[0].tick_start if pair[0].tick_start is not None else 2**63 - 1,
+                str(pair[0].feature_id),
+            )
+        )
+        events: list[RoundStoryEventView] = []
+        for feature, row in selected_events[:_STORY_EVENT_LIMIT]:
+            events.append(
+                RoundStoryEventView(
+                    feature_label=row.feature_label,
+                    observation=_story_observation(feature, row.observation),
+                    team_name=row.team_name,
+                    side=row.side,
+                    availability=row.availability,
+                    tick_label=row.tick_label,
+                    zone_label=row.zone_label,
+                    playback_href=row.playback_href,
+                )
+            )
+        stories.append(
+            RoundStoryView(
+                round_number=round_number,
+                events=tuple(events),
+                turning_point=_story_beat(
+                    round_pairs,
+                    RoundFeatureType.LOST_MAN_ADVANTAGE,
+                    available_title="Потеря численного преимущества",
+                    unavailable_title="Перелом не определён",
+                    unavailable_observation=(
+                        "В сохранённых фактах нет доказательства момента, "
+                        "который изменил ход раунда."
+                    ),
+                ),
+                problem=_story_beat(
+                    round_pairs,
+                    RoundFeatureType.UNTRADED_DEATH,
+                    available_title="Смерть без размена",
+                    unavailable_title="Подтверждённая проблема не определена",
+                    unavailable_observation=(
+                        "Данных недостаточно, чтобы назвать конкретную ошибку команды."
+                    ),
+                ),
+                primary_href=f"/ui/spatial/{match_id}/rounds/{round_number}",
+                timeline_href=f"/ui/temporal/{match_id}/rounds/{round_number}",
+            )
+        )
+    return tuple(stories)
+
+
+def _best_story_fact(
+    pairs: tuple[tuple[RoundFeature, RoundFeatureRowView], ...],
+    feature_type: RoundFeatureType,
+) -> tuple[RoundFeature, RoundFeatureRowView] | None:
+    candidates = [
+        pair
+        for pair in pairs
+        if pair[0].feature_type is feature_type and pair[1].availability in _USABLE_AVAILABILITY
+    ]
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda pair: (
+            0 if pair[1].availability == "available" else 1,
+            pair[0].tick_start if pair[0].tick_start is not None else 2**63 - 1,
+            str(pair[0].feature_id),
+        ),
+    )
+
+
+def _story_beat(
+    pairs: tuple[tuple[RoundFeature, RoundFeatureRowView], ...],
+    feature_type: RoundFeatureType,
+    *,
+    available_title: str,
+    unavailable_title: str,
+    unavailable_observation: str,
+) -> RoundStoryBeatView:
+    selected = _best_story_fact(pairs, feature_type)
+    if selected is None:
+        return RoundStoryBeatView(
+            title=unavailable_title,
+            observation=unavailable_observation,
+            status="unavailable",
+        )
+    _, row = selected
+    return RoundStoryBeatView(
+        title=available_title,
+        observation=row.observation,
+        status=row.availability,
+        team_name=row.team_name,
+        side=row.side,
+        tick_label=row.tick_label,
+        zone_label=row.zone_label,
+        playback_href=row.playback_href,
+    )
+
+
+def _story_observation(feature: RoundFeature, fallback: str) -> str:
+    payload = feature.payload
+    if isinstance(payload, FirstUtilityPayload):
+        return "; ".join(part.split(" (", 1)[0] for part in fallback.split("; "))
+    if isinstance(payload, PlantTimingPayload):
+        if payload.seconds_from_freeze_end is None:
+            return "Установка подтверждена, но точное время недоступно."
+        seconds = round(payload.seconds_from_freeze_end, 1)
+        return f"Бомбу установили через {seconds:g} с после начала активной фазы."
+    return fallback
 
 
 def _feature_row(
@@ -324,6 +506,9 @@ __all__ = [
     "RoundFeaturePageView",
     "RoundFeatureRoundView",
     "RoundFeatureRowView",
+    "RoundStoryBeatView",
+    "RoundStoryEventView",
+    "RoundStoryView",
     "build_round_feature_page",
     "feature_type_options",
 ]

@@ -4,6 +4,29 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.15.0] - 2026-08-27
+
+### Added
+
+- Stage 9.7.1 adds a plain-language round story for every round: a short verified event sequence,
+  a separately identified turning point and a separately identified confirmed problem.
+- Story selection is deterministic. It uses persisted round facts, prefers fully available
+  evidence, orders milestones by source tick and links every shown fact to the exact 2D moment.
+- Explicit unavailable cards replace guesses when no lost-advantage or untraded-death fact exists.
+
+### Changed
+
+- The round-facts page now opens as responsive story cards instead of a technical evidence table.
+- Filters, counters, coverage, identifiers, JSON payloads and the complete paginated evidence table
+  remain intact inside one collapsed analyst mode.
+- Raw grenade lifecycle codes and tick counters are omitted from the ordinary story layer; exact
+  values remain available in analyst mode.
+
+### Safety
+
+- No parser, analytical rule, persisted fact, API response or DuckDB schema changed. The story is
+  a typed presentation projection and does not infer intent, causality or an undocumented error.
+
 ## [0.14.0] - 2026-08-26
 
 ### Added

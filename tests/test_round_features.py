@@ -219,11 +219,18 @@ def test_round_feature_ui_renders_cards_filters_evidence_and_links(
         overview = client.get(f"/ui/matches/{dataset.match.match_id}")
 
     assert page.status_code == 200
-    assert "Тактические факты раундов" in page.text
+    assert "Что происходило в каждом раунде" in page.text
+    assert "Где был перелом" in page.text
+    assert "Какая проблема найдена" in page.text
+    assert "Режим аналитика" in page.text
     assert "Таблица доказательств" in page.text
-    assert "Стартовая расстановка" in page.text
+    assert "Что произошло" in page.text
     assert "Технические данные" in page.text
-    assert "Карта на этом тике" in page.text
+    assert "Показать момент" in page.text
+    assert "Посмотреть раунд" in page.text
+    ordinary_view = page.text.split('<details class="analyst-mode">', 1)[0]
+    assert "smokegrenade_detonate" not in ordinary_view
+    assert '<details class="analyst-mode">' in page.text
     assert "mode=smooth" in page.text
     assert "mode=exact" not in page.text
     assert "Alpha" in page.text
@@ -246,4 +253,4 @@ def test_round_feature_ui_explains_missing_compatible_run(
         response = client.get(f"/ui/matches/{dataset.match.match_id}/features")
 
     assert response.status_code == 200
-    assert "Факты раундов недоступны" in response.text
+    assert "Разбор раундов пока недоступен" in response.text
