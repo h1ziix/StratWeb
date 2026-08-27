@@ -16,13 +16,46 @@
   <button type="submit">Применить</button>
 </form>
 
-<details class="import-panel"><summary>Загрузить завершённую демку</summary>
-  <form action="/api/import-jobs" method="post" enctype="multipart/form-data">
-    <label>Файл CS2 demo<input type="file" name="demo" accept=".dem" required></label>
-    <p class="muted">Файл обрабатывается только на этом компьютере и получает безопасное внутреннее имя.</p>
-    <button type="submit">Загрузить и обработать</button>
+<details class="import-panel bulk-import-panel" open><summary>Загрузить демки соперника</summary>
+  <form action="/api/import-batches" method="post" enctype="multipart/form-data" data-bulk-import-form>
+    <div class="bulk-import-fields">
+      <label>Название пула / соперника<input name="pool_name" maxlength="100" placeholder="Например: Пракк против Falcons" required></label>
+      <label>Добавить в существующего соперника<select name="opponent_profile_id">
+        <option value="">Создать нового соперника</option>
+        {% for item in opponent_profiles %}<option value="{{ item.profile.profile_id }}">{{ item.profile.display_name }}</option>{% endfor %}
+      </select></label>
+    </div>
+    <div class="bulk-drop-zone" data-drop-zone tabindex="0">
+      <strong>Перетащите сюда .dem или ZIP</strong>
+      <span>Можно сразу несколько файлов</span>
+      <label class="button secondary">Выбрать файлы<input class="visually-hidden" type="file" name="uploads" accept=".dem,.zip" multiple data-bulk-files></label>
+      <label class="button secondary">Выбрать папку<input class="visually-hidden" type="file" name="folder_demos" accept=".dem" multiple webkitdirectory directory data-bulk-folder></label>
+    </div>
+    <p class="muted" data-file-summary>Файлы ещё не выбраны. Каждая демка получит отдельную задачу и не остановит остальные при ошибке.</p>
+    <button type="submit">Создать тренировочный пул</button>
   </form>
+  <details class="single-import-fallback"><summary>Загрузить только одну демку</summary>
+    <form action="/api/import-jobs" method="post" enctype="multipart/form-data">
+      <label>Файл CS2 demo<input type="file" name="demo" accept=".dem" required></label>
+      <button type="submit">Загрузить и обработать</button>
+    </form>
+  </details>
 </details>
+
+{% if recent_batches %}
+<section class="recent-batches" aria-label="Последние тренировочные пулы">
+  <div class="section-heading"><h2>Тренировочные пулы</h2><span>Несколько матчей одного соперника</span></div>
+  <div class="opponent-grid">
+  {% for pool in recent_batches %}
+    <article class="opponent-card">
+      <p class="eyebrow">Пакетная загрузка</p><h3>{{ pool.batch.display_name }}</h3>
+      <div class="metric-row"><span><strong>{{ pool.total_count }}</strong> файлов</span><span><strong>{{ pool.complete_count + pool.duplicate_count }}</strong> готовы</span></div>
+      <a class="button" href="/ui/import-batches/{{ pool.batch.batch_id }}">Открыть пул</a>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 {% if recent_jobs %}
 <section class="recent-jobs" aria-label="Последние загрузки">
@@ -75,3 +108,4 @@
 </section>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/bulk-import.js') }}" defer></script>{% endblock %}

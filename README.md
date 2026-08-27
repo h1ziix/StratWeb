@@ -1028,6 +1028,19 @@ directory. A retry may reuse it only when its demo hash and requested ticks matc
 never open DuckDB. Configuration and acceptance evidence are documented in
 [STAGE_9_3.md](STAGE_9_3.md).
 
+### Bulk upload and training pools
+
+Open `http://127.0.0.1:8000/ui` and expand **Загрузить демки соперника**. You can select several
+`.dem` files, select a folder, drag files/folders into the drop area, or upload a ZIP. Give the
+group a pool/opponent name or select an existing opponent. StratWeb creates one durable import job
+per demo and one persistent training-pool page with aggregate progress, so a damaged file cannot
+stop the other demos.
+
+ZIP entries are never extracted using their archive paths. Files receive UUID internal names and
+pass per-file size, batch-size, member-count, compression-ratio, free-space, CS2 signature and
+SHA-256 duplicate checks. The pool records its opponent profile immediately; physical team
+selection remains explicit whenever Steam-ID roster evidence cannot prove it.
+
 ### Stage 9.4 Statistical Trust
 
 For a computed opponent pattern run, open:

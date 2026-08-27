@@ -1530,6 +1530,34 @@ CREATE INDEX idx_analyst_notes_profile
 """
 
 
+BULK_IMPORT_SCHEMA = r"""
+CREATE TABLE import_batches (
+    batch_id UUID PRIMARY KEY,
+    display_name VARCHAR NOT NULL,
+    opponent_profile_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE import_batch_items (
+    batch_id UUID NOT NULL,
+    item_index INTEGER NOT NULL CHECK (item_index >= 0),
+    original_name VARCHAR NOT NULL,
+    disposition VARCHAR NOT NULL,
+    job_id UUID,
+    existing_match_id UUID,
+    error_code VARCHAR,
+    message VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (batch_id, item_index)
+);
+
+CREATE INDEX idx_import_batches_opponent
+    ON import_batches(opponent_profile_id, created_at);
+CREATE INDEX idx_import_batch_items_job
+    ON import_batch_items(job_id, batch_id);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1582,4 +1610,5 @@ MIGRATIONS: tuple[Migration, ...] = (
         sql=TACTICAL_INTELLIGENCE_V2_SCHEMA,
     ),
     Migration(version=27, name="local_analyst_notes", sql=ANALYST_NOTES_SCHEMA),
+    Migration(version=28, name="bulk_training_pool_imports", sql=BULK_IMPORT_SCHEMA),
 )

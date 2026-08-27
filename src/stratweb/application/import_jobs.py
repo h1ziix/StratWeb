@@ -57,7 +57,7 @@ class LocalImportJobManager:
         database_path: Path,
         *,
         sampling_interval_ticks: int = 16,
-        max_queue_size: int = 4,
+        max_queue_size: int = 16,
         parser_timeout_seconds: int = 1800,
         parser_memory_limit_bytes: int = 4 * 1024 * 1024 * 1024,
         minimum_free_disk_bytes: int = 2 * 1024 * 1024 * 1024,

@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.17.0] - 2026-08-27
+
+### Added
+
+- Bulk upload accepts multiple `.dem` files, a selected folder or a ZIP archive and persists them
+  as one named training pool linked to an opponent profile.
+- A dedicated pool page shows aggregate progress plus the independent status and match link for
+  every demo. Recent pools remain discoverable from the match library.
+- Folder drag-and-drop and ordinary multi-file/folder pickers are available in the local UI.
+
+### Changed
+
+- The default bounded import queue now holds 16 waiting jobs, enough for a normal 5–6 demo
+  practice day while retaining the single DuckDB writer.
+- Duplicate, invalid and failed demos are isolated per file instead of aborting the whole batch.
+
+### Safety
+
+- ZIP members are streamed to UUID-named files without trusting archive paths. Count, individual
+  size, total uncompressed size, encryption, compression-ratio, disk-space and CS2 signature
+  guards run before parser submission.
+- A batch is linked to the chosen opponent, but StratWeb does not guess which physical team is the
+  opponent when roster evidence is ambiguous; the existing explicit confirmation flow remains.
+
 ## [0.16.0] - 2026-08-27
 
 ### Added

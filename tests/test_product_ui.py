@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import duckdb
 import pytest
@@ -11,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBTeamNameRepository
+from stratweb.application.import_jobs import LocalImportJobManager
 from stratweb.application.product import _physical_round_score, _physical_winner_label
 from stratweb.application.team_names import TeamNameSource
 from stratweb.domain.enums import Side
@@ -29,6 +32,9 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert empty.status_code == 200
     assert "Библиотека матчей" in empty.text
     assert "Матчи не найдены" in empty.text
+    assert "Загрузить демки соперника" in empty.text
+    assert 'action="/api/import-batches"' in empty.text
+    assert "Выбрать папку" in empty.text
 
     dataset = canonical_dataset_factory("product-library")
     repository.save_match(dataset, source_original_name="faceit.dem")
@@ -179,6 +185,99 @@ def test_local_upload_enforces_streaming_size_limit(tmp_path: Path) -> None:
 
     assert response.status_code == 413
     assert tuple((tmp_path / "uploads").glob("*")) == ()
+
+
+def test_bulk_upload_groups_multiple_files_and_zip_in_one_opponent_pool(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "bulk.duckdb"
+    DuckDBMatchRepository(database).initialize()
+    monkeypatch.setattr(LocalImportJobManager, "_schedule", lambda *_args: None)
+    archive = BytesIO()
+    with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
+        bundle.writestr("practice/day-one/third.dem", b"PBDEMS2third")
+        bundle.writestr("notes.txt", b"ignored")
+    application = FastAPI()
+    application.include_router(
+        product_router(database, max_queue_size=10, minimum_free_disk_bytes=0)
+    )
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/api/import-batches",
+            data={"pool_name": "Practice vs Falcons", "opponent_profile_id": ""},
+            files=[
+                ("uploads", ("first.dem", b"PBDEMS2first", "application/octet-stream")),
+                (
+                    "folder_demos",
+                    ("folder/second.dem", b"PBDEMS2second", "application/octet-stream"),
+                ),
+                ("uploads", ("practice.zip", archive.getvalue(), "application/zip")),
+            ],
+            headers={"Accept": "application/json"},
+        )
+        batch_page = client.get(f"/ui/import-batches/{response.json()['batch']['batch_id']}")
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["total_count"] == 3
+    assert payload["queued_count"] == 3
+    assert payload["rejected_count"] == 0
+    assert payload["batch"]["display_name"] == "Practice vs Falcons"
+    assert batch_page.status_code == 200
+    assert "Тренировочный пул" in batch_page.text
+    assert "Practice vs Falcons" in batch_page.text
+    assert "third.dem" in batch_page.text
+    assert sorted(entry["item"]["original_name"] for entry in payload["items"]) == [
+        "first.dem",
+        "second.dem",
+        "third.dem",
+    ]
+    with duckdb.connect(str(database), read_only=True) as connection:
+        assert connection.execute("SELECT count(*) FROM import_batches").fetchone() == (1,)
+        assert connection.execute("SELECT count(*) FROM import_batch_items").fetchone() == (3,)
+        assert connection.execute("SELECT count(*) FROM opponent_profiles").fetchone() == (1,)
+    retained = tuple((tmp_path / "uploads").glob("*"))
+    assert len(retained) == 3
+    assert all(
+        path.suffix == ".dem" and path.name not in {"first.dem", "second.dem"} for path in retained
+    )
+
+
+def test_bulk_upload_isolates_invalid_demo_and_blocks_zip_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "bulk-partial.duckdb"
+    DuckDBMatchRepository(database).initialize()
+    monkeypatch.setattr(LocalImportJobManager, "_schedule", lambda *_args: None)
+    archive = BytesIO()
+    with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
+        bundle.writestr("../../outside.dem", b"PBDEMS2safe")
+        bundle.writestr("broken.dem", b"not-a-demo")
+    application = FastAPI()
+    application.include_router(
+        product_router(database, max_queue_size=10, minimum_free_disk_bytes=0)
+    )
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/api/import-batches",
+            data={"pool_name": "Safe archive"},
+            files={"uploads": ("bundle.zip", archive.getvalue(), "application/zip")},
+            headers={"Accept": "application/json"},
+        )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["queued_count"] == 1
+    assert payload["rejected_count"] == 1
+    assert {entry["item"]["original_name"] for entry in payload["items"]} == {
+        "outside.dem",
+        "broken.dem",
+    }
+    assert not (tmp_path.parent / "outside.dem").exists()
 
 
 def test_local_upload_refuses_low_disk_before_writing(

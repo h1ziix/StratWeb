@@ -210,6 +210,7 @@ def create_app(
         product_router(
             selected_database,
             max_upload_bytes=settings.max_upload_bytes,
+            max_batch_upload_bytes=settings.max_batch_upload_bytes,
             sampling_interval_ticks=settings.position_sample_interval_ticks,
             max_queue_size=settings.import_queue_size,
             parser_timeout_seconds=settings.parser_timeout_seconds,

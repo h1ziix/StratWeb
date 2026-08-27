@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Пакетная загрузка · StratWeb{% endblock %}
+{% block content %}
+<section class="page-heading batch-heading">
+  <div><p class="eyebrow">Тренировочный пул</p><h1>{{ batch_view.batch.display_name }}</h1>
+  <p>Каждая демка обрабатывается отдельно. Ошибка одного файла не останавливает остальные.</p></div>
+  <span id="batchStatus" class="status {{ 'available' if batch_view.terminal and not batch_view.failed_count and not batch_view.rejected_count else ('unavailable' if batch_view.terminal and not batch_view.complete_count and not batch_view.duplicate_count else 'partial') }}">{% if batch_view.terminal %}Обработка завершена{% else %}Обрабатывается{% endif %}</span>
+</section>
+
+<div class="job-progress" aria-label="Общий ход обработки"><div id="batchProgressBar" style="width: {{ batch_view.progress_percent }}%"></div></div>
+<p class="muted">Общий прогресс: <strong id="batchProgress">{{ batch_view.progress_percent }}</strong>%</p>
+
+<section class="batch-summary" aria-label="Итог пакетной загрузки">
+  <article><strong id="batchTotal">{{ batch_view.total_count }}</strong><span>демок в пуле</span></article>
+  <article class="available"><strong id="batchComplete">{{ batch_view.complete_count }}</strong><span>готово</span></article>
+  <article class="partial"><strong id="batchDuplicate">{{ batch_view.duplicate_count }}</strong><span>уже были загружены</span></article>
+  <article class="unavailable"><strong id="batchFailed">{{ batch_view.failed_count + batch_view.rejected_count }}</strong><span>требуют внимания</span></article>
+</section>
+
+<div class="button-row">
+  <a class="button" href="/ui/opponents/{{ batch_view.batch.opponent_profile_id }}">Открыть соперника</a>
+  <a class="button secondary" href="/ui">К библиотеке матчей</a>
+</div>
+<p class="notice">После завершения откройте соперника. StratWeb сам покажет совпадения состава по Steam ID; неоднозначную команду попросит подтвердить, а не угадает.</p>
+
+<section>
+  <div class="section-heading"><h2>Файлы</h2><span id="batchContact">Проверяем состояние</span></div>
+  <div class="batch-file-list" id="batchFileList">
+  {% for entry in batch_view.items %}
+    <article class="batch-file" data-item-index="{{ entry.item.item_index }}">
+      <div><strong>{{ entry.item.original_name }}</strong><small>{% if entry.job %}{{ entry.job.message|warning_label }}{% else %}{{ entry.item.message }}{% endif %}</small></div>
+      {% if entry.job %}
+        <span class="status {{ 'available' if entry.job.stage == 'complete' else ('unavailable' if entry.job.stage in ('failed', 'cancelled') else 'partial') }}">{{ entry.job.stage }}</span>
+        <span>{{ entry.job.progress_percent }}%</span>
+        <a class="button secondary" href="/ui/import-jobs/{{ entry.job.job_id }}">Подробнее</a>
+      {% elif entry.item.existing_match_id %}
+        <span class="status partial">Уже загружена</span><span>100%</span>
+        <a class="button secondary" href="/ui/matches/{{ entry.item.existing_match_id }}">Открыть матч</a>
+      {% elif entry.item.disposition == 'duplicate' %}
+        <span class="status partial">Уже в обработке</span><span>100%</span>
+        {% if entry.item.job_id %}<a class="button secondary" href="/ui/import-jobs/{{ entry.item.job_id }}">Открыть загрузку</a>{% else %}<span></span>{% endif %}
+      {% else %}
+        <span class="status unavailable">Не принята</span><span>100%</span><span></span>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+<script id="batchConfig" type="application/json">{"batch_id":"{{ batch_view.batch.batch_id }}"}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/import-batch.js') }}" defer></script>{% endblock %}

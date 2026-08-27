@@ -45,6 +45,7 @@ if TYPE_CHECKING:
         PlayerTeamMembership,
         ValidationIssue,
     )
+    from stratweb.application.import_batch_models import ImportBatchItem, ImportBatchRecord
     from stratweb.application.import_job_models import ImportJobRecord
     from stratweb.application.opponent_models import (
         OpponentMatchSelection,
@@ -330,6 +331,23 @@ class ImportJobRepository(Protocol):
     def list_recent(self, limit: int = 20) -> tuple[ImportJobRecord, ...]: ...
 
     def find_by_sha256(self, sha256: str) -> ImportJobRecord | None: ...
+
+
+@runtime_checkable
+class ImportBatchRepository(Protocol):
+    """Durable grouping above independent import jobs."""
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def create(self, record: ImportBatchRecord) -> None: ...
+
+    def add_item(self, item: ImportBatchItem) -> None: ...
+
+    def get(self, batch_id: UUID) -> ImportBatchRecord | None: ...
+
+    def list_items(self, batch_id: UUID) -> tuple[ImportBatchItem, ...]: ...
+
+    def list_recent(self, limit: int = 10) -> tuple[ImportBatchRecord, ...]: ...
 
 
 @runtime_checkable
