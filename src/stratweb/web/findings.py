@@ -71,7 +71,7 @@ def finding_router(database_path: Path) -> APIRouter:
     def readiness_audit(
         profile_id: UUID,
         run_id: UUID | None = None,
-        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 20,
+        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 15,
         minimum_finding_matches: Annotated[int, Query(ge=1)] = 2,
         block_partial_source: bool = True,
         require_known_buy_type: bool = True,

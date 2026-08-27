@@ -16,8 +16,8 @@ from stratweb.counter_strategy.validation_models import CounterStrategyValidatio
 from stratweb.findings.models import AnalysisFinding
 from stratweb.readiness.models import FindingReadinessAudit
 
-REPORT_EXPORT_SCHEMA_VERSION = "1.0.0"
-REPORT_EXPORT_RULE_VERSION = "evidence_report_export_v1"
+REPORT_EXPORT_SCHEMA_VERSION = "1.1.0"
+REPORT_EXPORT_RULE_VERSION = "evidence_report_export_v2"
 
 
 class ExportModel(BaseModel):
@@ -45,6 +45,9 @@ class ReportExportScope(ExportModel):
     included_matches: int = Field(ge=0)
     excluded_matches: int = Field(ge=0)
     required_matches: int = Field(ge=1)
+    corpus_reliability_tier: str
+    corpus_reliability_label: str
+    corpus_reliability_message: str
     maps: tuple[str, ...]
     sides: tuple[str, ...]
     buy_types: tuple[str, ...]

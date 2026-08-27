@@ -22,14 +22,14 @@ from stratweb.domain.enums import Side
 from stratweb.economy.models import BuyType
 from stratweb.findings.models import AnalysisFinding, EvidenceReference, FindingCategory
 from stratweb.patterns.models import PatternType, PlayerPatternValue
-from stratweb.readiness.models import FindingReadinessRecord
+from stratweb.readiness.models import FindingReadinessRecord, corpus_reliability
 from stratweb.reporting.coach_presentation import coach_pattern_text, is_useful_coach_signal
 from stratweb.reporting.links import prefer_smooth_playback
 from stratweb.web.view_models.product import ViewModel
 
 REPORT_SCHEMA_VERSION = "1.0.0"
-REPORT_VIEW_RULE_VERSION = "scouting_report_view_v1"
-COACH_REPORT_RULE_VERSION = "coach_report_projection_v2"
+REPORT_VIEW_RULE_VERSION = "scouting_report_view_v2"
+COACH_REPORT_RULE_VERSION = "coach_report_projection_v3"
 
 
 class ScoutingReportFilters(ViewModel):
@@ -80,6 +80,9 @@ class ReportFindingView(ViewModel):
     frequency_percent: str
     sample_size: int = Field(ge=1)
     evidence_matches: int = Field(ge=1)
+    reliability_tier: str
+    reliability_label: str
+    reliability_message: str
     confidence_score_percent: str
     confidence_interval: str
     readiness_status: str
@@ -117,6 +120,9 @@ class ReportRecommendationView(ViewModel):
     frequency_percent: str
     ratio: str
     evidence_matches: int = Field(ge=1)
+    reliability_tier: str
+    reliability_label: str
+    reliability_message: str
     confidence_score_percent: str
     detail_href: str
 
@@ -144,6 +150,10 @@ class ScoutingReportPageView(ViewModel):
     selected_matches: int = Field(ge=0)
     included_matches: int = Field(ge=0)
     required_matches: int = Field(ge=1)
+    corpus_reliability_tier: str
+    corpus_reliability_label: str
+    corpus_reliability_message: str
+    corpus_reliability_css_class: str
     source_findings: int = Field(ge=0)
     ready_findings: int = Field(ge=0)
     recommendations_count: int = Field(ge=0)
@@ -325,6 +335,9 @@ def build_scouting_report_page(
     validation = source.validation
     status = validation.status.value
     required_matches = validation.config.minimum_corpus_matches
+    reliability_tier, reliability_label, reliability_message = corpus_reliability(
+        validation.coverage.included_matches
+    )
     return ScoutingReportPageView(
         profile_id=source.strategy.profile_id,
         display_name=workspace.profile.display_name,
@@ -342,6 +355,10 @@ def build_scouting_report_page(
         selected_matches=validation.coverage.selected_matches,
         included_matches=validation.coverage.included_matches,
         required_matches=required_matches,
+        corpus_reliability_tier=reliability_tier.value,
+        corpus_reliability_label=reliability_label,
+        corpus_reliability_message=reliability_message,
+        corpus_reliability_css_class=_reliability_css(reliability_tier.value),
         source_findings=validation.coverage.source_findings,
         ready_findings=validation.coverage.ready_findings,
         recommendations_count=validation.coverage.recommendations,
@@ -661,6 +678,9 @@ def _finding_view(
         strategy_status = "unclassified"
         strategy_reason = "Классификация рекомендации недоступна"
     value_label = _value_label(finding)
+    reliability_tier, reliability_label, reliability_message = corpus_reliability(
+        finding.denominator_match_count
+    )
     return ReportFindingView(
         finding_id=finding.finding_id,
         title=f"{_human(finding.pattern_type.value)}: {value_label}",
@@ -681,6 +701,9 @@ def _finding_view(
         frequency_percent=_percent(finding.frequency),
         sample_size=finding.sample_size,
         evidence_matches=finding.denominator_match_count,
+        reliability_tier=reliability_tier.value,
+        reliability_label=reliability_label,
+        reliability_message=reliability_message,
         confidence_score_percent=_percent(finding.confidence.score),
         confidence_interval=(
             f"{_percent(finding.confidence.lower_bound)}–{_percent(finding.confidence.upper_bound)}"
@@ -705,6 +728,9 @@ def _recommendation_view(
     recommendation: CounterStrategyRecommendation,
     profile_id: UUID,
 ) -> ReportRecommendationView:
+    reliability_tier, reliability_label, reliability_message = corpus_reliability(
+        recommendation.denominator_match_count
+    )
     return ReportRecommendationView(
         recommendation_id=recommendation.recommendation_id,
         source_finding_id=recommendation.source_finding_id,
@@ -730,6 +756,9 @@ def _recommendation_view(
         frequency_percent=_percent(recommendation.frequency),
         ratio=f"{recommendation.numerator}/{recommendation.denominator}",
         evidence_matches=recommendation.denominator_match_count,
+        reliability_tier=reliability_tier.value,
+        reliability_label=reliability_label,
+        reliability_message=reliability_message,
         confidence_score_percent=_percent(recommendation.confidence.score),
         detail_href=(
             f"/ui/opponents/{profile_id}/report/findings/"
@@ -866,6 +895,14 @@ def _status_css(status: str) -> str:
     )
 
 
+def _reliability_css(tier: str) -> str:
+    if tier == "high":
+        return "available"
+    if tier == "tactical_trend":
+        return "partial"
+    return "neutral"
+
+
 def _acceptance_message(status: str, included: int, required: int) -> str:
     if status == "passed":
         return "Выбранный расчёт прошёл все детерминированные проверки."
@@ -908,6 +945,9 @@ def _human(value: str) -> str:
         "round_management": "Управление раундом",
         "trade_structure": "Структура разменов",
         "finding_not_ready": "наблюдение не прошло проверку готовности",
+        "corpus_below_minimum": "выборка ниже уровня высокой надёжности",
+        "finding_matches_below_minimum": "наблюдение встречается в малом числе матчей",
+        "finding_sample_below_minimum": "малая выборка подходящих раундов",
         "no_supported_rule": "нет поддерживаемого правила",
         "rule_threshold_not_met": "порог правила не достигнут",
         "passed": "пройдено",

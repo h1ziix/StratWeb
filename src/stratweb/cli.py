@@ -604,7 +604,7 @@ def _add_pattern_commands(subparsers: Any) -> None:
 
     compute = actions.add_parser("compute", help="compute one versioned pattern run")
     compute.add_argument("profile_id", type=UUID)
-    compute.add_argument("--minimum-corpus-matches", type=int, default=20)
+    compute.add_argument("--minimum-corpus-matches", type=int, default=15)
     compute.add_argument("--minimum-sample-size", type=int, default=5)
     compute.add_argument(
         "--plant-timing-buckets",
@@ -700,7 +700,7 @@ def _add_readiness_commands(subparsers: Any) -> None:
     audit = actions.add_parser("audit", help="run a deterministic read-only audit")
     audit.add_argument("profile_id", type=UUID)
     audit.add_argument("--run", dest="analysis_run_id", type=UUID)
-    audit.add_argument("--minimum-corpus-matches", type=int, default=20)
+    audit.add_argument("--minimum-corpus-matches", type=int, default=15)
     audit.add_argument("--minimum-finding-matches", type=int, default=2)
     audit.add_argument("--allow-partial-source", action="store_true")
     audit.add_argument("--allow-unknown-buy-type", action="store_true")
@@ -716,7 +716,7 @@ def _add_counter_strategy_commands(subparsers: Any) -> None:
     actions = command.add_subparsers(dest="strategies_command", required=True)
     compute = actions.add_parser("compute", help="materialize one immutable strategy run")
     compute.add_argument("profile_id", type=UUID)
-    compute.add_argument("--minimum-corpus-matches", type=int, default=20)
+    compute.add_argument("--minimum-corpus-matches", type=int, default=15)
     compute.add_argument("--minimum-finding-matches", type=int, default=2)
     compute.add_argument("--force", action="store_true")
     _add_database_options(compute)
@@ -733,7 +733,7 @@ def _add_counter_strategy_commands(subparsers: Any) -> None:
     )
     validate.add_argument("profile_id", type=UUID)
     validate.add_argument("--run", dest="strategy_run_id", type=UUID)
-    validate.add_argument("--minimum-corpus-matches", type=int, default=20)
+    validate.add_argument("--minimum-corpus-matches", type=int, default=15)
     validate.add_argument("--allow-single-side", action="store_true")
     validate.add_argument("--allow-zero-recommendations", action="store_true")
     _add_database_options(validate)

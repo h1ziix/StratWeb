@@ -23,6 +23,8 @@ evidence-first UI и стабильные JSON/PDF/printable exports описа�
 [SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md) и [REPORT_EXPORT.md](REPORT_EXPORT.md).
 Понятный разбор каждого раунда отделяет подтверждённые события, перелом и проблему от
 полной технической таблицы ([STAGE_9_7_1.md](STAGE_9_7_1.md)).
+Рекомендации больше не требуют жёстко 20 матчей: размер корпуса отображается как
+детерминированный уровень надёжности ([STAGE_9_7_2.md](STAGE_9_7_2.md)).
 Все движки parser-independent и детерминированы; tick — authoritative единица времени.
 Дальнейшее production hardening — в [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 

@@ -9,7 +9,6 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.domain.enums import Side
 from stratweb.patterns.models import PatternInputStatus
-from stratweb.readiness.models import FindingReadinessStatus
 
 from .models import StrategySkipReason
 from .validation_models import (
@@ -166,7 +165,6 @@ class CounterStrategyValidationEngine:
                 corpus_ok,
                 "Confirmed opponent corpus meets the configured minimum.",
                 "Confirmed opponent corpus is below the configured minimum.",
-                blocked=True,
                 observed=included_matches,
                 required=selected.minimum_corpus_matches,
             )
@@ -230,7 +228,7 @@ class CounterStrategyValidationEngine:
             item.recommendation_id
             for item in recommendations
             if readiness.get(item.source_finding_id) is None
-            or readiness[item.source_finding_id].status is not FindingReadinessStatus.READY
+            or not readiness[item.source_finding_id].eligible_for_stage_8_7
         )
         checks.append(
             _check(
@@ -395,9 +393,7 @@ class CounterStrategyValidationEngine:
             sides=sides,
             buy_types=buy_types,
             source_findings=len(findings),
-            ready_findings=sum(
-                item.status is FindingReadinessStatus.READY for item in readiness.values()
-            ),
+            ready_findings=sum(item.eligible_for_stage_8_7 for item in readiness.values()),
             recommendations=len(recommendations),
             skipped_findings=len(skipped),
             evidence_references=len(evidence),

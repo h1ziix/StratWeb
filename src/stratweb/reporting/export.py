@@ -10,6 +10,7 @@ from stratweb.application.opponent_models import OpponentWorkspace
 from stratweb.application.scouting_reports import ScoutingReportSource
 from stratweb.counter_strategy.models import CounterStrategyRecommendation
 from stratweb.findings.models import AnalysisFinding
+from stratweb.readiness.models import corpus_reliability
 from stratweb.reporting.models import (
     REPORT_EXPORT_RULE_VERSION,
     REPORT_EXPORT_SCHEMA_VERSION,
@@ -39,6 +40,9 @@ class ScoutingReportExporter:
             )
         )
         skipped = tuple(sorted(source.skipped_findings, key=lambda item: str(item.finding_id)))
+        reliability_tier, reliability_label, reliability_message = corpus_reliability(
+            source.validation.coverage.included_matches
+        )
         corpus = tuple(
             ReportExportCorpusMatch(
                 match_id=item.match_id,
@@ -123,6 +127,9 @@ class ScoutingReportExporter:
                 included_matches=validation.coverage.included_matches,
                 excluded_matches=validation.coverage.excluded_matches,
                 required_matches=validation.config.minimum_corpus_matches,
+                corpus_reliability_tier=reliability_tier.value,
+                corpus_reliability_label=reliability_label,
+                corpus_reliability_message=reliability_message,
                 maps=tuple(sorted(validation.coverage.maps)),
                 sides=tuple(sorted(validation.coverage.sides)),
                 buy_types=tuple(sorted(validation.coverage.buy_types)),

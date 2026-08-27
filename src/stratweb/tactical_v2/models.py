@@ -62,7 +62,7 @@ class TacticalV2Config(TacticalModel):
     rotation_window_ticks: int = Field(default=1280, ge=1, le=8192)
     isolated_player_distance_units: FiniteFloat = Field(default=1500.0, gt=0)
     heatmap_cell_size_units: FiniteFloat = Field(default=512.0, gt=0)
-    target_corpus_matches: int = Field(default=20, ge=1)
+    target_corpus_matches: int = Field(default=15, ge=1)
 
     @model_validator(mode="after")
     def validate_checkpoints(self) -> TacticalV2Config:

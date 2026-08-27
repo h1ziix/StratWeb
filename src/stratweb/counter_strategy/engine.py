@@ -10,7 +10,10 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.findings.models import AnalysisFinding, FindingText, FindingTextAvailability
 from stratweb.patterns.models import PatternType, PlayerPatternValue
-from stratweb.readiness.models import FindingReadinessRecord, FindingReadinessStatus
+from stratweb.readiness.models import (
+    FindingReadinessRecord,
+    corpus_reliability,
+)
 
 from .models import (
     STRATEGY_RULE_VERSION,
@@ -70,7 +73,7 @@ class CounterStrategyEngine:
         skipped: list[SkippedStrategyFinding] = []
         for finding in findings:
             gate = readiness[finding.finding_id]
-            if gate.status is not FindingReadinessStatus.READY:
+            if not gate.eligible_for_stage_8_7:
                 skipped.append(_skip(finding, gate, StrategySkipReason.NOT_READY))
                 continue
             rule, supported = _match_rule(finding, selected)
@@ -108,9 +111,7 @@ class CounterStrategyEngine:
         )
         summary = CounterStrategySummary(
             source_findings=len(findings),
-            ready_findings=sum(
-                item.status is FindingReadinessStatus.READY for item in audit.records
-            ),
+            ready_findings=sum(item.eligible_for_stage_8_7 for item in audit.records),
             recommendations=len(recommendations),
             skipped_not_ready=sum(item.reason is StrategySkipReason.NOT_READY for item in skipped),
             skipped_no_rule=sum(
@@ -269,6 +270,8 @@ def _materialize(
             "recommendation_does_not_claim_intent_or_causality",
         }
     )
+    reliability_tier, _, _ = corpus_reliability(finding.denominator_match_count)
+    limitations.add(f"corpus_reliability:{reliability_tier.value}")
     return CounterStrategyRecommendation(
         recommendation_id=recommendation_id,
         strategy_run_id=run_id,

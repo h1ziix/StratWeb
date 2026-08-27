@@ -44,7 +44,7 @@ def counter_strategy_router(database_path: Path) -> APIRouter:
     def compute_strategies(
         request: Request,
         profile_id: UUID,
-        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 20,
+        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 15,
         minimum_finding_matches: Annotated[int, Query(ge=1)] = 2,
         force: bool = False,
     ) -> dict[str, Any]:
@@ -128,7 +128,7 @@ def counter_strategy_router(database_path: Path) -> APIRouter:
     def validation_audit(
         profile_id: UUID,
         run_id: UUID | None = None,
-        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 20,
+        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 15,
         require_both_sides: bool = True,
         require_recommendations: bool = True,
     ) -> dict[str, Any]:

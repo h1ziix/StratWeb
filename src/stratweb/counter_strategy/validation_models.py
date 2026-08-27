@@ -17,7 +17,7 @@ from stratweb.findings.models import AnalysisFinding, AnalysisRunSummary
 from stratweb.readiness.models import FindingReadinessAudit
 
 VALIDATION_SCHEMA_VERSION = "1.0.0"
-VALIDATION_RULE_VERSION = "counter_strategy_validation_v1"
+VALIDATION_RULE_VERSION = "counter_strategy_validation_v2"
 
 
 class ValidationModel(BaseModel):
@@ -55,7 +55,7 @@ class ValidationCheckCode(StrEnum):
 
 
 class StrategyValidationConfig(ValidationModel):
-    minimum_corpus_matches: int = Field(default=20, ge=1)
+    minimum_corpus_matches: int = Field(default=15, ge=1)
     require_both_sides: bool = True
     require_at_least_one_recommendation: bool = True
     warn_unknown_buy_context: bool = True

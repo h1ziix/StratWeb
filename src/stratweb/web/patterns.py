@@ -40,7 +40,7 @@ def pattern_router(database_path: Path) -> APIRouter:
     def compute_patterns(
         request: Request,
         profile_id: UUID,
-        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 20,
+        minimum_corpus_matches: Annotated[int, Query(ge=1)] = 15,
         minimum_sample_size: Annotated[int, Query(ge=1)] = 5,
         include_partial_features: bool = True,
         force: bool = False,

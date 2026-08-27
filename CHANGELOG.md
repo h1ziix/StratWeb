@@ -4,6 +4,31 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.16.0] - 2026-08-27
+
+### Added
+
+- Deterministic corpus reliability grades: facts from a specific game for 1–2 matches,
+  tactical trend for 3–7, stable tactical trend for 8–14 and high statistical reliability
+  for 15 or more matches.
+- Readiness summaries, ordinary and analyst reports, recommendation cards and stable JSON
+  exports now carry a plain-language reliability label and limitation message.
+
+### Changed
+
+- A corpus below 15 matches and a small finding sample are limitations, not automatic blockers.
+- Limited findings may enter the deterministic recommendation rules while preserving their
+  exact numerator, denominator, confidence interval, evidence and limitations.
+- Corpus validation reports a warning below 15 instead of rejecting an otherwise valid report.
+- Default corpus target changed from 20 to 15 in pattern, readiness, strategy validation and
+  Tactical V2 configuration.
+
+### Safety
+
+- One or two matches are explicitly labelled as facts of those games, not a proven opponent habit.
+- Missing evidence, partial source data under the strict policy, unknown buy context and integrity
+  failures can still block publication. No LLM statistics or causal claims were introduced.
+
 ## [0.15.0] - 2026-08-27
 
 ### Added

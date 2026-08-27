@@ -148,6 +148,10 @@ def warning_label(value: str) -> str:
         (r"opponent_corpus_below_minimum:(.+)", "Корпус соперника меньше минимума: {}."),
         (r"zero_frequency_patterns_excluded:(\d+)", "Исключено паттернов с нулевой частотой: {}."),
         (r"corpus_below_readiness_minimum:(.+)", "Корпус меньше порога готовности: {}."),
+        (
+            r"corpus_below_high_reliability_threshold:(.+)",
+            "Выборка ниже уровня высокой надёжности: {}. Рекомендации показаны как гипотезы.",
+        ),
         (r"stage_8_7_blocked_findings:(\d+)", "Заблокировано наблюдений: {}."),
     )
     for pattern, template in patterns:

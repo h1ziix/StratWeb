@@ -60,7 +60,7 @@ class PatternComputeStatus(StrEnum):
 
 
 class PatternConfig(PatternModel):
-    minimum_corpus_matches: int = Field(default=20, ge=1)
+    minimum_corpus_matches: int = Field(default=15, ge=1)
     minimum_sample_size: int = Field(default=5, ge=1)
     plant_timing_bucket_seconds: tuple[float, ...] = (20.0, 40.0, 60.0)
     include_partial_features: bool = True

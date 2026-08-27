@@ -19,6 +19,7 @@ from stratweb.readiness.models import (
     FindingReadinessStatus,
     FindingReadinessSummary,
     ReadinessReason,
+    corpus_reliability,
 )
 
 
@@ -38,8 +39,8 @@ class FindingReadinessEngine:
         ):
             raise ValueError("readiness input mixes findings from different analysis runs")
 
-        corpus_blocked = analysis.summary.included_matches < selected.minimum_corpus_matches
-        records = tuple(_assess(item, selected, corpus_blocked=corpus_blocked) for item in findings)
+        corpus_limited = analysis.summary.included_matches < selected.minimum_corpus_matches
+        records = tuple(_assess(item, selected, corpus_limited=corpus_limited) for item in findings)
         reason_counts: Counter[ReadinessReason] = Counter()
         for item in records:
             reason_counts.update(item.blocking_reasons)
@@ -47,16 +48,22 @@ class FindingReadinessEngine:
         ready = sum(item.status is FindingReadinessStatus.READY for item in records)
         limited = sum(item.status is FindingReadinessStatus.LIMITED for item in records)
         blocked = sum(item.status is FindingReadinessStatus.BLOCKED for item in records)
+        reliability_tier, reliability_label, reliability_message = corpus_reliability(
+            analysis.summary.included_matches
+        )
         summary = FindingReadinessSummary(
             selected_matches=analysis.summary.selected_matches,
             included_matches=analysis.summary.included_matches,
             required_corpus_matches=selected.minimum_corpus_matches,
+            corpus_reliability_tier=reliability_tier,
+            corpus_reliability_label=reliability_label,
+            corpus_reliability_message=reliability_message,
             findings=len(records),
             ready_findings=ready,
             limited_findings=limited,
             blocked_findings=blocked,
-            eligible_for_stage_8_7=ready,
-            stage_8_7_ready=bool(records) and ready > 0,
+            eligible_for_stage_8_7=ready + limited,
+            stage_8_7_ready=bool(records) and ready + limited > 0,
             reason_counts=dict(sorted(reason_counts.items(), key=lambda item: item[0].value)),
         )
         config_payload = selected.model_dump(mode="json")
@@ -70,9 +77,9 @@ class FindingReadinessEngine:
         }
         fingerprint = _sha256(payload)
         warnings = []
-        if corpus_blocked:
+        if corpus_limited:
             warnings.append(
-                "corpus_below_readiness_minimum:"
+                "corpus_below_high_reliability_threshold:"
                 f"{analysis.summary.included_matches}/{selected.minimum_corpus_matches}"
             )
         if not records:
@@ -101,16 +108,16 @@ def _assess(
     item: AnalysisFinding,
     config: FindingReadinessConfig,
     *,
-    corpus_blocked: bool,
+    corpus_limited: bool,
 ) -> FindingReadinessRecord:
     blockers: set[ReadinessReason] = set()
     limitations: set[ReadinessReason] = set()
-    if corpus_blocked:
-        blockers.add(ReadinessReason.CORPUS_BELOW_MINIMUM)
+    if corpus_limited:
+        limitations.add(ReadinessReason.CORPUS_BELOW_MINIMUM)
     if item.denominator_match_count < config.minimum_finding_matches:
-        blockers.add(ReadinessReason.FINDING_MATCHES_BELOW_MINIMUM)
+        limitations.add(ReadinessReason.FINDING_MATCHES_BELOW_MINIMUM)
     if item.small_sample_warning:
-        blockers.add(ReadinessReason.FINDING_SAMPLE_BELOW_MINIMUM)
+        limitations.add(ReadinessReason.FINDING_SAMPLE_BELOW_MINIMUM)
     if item.source_availability is PatternAvailability.PARTIAL:
         target = blockers if config.block_partial_source else limitations
         target.add(ReadinessReason.SOURCE_PATTERN_PARTIAL)
@@ -131,7 +138,7 @@ def _assess(
     return FindingReadinessRecord(
         finding_id=item.finding_id,
         status=status,
-        eligible_for_stage_8_7=status is FindingReadinessStatus.READY,
+        eligible_for_stage_8_7=status is not FindingReadinessStatus.BLOCKED,
         blocking_reasons=tuple(sorted(blockers, key=lambda reason: reason.value)),
         limitations=tuple(sorted(limitations, key=lambda reason: reason.value)),
         numerator=item.numerator,

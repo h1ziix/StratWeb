@@ -6,7 +6,7 @@
       <p class="coach-signal__kind">{{ item.kind_label }}</p>
       <h3>{{ item.plain_title }}</h3>
       <p class="coach-signal__frequency"><strong>{{ t(item.frequency_key) }}</strong> {{ t('coach.signal.in_sample') }}</p>
-      {% if item.finding.small_sample_warning %}<p class="coach-signal__warning">{{ t('coach.signal.preliminary') }}</p>{% endif %}
+      <p class="coach-signal__warning {{ item.finding.reliability_tier }}">{{ item.finding.reliability_label }}</p>
       <details><summary>{{ t('coach.signal.why') }}</summary><div>
         <p>{{ item.plain_explanation }}</p>
         <p>{{ t('coach.signal.exact', ratio=item.finding.numerator ~ '/' ~ item.finding.denominator, matches=item.finding.evidence_matches) }}</p>
@@ -29,7 +29,7 @@
   <h1>{{ report.display_name }}</h1>
   <p class="coach-hero__lead">{{ t('coach.lead') }}</p>
   <div class="coach-readiness {{ report.acceptance_css_class }}">
-    <span></span><p>{% if report.included_matches < report.required_matches %}{{ t('coach.preliminary') }}{% else %}{{ t('coach.ready') }}{% endif %}</p>
+    <span></span><p><strong>{{ report.corpus_reliability_label }}</strong> · {{ report.corpus_reliability_message }}</p>
   </div>
   <a class="button coach-start" href="#coach-deck" data-coach-start>{{ t('coach.start') }} <span aria-hidden="true">→</span></a>
 </section>
@@ -44,7 +44,7 @@
     <section class="coach-step" id="coach-step-1" data-coach-step>
       <p class="eyebrow">{{ t('coach.step.overview.eyebrow') }}</p>
       <h2>{{ t('coach.step.overview.title') }}</h2>
-      <p class="coach-step__lead">{% if report.included_matches < report.required_matches %}{{ t('coach.step.overview.preliminary') }}{% else %}{{ t('coach.step.overview.ready') }}{% endif %}</p>
+      <p class="coach-step__lead">{{ report.corpus_reliability_message }}</p>
       <div class="coach-overview-grid">
         <article><span>{{ t('coach.step.overview.attack') }}</span><strong>{{ coach_report.attack|length }}</strong><p>{{ t('coach.step.overview.signals') }}</p></article>
         <article><span>{{ t('coach.step.overview.defence') }}</span><strong>{{ coach_report.defence|length }}</strong><p>{{ t('coach.step.overview.signals') }}</p></article>
@@ -72,7 +72,7 @@
     <section class="coach-step" id="coach-step-5" data-coach-step>
       <p class="eyebrow">{{ t('coach.step.responses.eyebrow') }}</p><h2>{{ t('coach.step.responses.title') }}</h2><p class="coach-step__lead">{{ t('coach.step.responses.help') }}</p>
       {% if coach_report.recommendations %}<div class="coach-response-list">{% for item in coach_report.recommendations %}<article class="coach-response">
-        <header><span>{{ item.map_name|map_name }}</span><span>{{ t('tactical.side.' ~ item.side|lower) }}</span></header><h3>{{ item.title }}</h3>
+        <header><span>{{ item.map_name|map_name }}</span><span>{{ item.reliability_label }}</span></header><h3>{{ item.title }}</h3>
         <div><h4>{{ t('coach.response.play') }}</h4><p>{{ item.recommended_response }}</p></div>
         <div class="avoid"><h4>{{ t('coach.response.avoid') }}</h4><p>{{ item.avoid }}</p></div>
         <details><summary>{{ t('coach.signal.why') }}</summary><p>{{ item.observation }}</p><a href="{{ item.detail_href }}">{{ t('coach.signal.evidence') }}</a></details>

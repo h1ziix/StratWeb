@@ -75,9 +75,11 @@ from stratweb.patterns.models import (
 )
 from stratweb.readiness.engine import FindingReadinessEngine
 from stratweb.readiness.models import (
+    CorpusReliabilityTier,
     FindingReadinessConfig,
     FindingReadinessInput,
     ReadinessReason,
+    corpus_reliability,
 )
 from stratweb.spatial.models import SpatialExtraction, SpatialSourceSample
 from stratweb.web.rendering import render_template
@@ -90,6 +92,17 @@ from stratweb.web.view_models.scouting_report import (
 
 def _id(seed: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"pattern-test:{seed}")
+
+
+def test_corpus_reliability_grades_cover_real_world_sample_sizes() -> None:
+    assert corpus_reliability(1)[0] is CorpusReliabilityTier.MATCH_FACTS
+    assert corpus_reliability(2)[1] == "Факты конкретной игры"
+    assert corpus_reliability(3)[0] is CorpusReliabilityTier.TACTICAL_TREND
+    assert corpus_reliability(7)[1] == "Тактический тренд"
+    assert corpus_reliability(8)[1] == "Устойчивый тактический тренд"
+    assert corpus_reliability(14)[0] is CorpusReliabilityTier.TACTICAL_TREND
+    assert corpus_reliability(15)[0] is CorpusReliabilityTier.HIGH
+    assert corpus_reliability(20)[1] == "Высокая статистическая надёжность"
 
 
 def _feature(
@@ -464,11 +477,18 @@ def test_pattern_service_persistence_and_feature_cascade(
     readiness_repeated = FindingReadinessService(analysis_query).audit(profile.profile_id)
     assert readiness.audit_fingerprint == readiness_repeated.audit_fingerprint
     assert readiness.summary.included_matches == 3
-    assert readiness.summary.required_corpus_matches == 20
+    assert readiness.summary.required_corpus_matches == 15
+    assert readiness.summary.corpus_reliability_tier.value == "tactical_trend"
+    assert readiness.summary.corpus_reliability_label == "Тактический тренд"
     assert readiness.summary.ready_findings == 0
     assert readiness.summary.blocked_findings == len(findings)
     assert readiness.summary.stage_8_7_ready is False
     assert readiness.summary.reason_counts[ReadinessReason.CORPUS_BELOW_MINIMUM] == len(findings)
+    assert all(
+        ReadinessReason.CORPUS_BELOW_MINIMUM in item.limitations
+        and ReadinessReason.CORPUS_BELOW_MINIMUM not in item.blocking_reasons
+        for item in readiness.records
+    )
     permissive = FindingReadinessService(analysis_query).audit(
         profile.profile_id,
         config=FindingReadinessConfig(
@@ -483,6 +503,8 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert permissive.summary.reason_counts[ReadinessReason.FINDING_SAMPLE_BELOW_MINIMUM] == len(
         findings
     )
+    assert permissive.summary.limited_findings == len(findings)
+    assert permissive.summary.eligible_for_stage_8_7 == len(findings)
 
     supported = next(
         item
@@ -544,6 +566,35 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert strategy.denominator == len(strategy.evidence_references)
     assert "causality" in " ".join(strategy.limitations)
 
+    trend_audit = FindingReadinessEngine().audit(
+        FindingReadinessInput(analysis=analysis_summary, findings=(ready_finding,)),
+        FindingReadinessConfig(minimum_finding_matches=1),
+    )
+    assert trend_audit.records[0].status.value == "limited"
+    assert trend_audit.records[0].eligible_for_stage_8_7 is True
+    trend_strategy = CounterStrategyEngine().compute(
+        CounterStrategyInput(
+            analysis_fingerprint=analysis_summary.analysis_fingerprint,
+            analysis_schema_version=analysis_summary.analysis_schema_version,
+            analysis_rule_version=analysis_summary.analysis_rule_version,
+            profile_id=profile.profile_id,
+            readiness=trend_audit,
+            findings=(ready_finding,),
+        ),
+        CounterStrategyConfig(
+            frequent_site_threshold=0,
+            frequent_control_threshold=0,
+            recurring_opening_player_threshold=0,
+            recurring_opening_death_threshold=0,
+            low_opening_conversion_threshold=1,
+            opening_death_recovery_threshold=0,
+            lost_advantage_threshold=0,
+            untraded_death_threshold=0,
+        ),
+    )
+    assert len(trend_strategy.recommendations) == 1
+    assert "corpus_reliability:tactical_trend" in trend_strategy.recommendations[0].limitations
+
     strategy_repository = DuckDBCounterStrategyRepository(database)
     strategy_compute = ComputeCounterStrategiesService(analysis_query, strategy_repository)
     strategy_result = strategy_compute.compute(profile.profile_id)
@@ -561,7 +612,11 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert validation.status is StrategyAcceptanceStatus.BLOCKED
     assert validation.validation_fingerprint == validation_repeated.validation_fingerprint
     assert validation.failures == ()
-    assert ValidationCheckCode.CORPUS_SIZE in validation.blockers
+    assert ValidationCheckCode.CORPUS_SIZE not in validation.blockers
+    corpus_check = next(
+        item for item in validation.checks if item.code is ValidationCheckCode.CORPUS_SIZE
+    )
+    assert corpus_check.status.value == "warning"
     assert ValidationCheckCode.PUBLISHED_RECOMMENDATIONS in validation.blockers
 
     additional_inputs = tuple(
@@ -660,7 +715,7 @@ def test_pattern_service_persistence_and_feature_cascade(
     )
     assert accepted_report.acceptance_status == "passed"
     assert len(accepted_report.recommendations) == 1
-    assert coach_report.rule_version == "coach_report_projection_v2"
+    assert coach_report.rule_version == "coach_report_projection_v3"
     assert len(coach_report.recommendations) == 1
     assert (
         len(
@@ -762,11 +817,11 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert cli_analysis["summary"]["findings"] == len(findings)
     assert cli.main(["readiness", "audit", profile_id, "--db", str(database)]) == 0
     cli_readiness = json.loads(capsys.readouterr().out)
-    assert cli_readiness["readiness_rule_version"] == "finding_readiness_v1"
+    assert cli_readiness["readiness_rule_version"] == "finding_readiness_v2"
     assert cli_readiness["summary"]["stage_8_7_ready"] is False
     assert cli.main(["strategies", "status", profile_id, "--db", str(database)]) == 0
     cli_strategy = json.loads(capsys.readouterr().out)
-    assert cli_strategy["strategy_rule_version"] == "counter_strategy_rules_v1"
+    assert cli_strategy["strategy_rule_version"] == "counter_strategy_rules_v2"
     assert cli_strategy["summary"]["recommendations"] == 0
     assert cli.main(["strategies", "validate", profile_id, "--db", str(database)]) == 0
     cli_validation = json.loads(capsys.readouterr().out)
@@ -830,7 +885,7 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert api_readiness.json()["summary"]["stage_8_7_ready"] is False
         api_strategy = client.get(f"/api/opponents/{profile_id}/analysis/strategies/summary")
         assert api_strategy.status_code == 200
-        assert api_strategy.json()["strategy_rule_version"] == "counter_strategy_rules_v1"
+        assert api_strategy.json()["strategy_rule_version"] == "counter_strategy_rules_v2"
         api_validation = client.get(f"/api/opponents/{profile_id}/analysis/strategies/validation")
         assert api_validation.status_code == 200
         assert api_validation.json()["status"] == "blocked"
@@ -859,7 +914,7 @@ def test_pattern_service_persistence_and_feature_cascade(
         report_payload = report_json.json()
         assert report_payload["acceptance_status"] == "blocked"
         assert report_payload["report_schema_version"] == "1.0.0"
-        assert report_payload["report_view_rule_version"] == "scouting_report_view_v1"
+        assert report_payload["report_view_rule_version"] == "scouting_report_view_v2"
         assert report_payload["strategy_run_id"] == str(strategy_result.strategy_run_id)
         assert report_payload["source_findings"] == len(findings)
         assert report_payload["filtered_findings"] == len(findings)
@@ -876,9 +931,9 @@ def test_pattern_service_persistence_and_feature_cascade(
         )
         assert export_json.status_code == 200
         assert export_json.headers["content-disposition"].endswith('.json"')
-        assert export_json.headers["x-stratweb-export-schema"] == "1.0.0"
+        assert export_json.headers["x-stratweb-export-schema"] == "1.1.0"
         exported = export_json.json()
-        assert exported["export_rule_version"] == "evidence_report_export_v1"
+        assert exported["export_rule_version"] == "evidence_report_export_v2"
         assert exported["strategy_run_id"] == str(strategy_result.strategy_run_id)
         assert exported["scope"]["source_findings"] == len(findings)
         assert len(exported["findings"]) == len(findings)

@@ -19,7 +19,7 @@ from stratweb.readiness.models import (
 )
 
 STRATEGY_SCHEMA_VERSION = "1.0.0"
-STRATEGY_RULE_VERSION = "counter_strategy_rules_v1"
+STRATEGY_RULE_VERSION = "counter_strategy_rules_v2"
 
 
 class StrategyModel(BaseModel):
