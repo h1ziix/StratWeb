@@ -46,8 +46,13 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert search.status_code == 200 and "faceit.dem" in search.text
     assert css.status_code == 200 and "--accent" in css.text
     assert overview.status_code == 200
-    assert "Обзор матча" in overview.text
+    assert "Главное — в одном месте" in overview.text
+    assert "Выберите, что хотите посмотреть" in overview.text
+    assert "Настройки и служебные данные" in overview.text
     assert "Технические сведения" in overview.text
+    assert "/static/css/match-hub.css?v=" in overview.text
+    assert 'class="match-nav-more"' in overview.text
+    assert '<details class="match-hub-service product-disclosure" open>' not in overview.text
     assert diagnostics.status_code == 200
     assert "Качество демки" in diagnostics.text
     assert "Разбор готов" in diagnostics.text

@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.14.0] - 2026-08-26
+
+### Added
+
+- Stage 9.7 introduces Match Hub: one product-first home for a completed match with a clear
+  scoreboard, one primary viewing action, three core destinations, rounds and team rosters.
+- A versioned `MatchHubView` chooses the best available round destination deterministically:
+  2D playback first, compatible timeline second, and no fabricated fallback.
+- A dedicated responsive visual layer provides map atmosphere, compact round cards, mobile
+  stacking and reduced-motion support.
+
+### Changed
+
+- The shared match navigation now keeps Overview, Map and Timeline visible and moves secondary
+  destinations into one accessible “More / Ещё” menu. Locale contract `3.3.0` records the label.
+- Each round has one complete-card action instead of separate Map and Timeline buttons.
+- Technical health, event counters, player statistics, team-name editing and source identifiers
+  remain available but are collapsed below the ordinary match experience.
+
+### Safety
+
+- Match Hub reads existing canonical, analytics, Temporal, Spatial, economy, feature and map
+  summaries. It does not recalculate or mutate evidence, recommendations or DuckDB records.
+
 ## [0.13.0] - 2026-08-24
 
 ### Added

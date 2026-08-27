@@ -7,6 +7,13 @@ from stratweb.web.view_models.economy import (
     EconomyTeamView,
     build_economy_page,
 )
+from stratweb.web.view_models.match_hub import (
+    MATCH_HUB_VIEW_VERSION,
+    MatchHubRoundView,
+    MatchHubSectionView,
+    MatchHubView,
+    build_match_hub,
+)
 from stratweb.web.view_models.match_readiness import (
     MATCH_READINESS_VIEW_VERSION,
     MatchReadinessState,
@@ -50,11 +57,15 @@ __all__ = [
     "CoachReportPageView",
     "CoachSignalView",
     "HealthItemView",
+    "MATCH_HUB_VIEW_VERSION",
     "MATCH_READINESS_VIEW_VERSION",
     "MatchReadinessState",
     "MatchReadinessView",
     "FeatureCapabilityView",
     "MatchLibraryItemView",
+    "MatchHubRoundView",
+    "MatchHubSectionView",
+    "MatchHubView",
     "MatchOverviewView",
     "PlayerSummaryView",
     "RoundStripItemView",
@@ -66,6 +77,7 @@ __all__ = [
     "TeamScoreView",
     "build_economy_page",
     "build_match_readiness",
+    "build_match_hub",
     "build_coach_report_page",
     "build_round_feature_page",
     "ScoutingReportDetailView",

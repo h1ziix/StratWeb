@@ -48,9 +48,35 @@
     return selected;
   }
 
-  window.StratWebShell = { applyActiveNavigation, navigationScore, resolveActiveLink };
+  function bindCompactMatchNavigation(documentLike) {
+    const menu = documentLike.querySelector(".match-nav-more");
+    if (!menu || menu.dataset.bound === "true") return;
+    menu.dataset.bound = "true";
+    documentLike.addEventListener("click", (event) => {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+    documentLike.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && menu.open) {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }
+    });
+    menu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => { menu.open = false; });
+    });
+  }
+
+  window.StratWebShell = {
+    applyActiveNavigation,
+    bindCompactMatchNavigation,
+    navigationScore,
+    resolveActiveLink,
+  };
   if (typeof document !== "undefined") {
-    const apply = () => applyActiveNavigation(document, window.location);
+    const apply = () => {
+      applyActiveNavigation(document, window.location);
+      bindCompactMatchNavigation(document);
+    };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", apply, { once: true });
     } else {

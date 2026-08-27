@@ -1135,3 +1135,12 @@ capability cards and user-impact explanations without exposing percentages, UUID
 versions by default. Exact coverage, warnings, run lineage and JSON exports remain together in a
 collapsed technical section. The readiness result is derived only from existing deterministic
 outputs and does not alter analytics or evidence. See [STAGE_9_6_7.md](STAGE_9_6_7.md).
+
+### Stage 9.7 Match Hub
+
+The match overview is now a single product hub: scoreboard, one best next action, three core
+sections, one-click rounds and readable team rosters. 2D playback is preferred only when its
+persisted capability is available; otherwise a compatible timeline is used. Secondary match
+navigation lives under “More / Ещё”, while player statistics, team naming, event counters and
+technical lineage stay available in collapsed disclosures. No parser, analytics or persistence
+contract changes. See [STAGE_9_7.md](STAGE_9_7.md).

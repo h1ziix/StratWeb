@@ -13,7 +13,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from stratweb.adapters.persistence import (
     DuckDBAnalyticsRepository,
+    DuckDBEconomyRepository,
     DuckDBMatchRepository,
+    DuckDBRoundFeatureRepository,
     DuckDBSpatialRepository,
     DuckDBTeamNameRepository,
     DuckDBTemporalRepository,
@@ -37,6 +39,7 @@ from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
     MatchLibraryItemView,
     MatchOverviewView,
+    build_match_hub,
     build_match_readiness,
 )
 
@@ -59,6 +62,8 @@ def product_router(
     match_repository = DuckDBMatchRepository(database_path)
     spatial_repository = DuckDBSpatialRepository(database_path)
     zone_repository = DuckDBZoneAssignmentRepository(database_path)
+    economy_repository = DuckDBEconomyRepository(database_path)
+    feature_repository = DuckDBRoundFeatureRepository(database_path)
     team_name_repository = DuckDBTeamNameRepository(database_path)
     service = ProductQueryService(
         match_repository,
@@ -114,10 +119,32 @@ def product_router(
     @router.get("/ui/matches/{match_id}", response_class=HTMLResponse, include_in_schema=False)
     def match_overview(match_id: UUID) -> HTMLResponse:
         overview = _overview(service, match_id)
+        map_overview = _map_overview(
+            match_id,
+            overview.match.map_name,
+            spatial_repository,
+            definitions,
+            map_assets,
+        )
+        spatial_summary = spatial_repository.get_summary(match_id)
+        zone_summary = (
+            zone_repository.get_summary_for_spatial_run(match_id, spatial_summary.spatial_run_id)
+            if spatial_summary is not None
+            else None
+        )
+        readiness = build_match_readiness(overview, map_overview, zone_summary)
         return HTMLResponse(
             render_template(
                 "matches/overview.html",
                 overview=overview,
+                readiness=readiness,
+                hub=build_match_hub(
+                    overview,
+                    readiness,
+                    map_overview,
+                    economy_available=economy_repository.get_summary(match_id) is not None,
+                    features_available=feature_repository.get_summary(match_id) is not None,
+                ),
                 match_context=_match_context(overview.match),
             )
         )

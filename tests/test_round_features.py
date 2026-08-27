@@ -232,7 +232,7 @@ def test_round_feature_ui_renders_cards_filters_evidence_and_links(
     assert 'option value="T" selected' in filtered.text
     assert "Инициатор: Alpha" in filtered.text
     assert overview.status_code == 200
-    assert "Факты по раундам" in overview.text
+    assert "Факты по игре" in overview.text
 
 
 def test_round_feature_ui_explains_missing_compatible_run(
