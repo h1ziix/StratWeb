@@ -126,7 +126,13 @@ def test_product_page_computes_and_persists_an_honest_empty_run(tmp_path: Path) 
         page = client.get(f"/ui/opponents/{PROFILE_ID}/critical-mistakes")
         assert page.status_code == 200
         assert "Критические ошибки" in page.text
-        assert "Таких ошибок не найдено" in page.text
+        assert "Подтверждённых ошибок не найдено" in page.text
+        unavailable = client.get(
+            f"/ui/opponents/{PROFILE_ID}/critical-mistakes",
+            params={"mistake_type": "early_untraded_death"},
+        )
+        assert unavailable.status_code == 200
+        assert "Эта проверка недоступна" in unavailable.text
         result = client.get(f"/api/opponents/{PROFILE_ID}/critical-mistakes")
         assert result.status_code == 200
         assert result.json()["summary"]["total"] == 0

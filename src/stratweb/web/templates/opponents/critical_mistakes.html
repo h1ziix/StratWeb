@@ -15,6 +15,7 @@
   <a class="{% if selected_type and selected_type.value == 'lost_vs_full_eco' %}active{% endif %}" href="?mistake_type=lost_vs_full_eco">Против полного эко <strong>{{ result.summary.lost_vs_full_eco }}</strong></a>
   <a class="{% if selected_type and selected_type.value == 'early_untraded_death' %}active{% endif %}" href="?mistake_type=early_untraded_death">Ранняя смерть <strong>{{ result.summary.early_untraded_death }}</strong></a>
 </nav>
+{% if unavailable_types %}<p class="notice warning">Не все проверки доступны для текущих демок. StratWeb не заменяет отсутствующие данные догадками.</p>{% endif %}
 <section class="critical-list">
 {% for item in mistakes %}<article class="critical-card {{ item.mistake_type.value }}">
   <header><div><span class="map-chip">{{ item.map_name|map_name }}</span><span class="side-chip">{{ item.side.value }}</span></div><span class="round-chip">Раунд {{ item.evidence.round_number }}</span></header>
@@ -23,7 +24,7 @@
   <div class="critical-action"><h3>Что разобрать</h3><p>{{ item.recommendation }}</p></div>
   <footer><a class="button secondary" href="/ui/temporal/{{ item.evidence.match_id }}/rounds/{{ item.evidence.round_number }}">Открыть раунд</a><a class="button secondary" href="/ui/spatial/{{ item.evidence.match_id }}/rounds/{{ item.evidence.round_number }}">Посмотреть на карте</a></footer>
   <details><summary>Почему это показано</summary><ul>{% for fact in item.evidence.facts %}<li>{{ fact }}</li>{% endfor %}</ul><p>{{ item.numerator }} из {{ item.denominator }} подходящих случаев в выбранных матчах.</p>{% for limitation in item.limitations %}<p class="muted">{{ limitation }}</p>{% endfor %}</details>
-</article>{% else %}<div class="critical-empty"><h2>Таких ошибок не найдено</h2><p>Это означает только то, что в доступных и пригодных данных правило не сработало.</p></div>{% endfor %}
+</article>{% else %}<div class="critical-empty">{% if selected_capability and selected_capability.value == 'unavailable' %}<h2>Эта проверка недоступна</h2><p>В текущих демках недостаточно подтверждённых исходных данных. StratWeb не подставляет предположения.</p>{% else %}<h2>Подтверждённых ошибок не найдено</h2><p>В доступных и пригодных данных выбранное правило не сработало.</p>{% endif %}</div>{% endfor %}
 </section>
 <details class="product-disclosure"><summary>Ограничения данных</summary><div class="product-disclosure__content">{% for warning in result.warnings %}<p>{{ warning|warning_label }}</p>{% endfor %}<dl class="technical-facts"><dt>Версии</dt><dd><code>{{ result.critical_schema_version }} / {{ result.critical_rule_version }}</code></dd></dl><a href="/api/opponents/{{ profile.profile_id }}/critical-mistakes">Скачать доказательства JSON</a></div></details>
 {% else %}<section class="critical-empty"><h2>Разбор ещё не рассчитан</h2><p>Нажмите «Проверить матчи». StratWeb просмотрит подтверждённые матчи профиля и сохранит ссылки на каждый найденный раунд.</p></section>{% endif %}

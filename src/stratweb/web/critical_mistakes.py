@@ -74,6 +74,20 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
             if state
             else ()
         )
+        selected_capability = (
+            state.capabilities.get(mistake_type)
+            if state is not None and mistake_type is not None
+            else None
+        )
+        unavailable_types = (
+            tuple(
+                kind
+                for kind, status in state.capabilities.items()
+                if status.value == "unavailable"
+            )
+            if state is not None
+            else ()
+        )
         return HTMLResponse(
             render_template(
                 "opponents/critical_mistakes.html",
@@ -81,6 +95,8 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
                 result=state,
                 mistakes=mistakes,
                 selected_type=mistake_type,
+                selected_capability=selected_capability,
+                unavailable_types=unavailable_types,
                 mistake_types=tuple(CriticalMistakeType),
                 match_context=None,
             )
