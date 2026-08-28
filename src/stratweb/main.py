@@ -26,6 +26,7 @@ from stratweb.exceptions import (
 )
 from stratweb.maps.registry import MapRegistry
 from stratweb.web.counter_strategy import counter_strategy_router
+from stratweb.web.critical_mistakes import critical_mistakes_router
 from stratweb.web.design_system import design_system_router
 from stratweb.web.economy import economy_router
 from stratweb.web.findings import finding_router
@@ -244,6 +245,7 @@ def create_app(
     application.include_router(scouting_report_router(selected_database))
     application.include_router(round_feature_router(selected_database))
     application.include_router(counter_strategy_router(selected_database))
+    application.include_router(critical_mistakes_router(selected_database))
     application.include_router(pattern_router(selected_database))
     application.include_router(statistical_trust_router(selected_database))
     application.include_router(tactical_v2_router(selected_database))

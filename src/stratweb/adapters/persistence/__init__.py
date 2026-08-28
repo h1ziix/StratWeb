@@ -5,6 +5,9 @@ from stratweb.adapters.persistence.analytics_duckdb import DuckDBAnalyticsReposi
 from stratweb.adapters.persistence.counter_strategy_duckdb import (
     DuckDBCounterStrategyRepository,
 )
+from stratweb.adapters.persistence.critical_mistakes_duckdb import (
+    DuckDBCriticalMistakesRepository,
+)
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.adapters.persistence.economy_duckdb import DuckDBEconomyRepository
 from stratweb.adapters.persistence.findings_duckdb import DuckDBAnalysisRepository
@@ -34,6 +37,7 @@ __all__ = [
     "DuckDBEconomyRepository",
     "DuckDBAnalysisRepository",
     "DuckDBCounterStrategyRepository",
+    "DuckDBCriticalMistakesRepository",
     "DuckDBImportJobRepository",
     "DuckDBImportBatchRepository",
     "DuckDBHeadToHeadRepository",

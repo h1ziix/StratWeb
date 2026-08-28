@@ -1617,6 +1617,22 @@ CREATE INDEX idx_head_to_head_sources
 """
 
 
+CRITICAL_MISTAKES_SCHEMA = r"""
+CREATE TABLE critical_mistake_runs (
+    critical_run_id UUID PRIMARY KEY,
+    critical_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    critical_schema_version VARCHAR NOT NULL,
+    critical_rule_version VARCHAR NOT NULL,
+    profile_id UUID NOT NULL,
+    payload JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE INDEX idx_critical_mistake_runs_profile
+    ON critical_mistake_runs(profile_id, created_at);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1672,4 +1688,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=28, name="bulk_training_pool_imports", sql=BULK_IMPORT_SCHEMA),
     Migration(version=29, name="utility_roi_evidence", sql=UTILITY_ROI_EVIDENCE_SCHEMA),
     Migration(version=30, name="head_to_head_comparisons", sql=HEAD_TO_HEAD_SCHEMA),
+    Migration(version=31, name="critical_mistake_filters", sql=CRITICAL_MISTAKES_SCHEMA),
 )

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.21.0] - 2026-08-29
+
+### Added
+
+- A Russian coach-first **Критические ошибки** page with one-click deterministic filtering for
+  lost +2 advantages, losses against confirmed full eco and untraded deaths in the first 15 seconds.
+- Exact round, tick, event, Temporal group and Economy snapshot evidence with immutable DuckDB
+  runs under migration 031.
+- Conservative simultaneous-event handling: only deterministic post-group alive state can prove
+  an advantage; ambiguous final state is excluded instead of ordered by event ID.
+
+### Safety and limitations
+
+- Warmup, incomplete rounds, unknown outcomes and unknown/force/semi economy are not guessed.
+- The 15-second filter is unavailable without a proven tickrate; no default 64-tick assumption is
+  used.
+
 All notable StratWeb changes are recorded here. The project uses semantic versions for
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.

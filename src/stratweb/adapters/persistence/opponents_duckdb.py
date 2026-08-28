@@ -108,6 +108,10 @@ class DuckDBOpponentRepository:
                     return False
                 connection.execute("BEGIN TRANSACTION")
                 try:
+                    connection.execute(
+                        "DELETE FROM critical_mistake_runs WHERE profile_id = ?",
+                        [profile_id],
+                    )
                     delete_tactical_v2_for_profile(connection, profile_id)
                     delete_patterns_for_profile(connection, profile_id)
                     connection.execute(
