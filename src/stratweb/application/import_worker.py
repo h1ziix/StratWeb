@@ -16,7 +16,10 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from stratweb.application.canonical_models import CanonicalMatchDataset
+from stratweb.application.canonical_models import (
+    NORMALIZATION_RULE_VERSION,
+    CanonicalMatchDataset,
+)
 from stratweb.economy.models import EconomyExtraction
 from stratweb.exceptions import (
     ImportDiskSpaceError,
@@ -222,6 +225,12 @@ def _artifact_matches(model: BaseModel, sha256: str, ticks: tuple[int, ...]) -> 
         metadata = getattr(model, "normalization_metadata", None)
         source_sha = getattr(metadata, "source_demo_sha256", None)
     if source_sha != sha256:
+        return False
+    metadata = getattr(model, "normalization_metadata", None)
+    if (
+        metadata is not None
+        and getattr(metadata, "normalization_rule_version", None) != NORMALIZATION_RULE_VERSION
+    ):
         return False
     requested = getattr(model, "requested_ticks", None)
     return requested is None or tuple(requested) == ticks

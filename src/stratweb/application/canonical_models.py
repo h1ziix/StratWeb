@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from stratweb.domain.enums import Side
 
 CANONICAL_SCHEMA_VERSION = "1.1.0"
-NORMALIZATION_RULE_VERSION = "1.1.0"
+NORMALIZATION_RULE_VERSION = "1.2.0"
 
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 SteamId = Annotated[str, Field(pattern=r"^[0-9]+$", min_length=1, max_length=32)]

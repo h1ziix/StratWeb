@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from threading import Event
+from typing import Any
 from uuid import uuid4
 
 import duckdb
@@ -14,7 +15,7 @@ from stratweb.adapters.persistence import DuckDBImportJobRepository, DuckDBMatch
 from stratweb.adapters.persistence.migrations import MIGRATIONS
 from stratweb.application.import_job_models import ImportJobRecord, ImportJobStage
 from stratweb.application.import_jobs import LocalImportJobManager
-from stratweb.application.import_worker import ParserWorkerRunner
+from stratweb.application.import_worker import ParserWorkerRunner, _artifact_matches
 from stratweb.economy.models import EconomyExtraction
 from stratweb.exceptions import (
     ImportDiskSpaceError,
@@ -255,6 +256,23 @@ def test_worker_v2_reuses_valid_atomic_artifact_without_process(tmp_path: Path) 
     )
 
     assert runner.economy(tmp_path / "missing.dem", (10, 20), digest) == extraction
+
+
+def test_worker_v2_rejects_cached_canonical_artifact_from_old_normalization_rule(
+    canonical_dataset_factory: Any,
+) -> None:
+    dataset = canonical_dataset_factory("stale-canonical-worker")
+    current_sha = dataset.normalization_metadata.source_demo_sha256
+    stale = dataset.model_copy(
+        update={
+            "normalization_metadata": dataset.normalization_metadata.model_copy(
+                update={"normalization_rule_version": "1.1.0"}
+            )
+        }
+    )
+
+    assert _artifact_matches(dataset, current_sha, ()) is True
+    assert _artifact_matches(stale, current_sha, ()) is False
 
 
 def test_worker_v2_checks_disk_capacity_before_spawning(tmp_path: Path) -> None:

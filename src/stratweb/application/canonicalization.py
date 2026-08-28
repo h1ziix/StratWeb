@@ -30,6 +30,10 @@ from stratweb.application.outcome_resolution import (
 )
 from stratweb.application.round_assignment import RoundAssignmentService
 from stratweb.application.round_resolution import RoundResolver
+from stratweb.application.team_name_inference import (
+    TEAM_NAME_INFERENCE_RULE_VERSION,
+    apply_inferred_team_names,
+)
 from stratweb.application.validation import (
     CanonicalDatasetValidator,
     CanonicalEvent,
@@ -89,6 +93,7 @@ _NORMALIZATION_CONFIG: dict[str, object] = {
     "round_assignment": "half_open_start_windows_v1",
     "player_identity": "steam_id_else_occurrence_scoped_v1",
     "team_identity": "first_observed_round_rosters_v1",
+    "team_display_name_inference": TEAM_NAME_INFERENCE_RULE_VERSION,
     "overtime": "second_observed_physical_team_side_switch_v1",
     "round_outcome_sources": OUTCOME_SOURCE_EVENTS,
     "round_winner_field": ROUND_WINNER_FIELD,
@@ -110,6 +115,12 @@ class CanonicalMatchNormalizer:
             match_id,
             player_result,
             round_result.rounds,
+        )
+        inferred_teams = apply_inferred_team_names(
+            parsed,
+            team_result.teams,
+            team_result.rounds,
+            player_result.players,
         )
         assignments = RoundAssignmentService(team_result.rounds)
         gameplay = GameplayEventNormalizer().normalize(
@@ -218,7 +229,7 @@ class CanonicalMatchNormalizer:
         validation = CanonicalDatasetValidator().validate(
             ValidationInput(
                 match=match,
-                teams=team_result.teams,
+                teams=inferred_teams,
                 players=player_result.players,
                 memberships=team_result.memberships,
                 rounds=team_result.rounds,
@@ -230,7 +241,7 @@ class CanonicalMatchNormalizer:
         provisional = CanonicalMatchDataset(
             dataset_fingerprint="0" * 64,
             match=match,
-            teams=team_result.teams,
+            teams=inferred_teams,
             players=player_result.players,
             player_team_memberships=team_result.memberships,
             rounds=team_result.rounds,
@@ -260,7 +271,7 @@ class CanonicalizationService:
             path=snapshot.path,
             options=ParseOptions(
                 event_names=NORMALIZATION_EVENTS,
-                player_properties=("team_name",),
+                player_properties=("team_name", "team_clan_name"),
                 other_properties=(
                     "total_rounds_played",
                     "is_warmup_period",

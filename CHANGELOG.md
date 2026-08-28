@@ -4,6 +4,30 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.18.0] - 2026-08-28
+
+### Added
+
+- Deterministic automatic team names from the round-level `t_team_clan_name` and
+  `ct_team_clan_name` fields verified in the pinned `demoparser2==0.41.4` output.
+- Conservative explicit nickname-tag fallback when at least three players and a strict roster
+  majority share `[TAG]` or `TAG |` notation.
+- Persisted inference source, support ratio and rule version in canonical team provenance.
+
+### Changed
+
+- Canonical normalization rule version is now `1.2.0` and parser requests include
+  `team_clan_name`. Stale cached canonical worker artifacts are invalidated automatically.
+- Manual team labels still override demo-derived names; resetting a manual label reveals the
+  automatically detected name.
+
+### Safety
+
+- Generic T/CT labels, numeric placeholders, tied/weak observations and unsupported
+  `team_<value>` names are never promoted.
+- `team_<nickname>` is accepted only when the suffix matches a known player in the resolved
+  physical roster. The demo exposes no captain flag, so player order is never used as a guess.
+
 ## [0.17.0] - 2026-08-27
 
 ### Added

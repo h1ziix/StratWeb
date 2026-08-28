@@ -1041,6 +1041,16 @@ pass per-file size, batch-size, member-count, compression-ratio, free-space, CS2
 SHA-256 duplicate checks. The pool records its opponent profile immediately; physical team
 selection remains explicit whenever Steam-ID roster evidence cannot prove it.
 
+### Automatic team names
+
+New imports request `team_clan_name` from the pinned parser and attach a team name only after a
+deterministic physical-roster/round majority check. FACEIT-style `team_<captain nickname>` values
+are accepted only when that nickname belongs to the resolved roster. Explicit nickname tags such
+as `[TAG] player` are a conservative fallback when at least three players and a strict roster
+majority share the same tag. Generic side names, numeric placeholders, ties and weak majorities
+remain neutral rather than being guessed. Player nicknames continue to come from the demo and are
+resolved by Steam ID. See [TEAM_NAME_INFERENCE.md](TEAM_NAME_INFERENCE.md).
+
 ### Stage 9.4 Statistical Trust
 
 For a computed opponent pattern run, open:
