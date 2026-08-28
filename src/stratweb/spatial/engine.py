@@ -217,6 +217,12 @@ class SpatialEngine:
             coordinates, position_status = _validated_coordinates(sample, resolved, issues)
             angles, angle_status = _validated_angles(sample, issues)
             inventory_available = sample.inventory_item_ids is not None
+            utility_inventory = _utility_inventory(sample.inventory_names)
+            utility_inventory_status = (
+                SpatialAvailabilityStatus.AVAILABLE
+                if sample.inventory_names is not None
+                else SpatialAvailabilityStatus.UNAVAILABLE
+            )
             has_bomb = (
                 _C4_ITEM_DEFINITION_INDEX in sample.inventory_item_ids
                 if sample.inventory_item_ids is not None
@@ -263,6 +269,7 @@ class SpatialEngine:
                 yaw=angles[1],
                 alive=alive,
                 has_bomb=has_bomb,
+                utility_inventory=utility_inventory,
                 physical_team_id=participant.physical_team_id,
                 side=participant.side,
                 map_name=source.map_name,
@@ -272,11 +279,17 @@ class SpatialEngine:
                 has_bomb_source=(
                     "derived:inventory_as_ids_contains_49" if inventory_available else None
                 ),
+                utility_inventory_source=(
+                    "demoparser2:parse_ticks:inventory"
+                    if sample.inventory_names is not None
+                    else None
+                ),
                 availability=SnapshotAvailability(
                     position=position_status,
                     view_angles=angle_status,
                     alive_link=alive_status,
                     has_bomb=bomb_status,
+                    utility_inventory=utility_inventory_status,
                     warnings=tuple(snapshot_warnings),
                 ),
             )
@@ -857,6 +870,27 @@ def _coverage_status(covered: int, population: int) -> SpatialAvailabilityStatus
         if covered == population
         else SpatialAvailabilityStatus.PARTIAL
     )
+
+
+def _utility_inventory(items: tuple[str, ...] | None) -> tuple[str, ...] | None:
+    if items is None:
+        return None
+    aliases = {
+        "flashbang": "flashbang",
+        "smokegrenade": "smoke",
+        "hegrenade": "he_grenade",
+        "molotov": "molotov",
+        "incgrenade": "incendiary",
+        "incendiarygrenade": "incendiary",
+        "decoy": "decoy",
+        "decoygrenade": "decoy",
+    }
+    result = []
+    for item in items:
+        key = item.casefold().replace("weapon_", "").replace(" ", "").replace("_", "")
+        if normalized := aliases.get(key):
+            result.append(normalized)
+    return tuple(result)
 
 
 def _capability_warnings(capabilities: SpatialCapabilities) -> tuple[str, ...]:

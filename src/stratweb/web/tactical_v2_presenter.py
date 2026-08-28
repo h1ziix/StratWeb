@@ -39,6 +39,7 @@ class TacticalV2Page:
     filters: TacticalV2Filters
     cards: tuple[TacticalInsightCard, ...]
     highlights: tuple[TacticalInsightCard, ...]
+    utility_cards: tuple[TacticalInsightCard, ...]
     maps: tuple[str, ...]
     type_counts: dict[TacticalInsightType, int]
     total_count: int
@@ -77,6 +78,10 @@ def build_tactical_v2_page(
         filters=filters,
         cards=tuple(build_tactical_insight_card(item) for item in visible),
         highlights=tuple(build_tactical_insight_card(item) for item in highlights),
+        utility_cards=tuple(
+            build_tactical_insight_card(item)
+            for item in _utility_representatives(matching)
+        ),
         maps=tuple(sorted({item.map_name for item in insights})),
         type_counts={
             insight_type: sum(item.insight_type is insight_type for item in insights)
@@ -125,6 +130,34 @@ def _highlights(insights: tuple[TacticalInsight, ...]) -> tuple[TacticalInsight,
     )
 
 
+def _utility_representatives(
+    insights: tuple[TacticalInsight, ...],
+) -> tuple[TacticalInsight, ...]:
+    kinds = (
+        TacticalInsightType.TEAM_FLASH,
+        TacticalInsightType.UTILITY_LOSS,
+        TacticalInsightType.SMOKE_TIMING,
+    )
+    result = []
+    for insight_type in kinds:
+        candidates = tuple(item for item in insights if item.insight_type is insight_type)
+        if candidates:
+            result.append(
+                min(
+                    candidates,
+                    key=lambda item: (
+                        -item.denominator,
+                        -item.frequency,
+                        item.map_name,
+                        item.side.value,
+                        item.key,
+                        str(item.insight_id),
+                    ),
+                )
+            )
+    return tuple(result)
+
+
 def _representatives(
     insights: tuple[TacticalInsight, ...], filters: TacticalV2Filters
 ) -> tuple[TacticalInsight, ...]:
@@ -170,7 +203,37 @@ def _ordered(insights: tuple[TacticalInsight, ...]) -> tuple[TacticalInsight, ..
 
 def build_tactical_insight_card(item: TacticalInsight) -> TacticalInsightCard:
     title_key, title_values = _title(item)
-    if item.insight_type in {
+    description_values: dict[str, object] = {
+        "numerator": item.numerator,
+        "denominator": item.denominator,
+    }
+    if item.insight_type is TacticalInsightType.TEAM_FLASH:
+        description_key = "tactical.card.description.team_flash"
+        description_values["seconds"] = _number_text(
+            _numeric_metric(item, "team_blind_seconds_total")
+        )
+    elif item.insight_type is TacticalInsightType.UTILITY_LOSS:
+        if item.key == "carried_on_death":
+            description_key = "tactical.card.description.utility_carried"
+            description_values.update(
+                {
+                    "items": round(_numeric_metric(item, "utility_items_total") or 0),
+                    "value": round(
+                        _numeric_metric(item, "estimated_utility_value_total") or 0
+                    ),
+                }
+            )
+        else:
+            description_key = "tactical.card.description.no_direct_effect"
+    elif item.insight_type is TacticalInsightType.SMOKE_TIMING:
+        contact = _numeric_metric(item, "contact_window_seconds_median")
+        description_key = (
+            "tactical.card.description.smoke_contact"
+            if contact is not None
+            else "tactical.card.description.smoke_no_contact"
+        )
+        description_values["seconds"] = _number_text(contact)
+    elif item.insight_type in {
         TacticalInsightType.PATH_CLUSTER,
         TacticalInsightType.EXECUTE_PACKAGE,
         TacticalInsightType.ROTATION_TRANSITION,
@@ -184,7 +247,7 @@ def build_tactical_insight_card(item: TacticalInsight) -> TacticalInsightCard:
         title_key=title_key,
         title_values=title_values,
         description_key=description_key,
-        description_values={"numerator": item.numerator, "denominator": item.denominator},
+        description_values=description_values,
         frequency_percent=f"{item.frequency * 100:.1f}%",
         frequency_band_key=_frequency_band_key(item.frequency),
         reliability_key=_reliability_key(item),
@@ -227,6 +290,17 @@ def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
             if item.key == "he"
             else "tactical.card.title.utility_fire"
         ), {}
+    if item.insight_type is TacticalInsightType.TEAM_FLASH:
+        return "tactical.card.title.team_flash", {"player": item.label.partition(":")[0]}
+    if item.insight_type is TacticalInsightType.UTILITY_LOSS:
+        if item.key == "carried_on_death":
+            return "tactical.card.title.utility_carried", {}
+        grenade = item.key.partition(":")[2]
+        return "tactical.card.title.no_direct_effect", {"grenade": grenade}
+    if item.insight_type is TacticalInsightType.SMOKE_TIMING:
+        return "tactical.card.title.smoke_timing", {
+            "seconds": _number_text(_numeric_metric(item, "smoke_start_seconds_median"))
+        }
     if item.insight_type is TacticalInsightType.SPACING_PROFILE:
         checkpoint = item.key.partition(":")[2]
         moment = {"640": "early", "1280": "middle", "1920": "late"}.get(checkpoint, "checkpoint")
@@ -256,6 +330,12 @@ def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
 def _numeric_metric(item: TacticalInsight, key: str) -> float | None:
     value = item.metrics.get(key)
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def _number_text(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value:.1f}".rstrip("0").rstrip(".")
 
 
 def _href(

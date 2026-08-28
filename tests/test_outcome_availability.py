@@ -213,7 +213,7 @@ def test_availability_metadata_participates_in_fingerprint(
 def test_legacy_v1_json_is_upgraded_conservatively() -> None:
     dataset = load_canonical_dataset(Path("canonical-match.json"))
 
-    assert dataset.schema_version == "1.1.0"
+    assert dataset.schema_version == "1.2.0"
     assert all(round_item.winner_side is None for round_item in dataset.rounds)
     assert all(not round_item.outcome_status.is_available for round_item in dataset.rounds)
     assert any(

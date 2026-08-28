@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from stratweb.application.canonical_models import (
+    CanonicalBlind,
     CanonicalBombEvent,
     CanonicalDamage,
     CanonicalGrenade,
@@ -115,6 +116,7 @@ class RoundEvents(PersistenceModel):
     damages: tuple[CanonicalDamage, ...] = ()
     shots: tuple[CanonicalShot, ...] = ()
     grenades: tuple[CanonicalGrenade, ...] = ()
+    blinds: tuple[CanonicalBlind, ...] = ()
     bomb_events: tuple[CanonicalBombEvent, ...] = ()
 
 

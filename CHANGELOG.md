@@ -4,6 +4,35 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.19.0] - 2026-08-28
+
+### Added
+
+- Utility ROI in Tactical V2: teammate/enemy blind duration for player-owned flashes,
+  utility retained immediately before death with a versioned price estimate, and smoke timing
+  in deterministic five-second buckets.
+- A dedicated plain-language grenade section in the tactical report with direct links to the
+  stored match, round, event, projectile, effect and spatial snapshot evidence.
+- Canonical `player_blind` normalization and persisted source clock fields verified against the
+  pinned `demoparser2==0.41.4` API and bundled test demo.
+
+### Changed
+
+- Canonical schema is now `1.2.0`, normalization rules `1.3.0`, spatial schema `1.3.0`,
+  spatial rules `1.4.0`, and Tactical V2 schema/rules `1.1.0` / `2.1.0`.
+- Spatial samples retain normalized utility inventory so pre-death evidence can be evaluated
+  without reconstructing or guessing purchases.
+- DuckDB migration 029 persists blind events, source time and round-start time while preserving
+  compatibility with older partial migration fixtures.
+
+### Safety
+
+- “No recorded direct effect” is not presented as proof that a grenade was tactically useless.
+- Smokes are never classified as wasted without line-of-sight evidence. The displayed smoke
+  contact window ends at first confirmed enemy damage and is not described as an inferred execute.
+- Missing blind, inventory or source-clock values are excluded and reported as unavailable rather
+  than filled with estimates.
+
 ## [0.18.0] - 2026-08-28
 
 ### Added

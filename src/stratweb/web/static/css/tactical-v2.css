@@ -231,10 +231,18 @@ form[aria-busy="true"] { opacity: .72; }
 .tactical-capability.unavailable progress { accent-color: var(--color-danger); }
 .tactical-technical { margin-top: 22px; }
 .tactical-coverage-disclosure { margin-top: 18px; }
+.utility-roi-section {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(74, 222, 189, .1), transparent 34%),
+    var(--surface-raised);
+}
+.utility-roi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.utility-roi-copy { color: var(--text-muted); line-height: 1.55; }
 
 @media (max-width: 1050px) {
   .tactical-highlight-grid,
   .tactical-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .utility-roi-grid { grid-template-columns: 1fr; }
   .tactical-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tactical-coach-banner { grid-template-columns: 1fr; }
 }

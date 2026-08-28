@@ -19,6 +19,7 @@ from stratweb.adapters.persistence._tactical_v2_cascade import (
 )
 from stratweb.adapters.persistence.migrations import MIGRATIONS, Migration
 from stratweb.application.canonical_models import (
+    CanonicalBlind,
     CanonicalBombEvent,
     CanonicalDamage,
     CanonicalGameplayEvent,
@@ -63,6 +64,7 @@ _MATCH_TABLES: tuple[str, ...] = (
     "damages",
     "shots",
     "grenades",
+    "blinds",
     "bomb_events",
     "validation_issues",
     "normalization_metadata",
@@ -109,6 +111,7 @@ _DELETE_ORDER: tuple[str, ...] = (
     "normalization_metadata",
     "validation_issues",
     "bomb_events",
+    "blinds",
     "grenades",
     "shots",
     "damages",
@@ -502,6 +505,15 @@ class DuckDBMatchRepository:
                     parameters,
                 )
             )
+            blinds = tuple(
+                _blind_from_row(row)
+                for row in _fetch_dicts(
+                    connection,
+                    "SELECT * FROM blinds WHERE match_id = ? AND round_number = ? "
+                    "ORDER BY tick, event_id",
+                    parameters,
+                )
+            )
             bomb_events = tuple(
                 _bomb_from_row(row)
                 for row in _fetch_dicts(
@@ -518,6 +530,7 @@ class DuckDBMatchRepository:
             damages=damages,
             shots=shots,
             grenades=grenades,
+            blinds=blinds,
             bomb_events=bomb_events,
         )
 
@@ -718,6 +731,11 @@ class DuckDBMatchRepository:
         )
         self._batch_insert(
             connection,
+            "blinds",
+            [_blind_to_row(event) for event in dataset.blinds],
+        )
+        self._batch_insert(
+            connection,
             "bomb_events",
             [_bomb_to_row(event) for event in dataset.bomb_events],
         )
@@ -764,12 +782,22 @@ class DuckDBMatchRepository:
     ) -> None:
         if not rows:
             return
-        columns = tuple(rows[0])
+        available_columns = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+                [table],
+            ).fetchall()
+        }
+        columns = tuple(column for column in rows[0] if column in available_columns)
+        if not columns:
+            raise DatasetIntegrityError(f'Persistence table "{table}" has no expected columns.')
         relation_name = f"_stratweb_batch_{table}"
         serializable_rows = [
             {
                 column: str(value) if isinstance(value, UUID) else value
                 for column, value in row.items()
+                if column in available_columns
             }
             for row in rows
         ]
@@ -788,11 +816,20 @@ class DuckDBMatchRepository:
         self, connection: duckdb.DuckDBPyConnection, match_id: UUID
     ) -> dict[str, int]:
         counts: dict[str, int] = {"matches": 0}
+        available_tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+            ).fetchall()
+        }
         match_count = connection.execute(
             "SELECT count(*) FROM matches WHERE match_id = ?", [match_id]
         ).fetchone()
         counts["matches"] = int(match_count[0]) if match_count else 0
         for table in _MATCH_TABLES:
+            if table not in available_tables:
+                counts[table] = 0
+                continue
             row = connection.execute(
                 f'SELECT count(*) FROM "{table}" WHERE match_id = ?', [match_id]
             ).fetchone()
@@ -816,6 +853,12 @@ class DuckDBMatchRepository:
         ).fetchone()
         if row is None or str(row[0]) != dataset.dataset_fingerprint:
             raise DatasetIntegrityError("Persisted dataset fingerprint does not match input.")
+        available_tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+            ).fetchall()
+        }
         orphan_checks: list[str] = [
             "SELECT count(*) FROM rounds r LEFT JOIN matches m USING(match_id) "
             "WHERE r.match_id = ? AND m.match_id IS NULL",
@@ -832,7 +875,9 @@ class DuckDBMatchRepository:
             "ON t.match_id = r.match_id AND t.team_id = r.ct_team_id "
             "WHERE r.match_id = ? AND r.ct_team_id IS NOT NULL AND t.team_id IS NULL",
         ]
-        for table in ("kills", "damages", "shots", "grenades", "bomb_events"):
+        for table in ("kills", "damages", "shots", "grenades", "blinds", "bomb_events"):
+            if table not in available_tables:
+                continue
             orphan_checks.append(
                 f'SELECT count(*) FROM "{table}" e LEFT JOIN rounds r '
                 "ON r.match_id = e.match_id AND r.round_id = e.round_id "
@@ -860,12 +905,20 @@ class DuckDBMatchRepository:
                 ("player_id", "players", "player_id"),
                 ("team_id", "teams", "team_id"),
             ),
+            "blinds": (
+                ("attacker_player_id", "players", "player_id"),
+                ("victim_player_id", "players", "player_id"),
+                ("attacker_team_id", "teams", "team_id"),
+                ("victim_team_id", "teams", "team_id"),
+            ),
             "bomb_events": (
                 ("player_id", "players", "player_id"),
                 ("team_id", "teams", "team_id"),
             ),
         }
         for event_table, references in actor_references.items():
+            if event_table not in available_tables:
+                continue
             for event_column, target_table, target_column in references:
                 orphan_checks.append(
                     f'SELECT count(*) FROM "{event_table}" e '
@@ -912,6 +965,7 @@ def _expected_counts(dataset: CanonicalMatchDataset) -> dict[str, int]:
         "damages": len(dataset.damages),
         "shots": len(dataset.shots),
         "grenades": len(dataset.grenades),
+        "blinds": len(dataset.blinds),
         "bomb_events": len(dataset.bomb_events),
         "validation_issues": len(dataset.validation_report.issues),
         "normalization_metadata": 1,
@@ -961,6 +1015,7 @@ def _event_to_row(event: CanonicalGameplayEvent) -> dict[str, object]:
         "relative_tick": event.relative_tick,
         "phase": event.phase.value,
         "source_event": event.source_event,
+        "game_time": event.game_time,
         "warnings": canonical_json(list(event.warnings)),
     }
 
@@ -1037,6 +1092,24 @@ def _grenade_to_row(event: CanonicalGrenade) -> dict[str, object]:
             "x": event.x,
             "y": event.y,
             "z": event.z,
+            "round_start_time": event.round_start_time,
+        }
+    )
+    return row
+
+
+def _blind_to_row(event: CanonicalBlind) -> dict[str, object]:
+    row = _event_to_row(event)
+    row.update(
+        {
+            "attacker_player_id": event.attacker_player_id,
+            "victim_player_id": event.victim_player_id,
+            "attacker_team_id": event.attacker_team_id,
+            "victim_team_id": event.victim_team_id,
+            "attacker_side": event.attacker_side.value,
+            "victim_side": event.victim_side.value,
+            "duration_seconds": event.duration_seconds,
+            "entity_id": event.entity_id,
         }
     )
     return row
@@ -1174,6 +1247,7 @@ def _event_kwargs(row: dict[str, Any]) -> dict[str, object]:
         "relative_tick": row["relative_tick"],
         "phase": EventPhase(row["phase"]),
         "source_event": row["source_event"],
+        "game_time": row.get("game_time"),
         "warnings": tuple(_json_value(row["warnings"])),
     }
 
@@ -1240,6 +1314,21 @@ def _grenade_from_row(row: dict[str, Any]) -> CanonicalGrenade:
         x=row["x"],
         y=row["y"],
         z=row["z"],
+        round_start_time=row.get("round_start_time"),
+    )
+
+
+def _blind_from_row(row: dict[str, Any]) -> CanonicalBlind:
+    return CanonicalBlind(
+        **_event_kwargs(row),
+        attacker_player_id=row["attacker_player_id"],
+        victim_player_id=row["victim_player_id"],
+        attacker_team_id=row["attacker_team_id"],
+        victim_team_id=row["victim_team_id"],
+        attacker_side=Side(row["attacker_side"]),
+        victim_side=Side(row["victim_side"]),
+        duration_seconds=row["duration_seconds"],
+        entity_id=row["entity_id"],
     )
 
 

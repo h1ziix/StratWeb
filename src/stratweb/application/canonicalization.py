@@ -67,6 +67,7 @@ NORMALIZATION_EVENTS: tuple[str, ...] = (
     "inferno_startburn",
     "inferno_expire",
     "flashbang_detonate",
+    "player_blind",
     "hegrenade_detonate",
     "decoy_detonate",
     "player_spawn",
@@ -165,6 +166,7 @@ class CanonicalMatchNormalizer:
                         "inferno_startburn",
                     ),
                 ),
+                "CanonicalBlind": _selected(parsed, "player_blind"),
                 "CanonicalBombEvent": _selected_first(
                     parsed,
                     ("bomb_planted", "bomb_defused", "bomb_exploded"),
@@ -212,6 +214,7 @@ class CanonicalMatchNormalizer:
         event_list.extend(gameplay.damages)
         event_list.extend(gameplay.shots)
         event_list.extend(gameplay.grenades)
+        event_list.extend(gameplay.blinds)
         event_list.extend(gameplay.bomb_events)
         all_events = tuple(sorted(event_list, key=lambda event: (event.tick, str(event.event_id))))
         preprocessing_issues = list(gameplay.issues)
@@ -249,6 +252,7 @@ class CanonicalMatchNormalizer:
             damages=gameplay.damages,
             shots=gameplay.shots,
             grenades=gameplay.grenades,
+            blinds=gameplay.blinds,
             bomb_events=gameplay.bomb_events,
             validation_report=validation,
             normalization_metadata=metadata,
@@ -275,6 +279,8 @@ class CanonicalizationService:
                 other_properties=(
                     "total_rounds_played",
                     "is_warmup_period",
+                    "game_time",
+                    "round_start_time",
                     *OUTCOME_PARSE_PROPERTIES,
                 ),
                 include_grenade_trajectories=False,

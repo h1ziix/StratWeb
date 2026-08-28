@@ -27,6 +27,7 @@ from stratweb.domain.enums import Side
 from stratweb.main import create_app
 from stratweb.tactical_v2.engine import TacticalV2Engine
 from stratweb.tactical_v2.models import (
+    TacticalBlindSample,
     TacticalDamageSample,
     TacticalInsightType,
     TacticalKillSample,
@@ -255,6 +256,202 @@ def test_tactical_v2_is_deterministic_and_covers_independent_families() -> None:
     assert utility.availability.value == "partial"
     assert utility.numerator == utility.denominator == 1
     assert utility.metrics["damage_health_total"] == 48.0
+
+
+def test_utility_roi_tracks_team_flash_predeath_inventory_and_smoke_clock() -> None:
+    source = _source()
+    round_item = TacticalRoundInput(
+        match_id=source.match_id,
+        round_id=_id("utility-round"),
+        round_number=1,
+        side=Side.T,
+        selected_team_won=False,
+        is_warmup=False,
+        is_complete=True,
+        live_start_tick=100,
+        effective_end_tick=300,
+        selected_player_ids=(_id("p1"), _id("p2")),
+        opponent_player_ids=(_id("o1"),),
+        samples=(
+            TacticalPlayerSample(
+                snapshot_id=_id("predeath-inventory"),
+                player_id=_id("p1"),
+                player_name="Alpha",
+                tick=190,
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                alive=True,
+                side=Side.T,
+                utility_inventory=("flashbang", "smoke"),
+            ),
+        ),
+        kills=(
+            TacticalKillSample(
+                event_id=_id("utility-death"),
+                tick=200,
+                victim_player_id=_id("p1"),
+                victim_team_id=source.team_id,
+                attacker_player_id=_id("o1"),
+                attacker_team_id=_id("enemy"),
+                game_time=30.0,
+            ),
+        ),
+        damages=(
+            TacticalDamageSample(
+                event_id=_id("post-smoke-contact"),
+                tick=140,
+                attacker_player_id=_id("o1"),
+                victim_player_id=_id("p1"),
+                attacker_team_id=_id("enemy"),
+                victim_team_id=source.team_id,
+                weapon="ak47",
+                damage_health=10,
+                game_time=22.0,
+            ),
+        ),
+        blinds=(
+            TacticalBlindSample(
+                event_id=_id("team-blind"),
+                tick=120,
+                attacker_player_id=_id("p1"),
+                victim_player_id=_id("p2"),
+                attacker_team_id=source.team_id,
+                victim_team_id=source.team_id,
+                duration_seconds=2.5,
+                entity_id=7,
+                game_time=18.0,
+            ),
+            TacticalBlindSample(
+                event_id=_id("enemy-blind"),
+                tick=120,
+                attacker_player_id=_id("p1"),
+                victim_player_id=_id("o1"),
+                attacker_team_id=source.team_id,
+                victim_team_id=_id("enemy"),
+                duration_seconds=1.0,
+                entity_id=7,
+                game_time=18.0,
+            ),
+        ),
+        trades=(),
+        utility=(
+            TacticalUtilitySample(
+                effect_id=_id("flash-effect"),
+                projectile_id=_id("flash-projectile"),
+                source_entity_id=7,
+                owner_player_id=_id("p1"),
+                owner_team_id=source.team_id,
+                effect_type="flash",
+                start_tick=120,
+                end_tick=120,
+            ),
+            TacticalUtilitySample(
+                effect_id=_id("smoke-effect"),
+                projectile_id=_id("smoke-projectile"),
+                source_entity_id=8,
+                owner_player_id=_id("p1"),
+                owner_team_id=source.team_id,
+                effect_type="smoke",
+                start_tick=130,
+                end_tick=230,
+                game_time=20.0,
+                round_start_time=5.0,
+            ),
+            TacticalUtilitySample(
+                effect_id=_id("he-no-effect"),
+                projectile_id=_id("he-no-effect-projectile"),
+                source_entity_id=9,
+                owner_player_id=_id("p1"),
+                owner_team_id=source.team_id,
+                effect_type="he",
+                start_tick=150,
+                end_tick=150,
+            ),
+        ),
+    )
+    data = TacticalV2Input(
+        profile_id=_id("utility-profile"),
+        matches=(
+            TacticalMatchInput(
+                source=source,
+                rounds=(round_item,),
+                blind_events_available=True,
+                damage_events_available=True,
+            ),
+        ),
+    )
+
+    state = TacticalV2Engine().compute(data)
+
+    team_flash = next(
+        item for item in state.insights if item.insight_type is TacticalInsightType.TEAM_FLASH
+    )
+    assert (team_flash.numerator, team_flash.denominator) == (1, 1)
+    assert team_flash.metrics["team_blind_seconds_total"] == 2.5
+    assert team_flash.metrics["enemy_blind_seconds_total"] == 1.0
+
+    carried = next(
+        item
+        for item in state.insights
+        if item.insight_type is TacticalInsightType.UTILITY_LOSS
+        and item.key == "carried_on_death"
+    )
+    assert (carried.numerator, carried.denominator) == (1, 1)
+    assert carried.metrics["utility_items_total"] == 2.0
+    assert carried.metrics["estimated_utility_value_total"] == 500.0
+
+    no_effect = next(
+        item
+        for item in state.insights
+        if item.insight_type is TacticalInsightType.UTILITY_LOSS
+        and item.key == "no_direct_effect:he"
+    )
+    assert (no_effect.numerator, no_effect.denominator) == (1, 1)
+
+    smoke = next(
+        item for item in state.insights if item.insight_type is TacticalInsightType.SMOKE_TIMING
+    )
+    assert smoke.key == "start:15"
+    assert smoke.metrics["smoke_start_seconds_median"] == 15.0
+    assert smoke.metrics["contact_window_seconds_median"] == 2.0
+    page = build_tactical_v2_page(
+        state.profile_id,
+        state.tactical_run_id,
+        state.insights,
+        filters=TacticalV2Filters(),
+        page=1,
+    )
+    assert {card.source.insight_type for card in page.utility_cards} == {
+        TacticalInsightType.TEAM_FLASH,
+        TacticalInsightType.UTILITY_LOSS,
+        TacticalInsightType.SMOKE_TIMING,
+    }
+    duplicate_loss = next(
+        item
+        for item in state.insights
+        if item.insight_type is TacticalInsightType.UTILITY_LOSS
+    ).model_copy(
+        update={
+            "insight_id": _id("dominant-utility-loss"),
+            "numerator": 100,
+            "denominator": 100,
+            "sample_size": 100,
+            "frequency": 1.0,
+        }
+    )
+    balanced_page = build_tactical_v2_page(
+        state.profile_id,
+        state.tactical_run_id,
+        (*state.insights, duplicate_loss),
+        filters=TacticalV2Filters(),
+        page=1,
+    )
+    assert {card.source.insight_type for card in balanced_page.utility_cards} == {
+        TacticalInsightType.TEAM_FLASH,
+        TacticalInsightType.UTILITY_LOSS,
+        TacticalInsightType.SMOKE_TIMING,
+    }
 
 
 def test_tactical_v2_product_view_filters_without_changing_insights() -> None:
@@ -589,6 +786,7 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         page = client.get(f"/ui/opponents/{_id('profile')}/tactical-v2")
         assert page.status_code == 200
         assert "Тактический обзор" in page.text
+        assert "Как команда использует гранаты" in page.text
         assert "Что важно заметить" in page.text
         assert "Пока используйте это как подсказку" in page.text
         assert "Почему система так решила" in page.text

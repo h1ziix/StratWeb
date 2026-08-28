@@ -23,8 +23,13 @@ from stratweb.tactical_v2.models import (
     TACTICAL_V2_ROUTE_RULE,
     TACTICAL_V2_RULE_VERSION,
     TACTICAL_V2_SCHEMA_VERSION,
+    TACTICAL_V2_SMOKE_TIMING_RULE,
+    TACTICAL_V2_TEAM_FLASH_RULE,
+    TACTICAL_V2_UTILITY_LOSS_RULE,
+    TACTICAL_V2_UTILITY_PRICE_POLICY,
     TACTICAL_V2_UTILITY_RULE,
     TacticalAvailability,
+    TacticalBlindSample,
     TacticalCapability,
     TacticalDamageSample,
     TacticalEvidenceReference,
@@ -33,6 +38,7 @@ from stratweb.tactical_v2.models import (
     TacticalMatchInput,
     TacticalPlayerSample,
     TacticalRoundInput,
+    TacticalUtilitySample,
     TacticalV2Config,
     TacticalV2Input,
     TacticalV2Run,
@@ -84,6 +90,9 @@ class TacticalV2Engine:
             self._paths(matches, selected),
             self._executes(matches, selected),
             self._utility(matches, selected),
+            self._team_flashes(matches, selected),
+            self._utility_losses(matches, selected),
+            self._smoke_timing(matches, selected),
             self._spacing(matches, selected),
             self._entries(matches, selected),
             self._rotations(matches, selected),
@@ -402,6 +411,298 @@ class TacticalV2Engine:
                 len(drafts),
                 "utility_outcome_requires_unique_association_and_never_proves_causality",
                 force_partial=covered > 0,
+            )
+        }
+
+    def _team_flashes(
+        self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config
+    ) -> tuple[tuple[_Draft, ...], dict[TacticalInsightType, TacticalCapability]]:
+        del config
+        occurrences: list[_Occurrence] = []
+        eligible = covered = 0
+        for match in matches:
+            for round_item in _eligible_rounds(match):
+                effects = tuple(
+                    effect
+                    for effect in round_item.utility
+                    if effect.owner_team_id == match.source.team_id
+                    and effect.owner_player_id is not None
+                    and effect.effect_type == "flash"
+                )
+                eligible += len(effects)
+                if not match.blind_events_available:
+                    continue
+                for effect in effects:
+                    associated = tuple(
+                        blind
+                        for blind in round_item.blinds
+                        if _blind_matches_effect(blind, effect)
+                    )
+                    team_blinds = tuple(
+                        blind
+                        for blind in associated
+                        if blind.victim_team_id == match.source.team_id
+                        and blind.victim_player_id != effect.owner_player_id
+                    )
+                    enemy_blinds = tuple(
+                        blind
+                        for blind in associated
+                        if blind.victim_team_id not in {None, match.source.team_id}
+                    )
+                    covered += 1
+                    player_name = _player_name(round_item, effect.owner_player_id)
+                    occurrences.append(
+                        _Occurrence(
+                            match_id=match.source.match_id,
+                            map_name=match.source.map_name,
+                            side=round_item.side,
+                            key=f"player:{effect.owner_player_id}",
+                            label=f"{player_name}: ослепление своих",
+                            positive=bool(team_blinds),
+                            evidence=TacticalEvidenceReference(
+                                match_id=match.source.match_id,
+                                round_number=round_item.round_number,
+                                tick_start=effect.start_tick,
+                                tick_end=effect.start_tick,
+                                event_ids=tuple(
+                                    sorted((item.event_id for item in associated), key=str)
+                                ),
+                                projectile_ids=(
+                                    (effect.projectile_id,)
+                                    if effect.projectile_id is not None
+                                    else ()
+                                ),
+                                effect_ids=(effect.effect_id,),
+                            ),
+                            metrics={
+                                "team_blind_seconds": sum(
+                                    item.duration_seconds or 0.0 for item in team_blinds
+                                ),
+                                "enemy_blind_seconds": sum(
+                                    item.duration_seconds or 0.0 for item in enemy_blinds
+                                ),
+                            },
+                        )
+                    )
+        drafts = _binary_drafts(
+            TacticalInsightType.TEAM_FLASH,
+            occurrences,
+            (
+                f"team_flash_rule:{TACTICAL_V2_TEAM_FLASH_RULE}",
+                "team_flash_uses_parser_reported_blind_duration_without_line_of_sight_inference",
+                "a_flash_that_forced_an_enemy_to_turn_away_may_have_no_blind_event",
+            ),
+        )
+        return drafts, {
+            TacticalInsightType.TEAM_FLASH: _capability(
+                eligible,
+                covered,
+                len(drafts),
+                "player_blind_event_source_unavailable",
+            )
+        }
+
+    def _utility_losses(
+        self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config
+    ) -> tuple[tuple[_Draft, ...], dict[TacticalInsightType, TacticalCapability]]:
+        occurrences: list[_Occurrence] = []
+        eligible = covered = 0
+        for match in matches:
+            for round_item in _eligible_rounds(match):
+                for kill in round_item.kills:
+                    if (
+                        kill.victim_team_id != match.source.team_id
+                        or kill.victim_player_id is None
+                    ):
+                        continue
+                    eligible += 1
+                    sample = _predeath_sample(round_item, kill.victim_player_id, kill.tick)
+                    if sample is None or sample.utility_inventory is None:
+                        continue
+                    covered += 1
+                    value = sum(
+                        config.utility_prices.get(item, 0) for item in sample.utility_inventory
+                    )
+                    occurrences.append(
+                        _Occurrence(
+                            match_id=match.source.match_id,
+                            map_name=match.source.map_name,
+                            side=round_item.side,
+                            key="carried_on_death",
+                            label="Гранаты оставались у погибших игроков",
+                            positive=bool(sample.utility_inventory),
+                            evidence=TacticalEvidenceReference(
+                                match_id=match.source.match_id,
+                                round_number=round_item.round_number,
+                                tick_start=sample.tick,
+                                tick_end=kill.tick,
+                                event_ids=(kill.event_id,),
+                                snapshot_ids=(sample.snapshot_id,),
+                            ),
+                            metrics={
+                                "utility_items": float(len(sample.utility_inventory)),
+                                "estimated_utility_value": float(value),
+                            },
+                        )
+                    )
+
+                effects = tuple(
+                    effect
+                    for effect in round_item.utility
+                    if effect.owner_team_id == match.source.team_id
+                    and effect.owner_player_id is not None
+                    and effect.effect_type in {"he", "fire", "flash"}
+                )
+                for effect in effects:
+                    if effect.effect_type == "flash" and not match.blind_events_available:
+                        eligible += 1
+                        continue
+                    if effect.effect_type in {"he", "fire"} and not match.damage_events_available:
+                        eligible += 1
+                        continue
+                    eligible += 1
+                    event_ids: tuple[UUID, ...]
+                    if effect.effect_type == "flash":
+                        enemy_blinds = tuple(
+                            blind
+                            for blind in round_item.blinds
+                            if _blind_matches_effect(blind, effect)
+                            and blind.victim_team_id not in {None, match.source.team_id}
+                        )
+                        has_direct_effect = bool(enemy_blinds)
+                        event_ids = tuple(sorted((item.event_id for item in enemy_blinds), key=str))
+                    else:
+                        damage = _associated_enemy_damage(
+                            round_item,
+                            effect,
+                            match.source.team_id,
+                            config.utility_outcome_grace_ticks,
+                        )
+                        has_direct_effect = bool(damage)
+                        event_ids = tuple(sorted((item.event_id for item in damage), key=str))
+                    covered += 1
+                    occurrences.append(
+                        _Occurrence(
+                            match_id=match.source.match_id,
+                            map_name=match.source.map_name,
+                            side=round_item.side,
+                            key=f"no_direct_effect:{effect.effect_type}",
+                            label=f"{effect.effect_type}: прямой эффект не зафиксирован",
+                            positive=not has_direct_effect,
+                            evidence=TacticalEvidenceReference(
+                                match_id=match.source.match_id,
+                                round_number=round_item.round_number,
+                                tick_start=effect.start_tick,
+                                tick_end=effect.end_tick or effect.start_tick,
+                                event_ids=event_ids,
+                                projectile_ids=(
+                                    (effect.projectile_id,)
+                                    if effect.projectile_id is not None
+                                    else ()
+                                ),
+                                effect_ids=(effect.effect_id,),
+                            ),
+                            metrics={},
+                        )
+                    )
+        drafts = _binary_drafts(
+            TacticalInsightType.UTILITY_LOSS,
+            occurrences,
+            (
+                f"utility_loss_rule:{TACTICAL_V2_UTILITY_LOSS_RULE}",
+                f"utility_price_policy:{TACTICAL_V2_UTILITY_PRICE_POLICY}",
+                "no_recorded_direct_effect_does_not_prove_that_a_grenade_was_tactically_useless",
+                "smokes_are_not_classified_as_wasted_without_line_of_sight_evidence",
+                "predeath_inventory_uses_the_latest_available_alive_snapshot_before_the_death_tick",
+            ),
+        )
+        return drafts, {
+            TacticalInsightType.UTILITY_LOSS: _capability(
+                eligible,
+                covered,
+                len(drafts),
+                "direct_effect_or_predeath_inventory_evidence_unavailable",
+                force_partial=bool(covered),
+            )
+        }
+
+    def _smoke_timing(
+        self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config
+    ) -> tuple[tuple[_Draft, ...], dict[TacticalInsightType, TacticalCapability]]:
+        occurrences: list[_Occurrence] = []
+        eligible = covered = 0
+        for match in matches:
+            for round_item in _eligible_rounds(match):
+                smokes = tuple(
+                    effect
+                    for effect in round_item.utility
+                    if effect.owner_team_id == match.source.team_id
+                    and effect.effect_type == "smoke"
+                )
+                eligible += len(smokes)
+                for effect in smokes:
+                    if effect.game_time is None or effect.round_start_time is None:
+                        continue
+                    elapsed = effect.game_time - effect.round_start_time
+                    if elapsed < 0:
+                        continue
+                    covered += 1
+                    bucket = int(elapsed // config.smoke_timing_bucket_seconds)
+                    bucket_start = bucket * config.smoke_timing_bucket_seconds
+                    contact = _first_contact(round_item, effect.start_tick, match.source.team_id)
+                    contact_window = (
+                        contact.game_time - effect.game_time
+                        if contact is not None
+                        and contact.game_time is not None
+                        and contact.game_time >= effect.game_time
+                        else None
+                    )
+                    metrics = {"smoke_start_seconds": elapsed}
+                    if contact_window is not None:
+                        metrics["contact_window_seconds"] = contact_window
+                    occurrences.append(
+                        _Occurrence(
+                            match_id=match.source.match_id,
+                            map_name=match.source.map_name,
+                            side=round_item.side,
+                            key=f"start:{bucket_start}",
+                            label=(
+                                f"Смок на {bucket_start}–"
+                                f"{bucket_start + config.smoke_timing_bucket_seconds} сек."
+                            ),
+                            positive=True,
+                            evidence=TacticalEvidenceReference(
+                                match_id=match.source.match_id,
+                                round_number=round_item.round_number,
+                                tick_start=effect.start_tick,
+                                tick_end=contact.tick if contact is not None else effect.start_tick,
+                                event_ids=(contact.event_id,) if contact is not None else (),
+                                projectile_ids=(
+                                    (effect.projectile_id,)
+                                    if effect.projectile_id is not None
+                                    else ()
+                                ),
+                                effect_ids=(effect.effect_id,),
+                            ),
+                            metrics=metrics,
+                        )
+                    )
+        drafts = _categorical_drafts(
+            TacticalInsightType.SMOKE_TIMING,
+            occurrences,
+            (
+                f"smoke_timing_rule:{TACTICAL_V2_SMOKE_TIMING_RULE}",
+                "smoke_time_uses_parser_game_time_minus_round_start_time",
+                "window_ends_at_first_confirmed_enemy_damage_not_an_inferred_execute",
+                "smokes_without_source_clock_fields_are_excluded_not_estimated",
+            ),
+        )
+        return drafts, {
+            TacticalInsightType.SMOKE_TIMING: _capability(
+                eligible,
+                covered,
+                len(drafts),
+                "smoke_source_clock_unavailable",
             )
         }
 
@@ -890,6 +1191,86 @@ def _weapon_matches_effect(weapon: str | None, effect_type: str) -> bool:
     return False
 
 
+def _blind_matches_effect(
+    blind: TacticalBlindSample, effect: TacticalUtilitySample
+) -> bool:
+    if blind.attacker_player_id != effect.owner_player_id or blind.tick != effect.start_tick:
+        return False
+    return (
+        blind.entity_id == effect.source_entity_id
+        if blind.entity_id is not None and effect.source_entity_id is not None
+        else True
+    )
+
+
+def _player_name(round_item: TacticalRoundInput, player_id: UUID | None) -> str:
+    if player_id is None:
+        return "Игрок"
+    return next(
+        (
+            sample.player_name
+            for sample in round_item.samples
+            if sample.player_id == player_id and sample.player_name
+        ),
+        f"Игрок {str(player_id)[:8]}",
+    )
+
+
+def _predeath_sample(
+    round_item: TacticalRoundInput, player_id: UUID, death_tick: int
+) -> TacticalPlayerSample | None:
+    candidates = tuple(
+        sample
+        for sample in round_item.samples
+        if sample.player_id == player_id
+        and sample.tick < death_tick
+        and sample.alive is True
+        and sample.utility_inventory is not None
+    )
+    return max(candidates, key=lambda item: item.tick) if candidates else None
+
+
+def _associated_enemy_damage(
+    round_item: TacticalRoundInput,
+    effect: TacticalUtilitySample,
+    selected_team_id: UUID,
+    grace_ticks: int,
+) -> tuple[TacticalDamageSample, ...]:
+    terminal = (effect.end_tick if effect.end_tick is not None else effect.start_tick) + grace_ticks
+    candidates = []
+    for damage in round_item.damages:
+        if (
+            effect.owner_player_id is not None
+            and damage.attacker_player_id == effect.owner_player_id
+            and damage.victim_team_id not in {None, selected_team_id}
+            and effect.start_tick <= damage.tick <= terminal
+            and _weapon_matches_effect(damage.weapon, effect.effect_type)
+        ):
+            candidates.append(damage)
+    return tuple(candidates)
+
+
+def _first_contact(
+    round_item: TacticalRoundInput, after_tick: int, selected_team_id: UUID
+) -> TacticalDamageSample | None:
+    candidates = tuple(
+        damage
+        for damage in round_item.damages
+        if damage.tick >= after_tick
+        and (
+            (
+                damage.attacker_team_id == selected_team_id
+                and damage.victim_team_id not in {None, selected_team_id}
+            )
+            or (
+                damage.victim_team_id == selected_team_id
+                and damage.attacker_team_id not in {None, selected_team_id}
+            )
+        )
+    )
+    return min(candidates, key=lambda item: (item.tick, str(item.event_id))) if candidates else None
+
+
 def _categorical_drafts(
     insight_type: TacticalInsightType,
     occurrences: list[_Occurrence],
@@ -955,7 +1336,8 @@ def _binary_drafts(
             limitations=limitations,
             availability=(
                 TacticalAvailability.PARTIAL
-                if insight_type is TacticalInsightType.UTILITY_OUTCOME
+                if insight_type
+                in {TacticalInsightType.UTILITY_OUTCOME, TacticalInsightType.UTILITY_LOSS}
                 else TacticalAvailability.AVAILABLE
             ),
         )

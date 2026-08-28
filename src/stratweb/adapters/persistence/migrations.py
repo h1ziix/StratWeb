@@ -1558,6 +1558,43 @@ CREATE INDEX idx_import_batch_items_job
 """
 
 
+UTILITY_ROI_EVIDENCE_SCHEMA = r"""
+ALTER TABLE kills ADD COLUMN game_time DOUBLE;
+ALTER TABLE damages ADD COLUMN game_time DOUBLE;
+ALTER TABLE shots ADD COLUMN game_time DOUBLE;
+ALTER TABLE grenades ADD COLUMN game_time DOUBLE;
+ALTER TABLE grenades ADD COLUMN round_start_time DOUBLE;
+ALTER TABLE bomb_events ADD COLUMN game_time DOUBLE;
+
+CREATE TABLE blinds (
+    match_id UUID NOT NULL,
+    event_id UUID NOT NULL,
+    round_id UUID,
+    round_number INTEGER,
+    tick BIGINT NOT NULL CHECK (tick >= 0),
+    relative_tick BIGINT CHECK (relative_tick >= 0),
+    phase VARCHAR NOT NULL,
+    source_event VARCHAR NOT NULL,
+    game_time DOUBLE,
+    warnings JSON NOT NULL,
+    attacker_player_id UUID,
+    victim_player_id UUID,
+    attacker_team_id UUID,
+    victim_team_id UUID,
+    attacker_side VARCHAR NOT NULL,
+    victim_side VARCHAR NOT NULL,
+    duration_seconds DOUBLE CHECK (duration_seconds >= 0),
+    entity_id BIGINT CHECK (entity_id >= 0),
+    PRIMARY KEY (match_id, event_id)
+);
+
+CREATE INDEX idx_blinds_match_round_tick
+    ON blinds(match_id, round_number, tick);
+CREATE INDEX idx_blinds_match_attacker
+    ON blinds(match_id, attacker_player_id, tick);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1611,4 +1648,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     ),
     Migration(version=27, name="local_analyst_notes", sql=ANALYST_NOTES_SCHEMA),
     Migration(version=28, name="bulk_training_pool_imports", sql=BULK_IMPORT_SCHEMA),
+    Migration(version=29, name="utility_roi_evidence", sql=UTILITY_ROI_EVIDENCE_SCHEMA),
 )

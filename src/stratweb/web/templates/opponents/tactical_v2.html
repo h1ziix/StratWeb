@@ -38,7 +38,7 @@
   </div></details>
 </section>
 
-<nav class="report-index" aria-label="{{ t('tactical.index_label') }}"><a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a></nav>
+<nav class="report-index" aria-label="{{ t('tactical.index_label') }}"><a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#utility-roi">{{ t('tactical.index.utility') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a></nav>
 
 <section id="overview" class="report-section">
   <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.overview.eyebrow') }}</p><h2>{{ t('tactical.overview.title') }}</h2></div></div>
@@ -55,6 +55,23 @@
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state"><p>{{ t('tactical.overview.empty') }}</p></div>{% endif %}
+</section>
+
+<section id="utility-roi" class="report-section utility-roi-section">
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.utility.eyebrow') }}</p><h2>{{ t('tactical.utility.title') }}</h2></div></div>
+  <p class="section-copy">{{ t('tactical.utility.help') }}</p>
+  {% if page_view.utility_cards %}<div class="tactical-card-grid utility-roi-grid">
+  {% for card in page_view.utility_cards %}
+    <article class="tactical-card {{ card.source.availability.value }}">
+      <header><div><span class="side-chip {{ card.source.side.value|lower }}">{{ t('tactical.side.' ~ card.source.side.value|lower) }}</span><span class="map-chip">{{ card.source.map_name|map_name }}</span></div></header>
+      <p class="tactical-card__type">{{ t('tactical.' ~ card.source.insight_type.value) }}</p>
+      <h3>{{ t(card.title_key, **card.title_values) }}</h3>
+      <p class="utility-roi-copy">{{ t(card.description_key, **card.description_values) }}</p>
+      <div class="plain-frequency"><strong>{{ t(card.frequency_band_key) }}</strong><span>{{ t('tactical.card.sample_sentence', numerator=card.source.numerator, denominator=card.source.denominator) }}</span></div>
+      <a class="button secondary tactical-card__evidence" href="/ui/opponents/{{ profile.profile_id }}/tactical-v2/insights/{{ card.source.insight_id }}/evidence?run_id={{ summary.tactical_run_id }}">{{ t('tactical.card.show_rounds') }}</a>
+    </article>
+  {% endfor %}
+  </div>{% else %}<div class="empty-state"><strong>{{ t('tactical.utility.empty') }}</strong><p>{{ t('tactical.utility.empty_help') }}</p></div>{% endif %}
 </section>
 
 <section id="signals" class="report-section">

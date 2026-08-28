@@ -33,6 +33,7 @@ _SPATIAL_PROPERTIES = (
     "yaw",
     "is_alive",
     "team_num",
+    "inventory",
     "inventory_as_ids",
 )
 
@@ -122,6 +123,7 @@ class Demoparser2SpatialExtractor:
                     source_alive=_optional_bool(record.get("is_alive")),
                     source_team_number=_optional_int(record.get("team_num")),
                     inventory_item_ids=_inventory(record.get("inventory_as_ids")),
+                    inventory_names=_inventory_names(record.get("inventory")),
                 )
             )
         warnings = []
@@ -228,6 +230,22 @@ def _inventory(value: object) -> tuple[int, ...] | None:
         return tuple(int(item) for item in cast(Any, value))
     except (TypeError, ValueError, OverflowError):
         return None
+
+
+def _inventory_names(value: object) -> tuple[str, ...] | None:
+    if value is None or isinstance(value, (str, bytes)):
+        return None
+    try:
+        items = tuple(cast(Any, value))
+    except TypeError:
+        return None
+    result: list[str] = []
+    for item in items:
+        normalized = _optional_string(item)
+        if normalized is None:
+            return None
+        result.append(normalized)
+    return tuple(result)
 
 
 def _header(backend: _SpatialBackend) -> Mapping[str, object]:

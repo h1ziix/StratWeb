@@ -12,10 +12,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from stratweb.application.canonical_models import Sha256
 from stratweb.domain.enums import Side
 
-TACTICAL_V2_SCHEMA_VERSION = "1.0.0"
-TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.0.0"
+TACTICAL_V2_SCHEMA_VERSION = "1.1.0"
+TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.1.0"
 TACTICAL_V2_ROUTE_RULE = "checkpoint_zone_formation_exact_v1"
 TACTICAL_V2_UTILITY_RULE = "owner_weapon_time_association_v1"
+TACTICAL_V2_TEAM_FLASH_RULE = "entity_tick_attacker_team_blind_v1"
+TACTICAL_V2_UTILITY_LOSS_RULE = "predeath_inventory_and_direct_effect_v1"
+TACTICAL_V2_SMOKE_TIMING_RULE = "source_clock_five_second_bucket_v1"
+TACTICAL_V2_UTILITY_PRICE_POLICY = "cs2_competitive_utility_prices_2026_08_v1"
 TACTICAL_V2_ROTATION_RULE = "post_contact_zone_transition_v1"
 TACTICAL_V2_CLUTCH_RULE = "post_tick_group_one_vs_many_v1"
 TACTICAL_V2_HEATMAP_RULE = "world_grid_sample_share_v1"
@@ -38,6 +42,9 @@ class TacticalInsightType(StrEnum):
     PATH_CLUSTER = "path_cluster"
     EXECUTE_PACKAGE = "execute_package"
     UTILITY_OUTCOME = "utility_outcome"
+    TEAM_FLASH = "team_flash"
+    UTILITY_LOSS = "utility_loss"
+    SMOKE_TIMING = "smoke_timing"
     SPACING_PROFILE = "spacing_profile"
     ENTRY_STRUCTURE = "entry_structure"
     TRADE_STRUCTURE = "trade_structure"
@@ -59,6 +66,17 @@ class TacticalV2Config(TacticalModel):
     minimum_players_for_formation: int = Field(default=2, ge=2, le=5)
     execute_window_ticks: int = Field(default=640, ge=1, le=8192)
     utility_outcome_grace_ticks: int = Field(default=64, ge=0, le=1024)
+    smoke_timing_bucket_seconds: int = Field(default=5, ge=1, le=30)
+    utility_prices: dict[str, int] = Field(
+        default_factory=lambda: {
+            "flashbang": 200,
+            "smoke": 300,
+            "he_grenade": 300,
+            "molotov": 400,
+            "incendiary": 500,
+            "decoy": 50,
+        }
+    )
     rotation_window_ticks: int = Field(default=1280, ge=1, le=8192)
     isolated_player_distance_units: FiniteFloat = Field(default=1500.0, gt=0)
     heatmap_cell_size_units: FiniteFloat = Field(default=512.0, gt=0)
@@ -116,6 +134,8 @@ class TacticalPlayerSample(TacticalModel):
     side: Side
     zone_id: str | None = None
     zone_name: str | None = None
+    player_name: str | None = None
+    utility_inventory: tuple[str, ...] | None = None
 
 
 class TacticalKillSample(TacticalModel):
@@ -127,6 +147,7 @@ class TacticalKillSample(TacticalModel):
     victim_team_id: UUID | None = None
     is_teamkill: bool | None = None
     is_suicide: bool | None = None
+    game_time: FiniteFloat | None = None
 
 
 class TacticalDamageSample(TacticalModel):
@@ -138,6 +159,19 @@ class TacticalDamageSample(TacticalModel):
     victim_team_id: UUID | None = None
     weapon: str | None = None
     damage_health: int | None = Field(default=None, ge=0)
+    game_time: FiniteFloat | None = None
+
+
+class TacticalBlindSample(TacticalModel):
+    event_id: UUID
+    tick: int = Field(ge=0)
+    attacker_player_id: UUID | None = None
+    victim_player_id: UUID | None = None
+    attacker_team_id: UUID | None = None
+    victim_team_id: UUID | None = None
+    duration_seconds: FiniteFloat | None = Field(default=None, ge=0)
+    entity_id: int | None = Field(default=None, ge=0)
+    game_time: FiniteFloat | None = None
 
 
 class TacticalTradeSample(TacticalModel):
@@ -150,6 +184,7 @@ class TacticalTradeSample(TacticalModel):
 class TacticalUtilitySample(TacticalModel):
     effect_id: UUID
     projectile_id: UUID | None = None
+    source_entity_id: int | None = Field(default=None, ge=0)
     owner_player_id: UUID | None = None
     owner_team_id: UUID | None = None
     effect_type: str
@@ -158,6 +193,8 @@ class TacticalUtilitySample(TacticalModel):
     center_x: FiniteFloat | None = None
     center_y: FiniteFloat | None = None
     center_z: FiniteFloat | None = None
+    game_time: FiniteFloat | None = None
+    round_start_time: FiniteFloat | None = None
 
     @model_validator(mode="after")
     def validate_ticks(self) -> TacticalUtilitySample:
@@ -206,6 +243,7 @@ class TacticalRoundInput(TacticalModel):
     samples: tuple[TacticalPlayerSample, ...]
     kills: tuple[TacticalKillSample, ...]
     damages: tuple[TacticalDamageSample, ...]
+    blinds: tuple[TacticalBlindSample, ...] = ()
     trades: tuple[TacticalTradeSample, ...]
     utility: tuple[TacticalUtilitySample, ...]
     plant: TacticalPlantSample | None = None
@@ -216,6 +254,8 @@ class TacticalRoundInput(TacticalModel):
 class TacticalMatchInput(TacticalModel):
     source: TacticalSourcePin
     rounds: tuple[TacticalRoundInput, ...]
+    blind_events_available: bool = False
+    damage_events_available: bool = False
     limitations: tuple[str, ...] = ()
 
 

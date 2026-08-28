@@ -91,9 +91,25 @@ def _two_round_demo() -> ParsedDemo:
             "flashbang_detonate": pl.DataFrame(
                 {
                     "tick": [160],
+                    "game_time": [25.0],
+                    "round_start_time": [5.0],
                     "user_steamid": ["11"],
                     "user_name": ["Alpha"],
                     "user_team_name": ["T"],
+                    "entityid": [7],
+                }
+            ),
+            "player_blind": pl.DataFrame(
+                {
+                    "tick": [160],
+                    "game_time": [25.0],
+                    "attacker_steamid": ["11"],
+                    "attacker_name": ["Alpha"],
+                    "attacker_team_name": ["T"],
+                    "user_steamid": ["22"],
+                    "user_name": ["Bravo"],
+                    "user_team_name": ["CT"],
+                    "blind_duration": [2.75],
                     "entityid": [7],
                 }
             ),
@@ -134,6 +150,11 @@ def test_full_dataset_is_deterministic_and_parser_independent() -> None:
     assert first.validation_report.has_fatal_errors is False
     assert first.kills[0].assister_player_id is None
     assert first.grenades[0].x is None
+    assert first.grenades[0].game_time == 25.0
+    assert first.grenades[0].round_start_time == 5.0
+    assert first.blinds[0].duration_seconds == 2.75
+    assert first.blinds[0].entity_id == 7
+    assert first.blinds[0].attacker_player_id == first.grenades[0].player_id
     assert first.bomb_events[0].site_raw == 999
     assert first.bomb_events[0].site_normalized is None
 

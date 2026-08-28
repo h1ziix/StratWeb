@@ -10,6 +10,7 @@ from pydantic import JsonValue
 
 from stratweb.application.canonical_models import (
     NORMALIZATION_RULE_VERSION,
+    CanonicalBlind,
     CanonicalBombEvent,
     CanonicalDamage,
     CanonicalGrenade,
@@ -28,7 +29,12 @@ from stratweb.application.canonical_models import (
 )
 
 CanonicalEvent = (
-    CanonicalKill | CanonicalDamage | CanonicalShot | CanonicalGrenade | CanonicalBombEvent
+    CanonicalKill
+    | CanonicalDamage
+    | CanonicalShot
+    | CanonicalGrenade
+    | CanonicalBlind
+    | CanonicalBombEvent
 )
 
 
@@ -285,11 +291,13 @@ def _event_player_ids(event: CanonicalEvent) -> tuple[UUID | None, ...]:
         return (event.attacker_player_id, event.victim_player_id, event.assister_player_id)
     if isinstance(event, CanonicalDamage):
         return (event.attacker_player_id, event.victim_player_id)
+    if isinstance(event, CanonicalBlind):
+        return (event.attacker_player_id, event.victim_player_id)
     return (event.player_id,)
 
 
 def _event_team_ids(event: CanonicalEvent) -> tuple[UUID | None, ...]:
-    if isinstance(event, (CanonicalKill, CanonicalDamage)):
+    if isinstance(event, (CanonicalKill, CanonicalDamage, CanonicalBlind)):
         return (event.attacker_team_id, event.victim_team_id)
     return (event.team_id,)
 

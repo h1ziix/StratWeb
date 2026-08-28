@@ -24,11 +24,13 @@ from stratweb.features.models import (
     RoundFeature,
     SaveExitPayload,
 )
+from stratweb.spatial.models import SpatialSnapshot
 from stratweb.spatial.projectiles import SpatialProjectile, UtilityEffect
 from stratweb.tactical_v2.models import (
     TACTICAL_V2_RULE_VERSION,
     TACTICAL_V2_SCHEMA_VERSION,
     TacticalAvailability,
+    TacticalBlindSample,
     TacticalComputeStatus,
     TacticalDamageSample,
     TacticalEvidenceReference,
@@ -150,6 +152,17 @@ class DuckDBTacticalV2SourceRepository:
     def _load_match(
         self, connection: duckdb.DuckDBPyConnection, source: TacticalSourcePin
     ) -> TacticalMatchInput:
+        metadata_row = connection.execute(
+            "SELECT source_event_counts FROM normalization_metadata WHERE match_id = ?",
+            [source.match_id],
+        ).fetchone()
+        source_event_counts = _json(metadata_row[0]) if metadata_row is not None else {}
+        blind_events_available = bool(
+            isinstance(source_event_counts, dict) and "player_blind" in source_event_counts
+        )
+        damage_events_available = bool(
+            isinstance(source_event_counts, dict) and "player_hurt" in source_event_counts
+        )
         round_rows = _rows(
             connection.execute(
                 """
@@ -184,6 +197,7 @@ class DuckDBTacticalV2SourceRepository:
         samples = self._samples(connection, source)
         kills = self._kills(connection, source)
         damages = self._damages(connection, source)
+        blinds = self._blinds(connection, source)
         trades = self._trades(connection, source)
         utility = self._utility(connection, source)
         plants = self._plants(connection, source)
@@ -233,6 +247,7 @@ class DuckDBTacticalV2SourceRepository:
                     samples=tuple(samples.get(number, ())),
                     kills=tuple(kills.get(number, ())),
                     damages=tuple(damages.get(number, ())),
+                    blinds=tuple(blinds.get(number, ())),
                     trades=tuple(trades.get(number, ())),
                     utility=tuple(utility.get(number, ())),
                     plant=plant_values[0] if len(plant_values) == 1 else None,
@@ -245,6 +260,8 @@ class DuckDBTacticalV2SourceRepository:
         return TacticalMatchInput(
             source=source,
             rounds=tuple(rounds),
+            blind_events_available=blind_events_available,
+            damage_events_available=damage_events_available,
             limitations=tuple(sorted(limitations)),
         )
 
@@ -257,8 +274,12 @@ class DuckDBTacticalV2SourceRepository:
                 """
                 SELECT sample.snapshot_id, sample.round_number, sample.tick,
                        sample.participant_id, sample.x, sample.y, sample.z,
-                       sample.alive, sample.side, zone.zone_id, zone.zone_name
+                       sample.alive, sample.side, zone.zone_id, zone.zone_name,
+                       sample.payload, player.current_name
                 FROM spatial_snapshots sample
+                LEFT JOIN players player
+                  ON player.match_id = sample.match_id
+                 AND player.player_id = sample.participant_id
                 LEFT JOIN zone_assignments zone
                   ON zone.zone_assignment_run_id = ?
                  AND zone.spatial_snapshot_id = sample.snapshot_id
@@ -277,6 +298,7 @@ class DuckDBTacticalV2SourceRepository:
         )
         result: dict[int, list[TacticalPlayerSample]] = defaultdict(list)
         for row in rows:
+            stored = SpatialSnapshot.model_validate(_json(row["payload"]))
             result[int(row["round_number"])].append(
                 TacticalPlayerSample(
                     snapshot_id=UUID(str(row["snapshot_id"])),
@@ -289,6 +311,10 @@ class DuckDBTacticalV2SourceRepository:
                     side=Side(str(row["side"])),
                     zone_id=str(row["zone_id"]) if row["zone_id"] is not None else None,
                     zone_name=str(row["zone_name"]) if row["zone_name"] is not None else None,
+                    player_name=(
+                        str(row["current_name"]) if row["current_name"] is not None else None
+                    ),
+                    utility_inventory=stored.utility_inventory,
                 )
             )
         return result
@@ -301,7 +327,7 @@ class DuckDBTacticalV2SourceRepository:
             connection.execute(
                 """
                 SELECT round_number, event_id, tick, attacker_player_id, victim_player_id,
-                       attacker_team_id, victim_team_id, is_teamkill, is_suicide
+                       attacker_team_id, victim_team_id, is_teamkill, is_suicide, game_time
                 FROM kills WHERE match_id = ? AND round_number IS NOT NULL
                 ORDER BY round_number, tick, event_id
                 """,
@@ -322,7 +348,7 @@ class DuckDBTacticalV2SourceRepository:
             connection.execute(
                 """
                 SELECT round_number, event_id, tick, attacker_player_id, victim_player_id,
-                       attacker_team_id, victim_team_id, weapon, damage_health
+                       attacker_team_id, victim_team_id, weapon, damage_health, game_time
                 FROM damages WHERE match_id = ? AND round_number IS NOT NULL
                 ORDER BY round_number, tick, event_id
                 """,
@@ -333,6 +359,27 @@ class DuckDBTacticalV2SourceRepository:
         for row in rows:
             round_number = int(row.pop("round_number"))
             result[round_number].append(TacticalDamageSample.model_validate(row))
+        return result
+
+    @staticmethod
+    def _blinds(
+        connection: duckdb.DuckDBPyConnection, source: TacticalSourcePin
+    ) -> dict[int, list[TacticalBlindSample]]:
+        rows = _rows(
+            connection.execute(
+                """
+                SELECT round_number, event_id, tick, attacker_player_id, victim_player_id,
+                       attacker_team_id, victim_team_id, duration_seconds, entity_id, game_time
+                FROM blinds WHERE match_id = ? AND round_number IS NOT NULL
+                ORDER BY round_number, tick, event_id
+                """,
+                [source.match_id],
+            )
+        )
+        result: dict[int, list[TacticalBlindSample]] = defaultdict(list)
+        for row in rows:
+            round_number = int(row.pop("round_number"))
+            result[round_number].append(TacticalBlindSample.model_validate(row))
         return result
 
     @staticmethod
@@ -370,6 +417,21 @@ class DuckDBTacticalV2SourceRepository:
                 ).fetchall()
             )
         }
+        grenade_clock: dict[tuple[int, int, int], tuple[float | None, float | None]] = {}
+        for row in connection.execute(
+            """
+            SELECT round_number, entity_id, tick, game_time, round_start_time
+            FROM grenades
+            WHERE match_id = ? AND round_number IS NOT NULL AND entity_id IS NOT NULL
+              AND lifecycle_event IN ('detonated', 'started')
+            ORDER BY round_number, tick, event_id
+            """,
+            [source.match_id],
+        ).fetchall():
+            grenade_clock[(int(row[0]), int(row[1]), int(row[2]))] = (
+                float(row[3]) if row[3] is not None else None,
+                float(row[4]) if row[4] is not None else None,
+            )
         result: dict[int, list[TacticalUtilitySample]] = defaultdict(list)
         for row in connection.execute(
             "SELECT payload FROM spatial_utility_effects WHERE spatial_run_id = ? "
@@ -378,10 +440,17 @@ class DuckDBTacticalV2SourceRepository:
         ).fetchall():
             effect = UtilityEffect.model_validate(_json(row[0]))
             projectile = projectiles.get(effect.projectile_id) if effect.projectile_id else None
+            source_entity_id = projectile.source_entity_id if projectile else None
+            clock = (
+                grenade_clock.get((effect.round_number, source_entity_id, effect.start_tick))
+                if source_entity_id is not None
+                else None
+            )
             result[effect.round_number].append(
                 TacticalUtilitySample(
                     effect_id=effect.effect_id,
                     projectile_id=effect.projectile_id,
+                    source_entity_id=source_entity_id,
                     owner_player_id=projectile.owner_participant_id if projectile else None,
                     owner_team_id=projectile.owner_physical_team_id if projectile else None,
                     effect_type=effect.effect_type.value,
@@ -390,6 +459,8 @@ class DuckDBTacticalV2SourceRepository:
                     center_x=effect.center_x,
                     center_y=effect.center_y,
                     center_z=effect.center_z,
+                    game_time=clock[0] if clock is not None else None,
+                    round_start_time=clock[1] if clock is not None else None,
                 )
             )
         return result

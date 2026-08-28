@@ -197,9 +197,9 @@ def test_spatial_cli_and_ui_contract(
     api = client.get(f"/api/spatial/{match_id}/snapshots?round=1&limit=5")
     assert page.status_code == 200
     assert "No zone, trajectory, heatmap, or tactical meaning is inferred" in page.text
-    assert "Spatial schema 1.2.0" in page.text
+    assert "Spatial schema 1.3.0" in page.text
     assert api.status_code == 200
-    assert api.json()["spatial_rule_version"] == "1.3.0"
+    assert api.json()["spatial_rule_version"] == "1.4.0"
     assert len(api.json()["snapshots"]) == 5
 
     assert cli.main(["spatial", "delete", match_id, "--yes", "--db", str(database)]) == 0

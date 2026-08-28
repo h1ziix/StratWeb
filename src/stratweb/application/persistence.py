@@ -257,6 +257,7 @@ def validate_import_dataset(dataset: CanonicalMatchDataset) -> None:
                 *dataset.damages,
                 *dataset.shots,
                 *dataset.grenades,
+                *dataset.blinds,
                 *dataset.bomb_events,
             ),
             key=lambda event: (event.tick, str(event.event_id)),
@@ -301,6 +302,7 @@ def _verify_contract_counts(dataset: CanonicalMatchDataset) -> None:
         *dataset.damages,
         *dataset.shots,
         *dataset.grenades,
+        *dataset.blinds,
         *dataset.bomb_events,
     )
     if report.unassigned_event_count != sum(event.round_id is None for event in events):
@@ -336,6 +338,7 @@ def _verify_identifiers_and_references(dataset: CanonicalMatchDataset) -> None:
         *dataset.damages,
         *dataset.shots,
         *dataset.grenades,
+        *dataset.blinds,
         *dataset.bomb_events,
     )
     _require_unique("event IDs", [event.event_id for event in events])

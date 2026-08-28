@@ -446,6 +446,8 @@ def _roles_for_event(source_event: str) -> tuple[str, ...]:
         return ("attacker", "victim", "assister")
     if source_event == "player_hurt":
         return ("attacker", "victim")
+    if source_event == "player_blind":
+        return ("attacker", "user")
     return ("user",)
 
 

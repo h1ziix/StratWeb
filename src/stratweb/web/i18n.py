@@ -10,7 +10,7 @@ from stratweb.web.locale_catalogs import CATALOGS
 
 DEFAULT_LOCALE: Final = "ru"
 SUPPORTED_LOCALES: Final = ("ru", "en")
-UI_LOCALE_SCHEMA_VERSION: Final = "3.3.0"
+UI_LOCALE_SCHEMA_VERSION: Final = "3.4.0"
 LOCALE_COOKIE_NAME: Final = "stratweb_locale"
 LOCALE_COOKIE_MAX_AGE_SECONDS: Final = 31_536_000
 
@@ -69,6 +69,11 @@ _WARNING_LABELS: Final[dict[str, str]] = {
     "utility_outcome_requires_unique_association_and_never_proves_causality": (
         "Результат гранаты показывается только при однозначной связи и не доказывает причину"
     ),
+    "player_blind_event_source_unavailable": "Демо не содержит доступных событий ослепления",
+    "direct_effect_or_predeath_inventory_evidence_unavailable": (
+        "Не для всех гранат доступны прямой эффект или инвентарь перед смертью"
+    ),
+    "smoke_source_clock_unavailable": "Для части смоков исходное игровое время недоступно",
     "insufficient_same_tick_player_positions": (
         "Не для каждой точки времени доступны позиции нескольких игроков"
     ),
@@ -139,6 +144,30 @@ _WARNING_LABELS: Final[dict[str, str]] = {
     ),
     "utility_bundle_uses_effect_start_inside_versioned_preplant_tick_window": (
         "Гранаты учитываются по закреплённому окну тиков перед установкой бомбы"
+    ),
+    "team_flash_uses_parser_reported_blind_duration_without_line_of_sight_inference": (
+        "Ослепление своих берётся напрямую из события демо без догадок об обзоре"
+    ),
+    "a_flash_that_forced_an_enemy_to_turn_away_may_have_no_blind_event": (
+        "Флешка могла заставить соперника отвернуться, даже если ослепление не записано"
+    ),
+    "no_recorded_direct_effect_does_not_prove_that_a_grenade_was_tactically_useless": (
+        "Отсутствие прямого эффекта не доказывает, что граната была бесполезной"
+    ),
+    "smokes_are_not_classified_as_wasted_without_line_of_sight_evidence": (
+        "Смоки не считаются потраченными зря без данных о перекрытии обзора"
+    ),
+    "predeath_inventory_uses_the_latest_available_alive_snapshot_before_the_death_tick": (
+        "Инвентарь берётся из последнего доступного снимка живого игрока перед смертью"
+    ),
+    "smoke_time_uses_parser_game_time_minus_round_start_time": (
+        "Тайминг смока рассчитан из игрового времени, записанного в демо"
+    ),
+    "window_ends_at_first_confirmed_enemy_damage_not_an_inferred_execute": (
+        "Окно заканчивается первым подтверждённым контактом, а не предполагаемым выходом"
+    ),
+    "smokes_without_source_clock_fields_are_excluded_not_estimated": (
+        "Смоки без исходного времени исключаются и не получают примерный тайминг"
     ),
 }
 

@@ -8,6 +8,7 @@ from uuid import UUID, uuid5
 
 from stratweb.application.canonical_models import (
     NORMALIZATION_RULE_VERSION,
+    CanonicalBlind,
     CanonicalBombEvent,
     CanonicalDamage,
     CanonicalGameplayEvent,
@@ -22,6 +23,7 @@ from stratweb.application.identity_resolution import PlayerResolutionResult, Tea
 from stratweb.application.normalization_utils import (
     StableRawRow,
     optional_bool,
+    optional_float,
     optional_non_negative_float,
     optional_non_negative_int,
     optional_text,
@@ -55,6 +57,7 @@ class GameplayNormalizationResult:
     damages: tuple[CanonicalDamage, ...]
     shots: tuple[CanonicalShot, ...]
     grenades: tuple[CanonicalGrenade, ...]
+    blinds: tuple[CanonicalBlind, ...]
     bomb_events: tuple[CanonicalBombEvent, ...]
     issues: tuple[ValidationIssue, ...]
 
@@ -68,6 +71,7 @@ class _BaseFields(TypedDict):
     relative_tick: int | None
     phase: EventPhase
     source_event: str
+    game_time: float | None
 
 
 class GameplayEventNormalizer:
@@ -84,12 +88,14 @@ class GameplayEventNormalizer:
         damages = self._damages(parsed, match_id, assignments, players, teams, issues)
         shots = self._shots(parsed, match_id, assignments, players, teams, issues)
         grenades = self._grenades(parsed, match_id, assignments, players, teams, issues)
+        blinds = self._blinds(parsed, match_id, assignments, players, teams, issues)
         bombs = self._bombs(parsed, match_id, assignments, players, teams, issues)
         return GameplayNormalizationResult(
             kills=tuple(sorted(kills, key=_event_sort_key)),
             damages=tuple(sorted(damages, key=_event_sort_key)),
             shots=tuple(sorted(shots, key=_event_sort_key)),
             grenades=tuple(sorted(grenades, key=_event_sort_key)),
+            blinds=tuple(sorted(blinds, key=_event_sort_key)),
             bomb_events=tuple(sorted(bombs, key=_event_sort_key)),
             issues=tuple(sorted(issues, key=lambda item: (item.code, item.entity_id or ""))),
         )
@@ -260,9 +266,52 @@ class GameplayEventNormalizer:
                         x=_coordinate(value(row.data, "x")),
                         y=_coordinate(value(row.data, "y")),
                         z=_coordinate(value(row.data, "z")),
+                        round_start_time=optional_float(value(row.data, "round_start_time")),
                         warnings=common_warnings,
                     )
                 )
+        return result
+
+    def _blinds(
+        self,
+        parsed: ParsedDemo,
+        match_id: UUID,
+        assignments: RoundAssignmentService,
+        players: PlayerResolutionResult,
+        teams: TeamResolutionResult,
+        issues: list[ValidationIssue],
+    ) -> list[CanonicalBlind]:
+        result: list[CanonicalBlind] = []
+        for row in stable_rows("player_blind", parsed.tables.get("player_blind")):
+            common_result = _common_fields("blind", row, match_id, assignments, issues)
+            if common_result is None:
+                continue
+            common, common_warnings = common_result
+            attacker = players.player_for(row, "attacker")
+            victim = players.player_for(row, "user")
+            warnings = list(common_warnings)
+            if attacker is None:
+                warnings.append("blind attacker player could not be resolved")
+            if victim is None:
+                warnings.append("blinded player could not be resolved")
+            result.append(
+                CanonicalBlind(
+                    **common,
+                    attacker_player_id=attacker,
+                    victim_player_id=victim,
+                    attacker_team_id=teams.team_for(attacker),
+                    victim_team_id=teams.team_for(victim),
+                    attacker_side=_role_side(row, "attacker", attacker, teams),
+                    victim_side=_role_side(row, "user", victim, teams),
+                    duration_seconds=optional_non_negative_float(
+                        value(row.data, "blind_duration", "duration")
+                    ),
+                    entity_id=optional_non_negative_int(
+                        value(row.data, "entityid", "entity_id")
+                    ),
+                    warnings=tuple(sorted(set(warnings))),
+                )
+            )
         return result
 
     def _bombs(
@@ -340,6 +389,7 @@ def _common_fields(
         "relative_tick": assigned.relative_tick,
         "phase": assigned.phase,
         "source_event": row.source_event,
+        "game_time": optional_float(value(row.data, "game_time")),
     }
     return base, tuple(warnings)
 
@@ -359,8 +409,6 @@ def _role_side(
 
 
 def _coordinate(raw: object) -> float | None:
-    from stratweb.application.normalization_utils import optional_float
-
     return optional_float(raw)
 
 

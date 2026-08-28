@@ -19,6 +19,7 @@ class FakeFrame:
         "yaw",
         "is_alive",
         "team_num",
+        "inventory",
         "inventory_as_ids",
     )
 
@@ -36,6 +37,7 @@ class FakeFrame:
                 "yaw": 91.0,
                 "is_alive": True,
                 "team_num": 2,
+                "inventory": ["AK-47", "Smoke Grenade"],
                 "inventory_as_ids": [7, 49],
             }
         ]
@@ -75,10 +77,12 @@ def test_demoparser2_spatial_adapter_uses_pinned_real_parse_ticks_contract(
         "yaw",
         "is_alive",
         "team_num",
+        "inventory",
         "inventory_as_ids",
     )
     assert result.parser_version == "0.41.4"
     assert result.samples[0].inventory_item_ids == (7, 49)
+    assert result.samples[0].inventory_names == ("AK-47", "Smoke Grenade")
     assert result.samples[0].x == 12.5
 
 

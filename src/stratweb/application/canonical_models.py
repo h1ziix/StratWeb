@@ -10,8 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from stratweb.domain.enums import Side
 
-CANONICAL_SCHEMA_VERSION = "1.1.0"
-NORMALIZATION_RULE_VERSION = "1.2.0"
+CANONICAL_SCHEMA_VERSION = "1.2.0"
+NORMALIZATION_RULE_VERSION = "1.3.0"
 
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 SteamId = Annotated[str, Field(pattern=r"^[0-9]+$", min_length=1, max_length=32)]
@@ -177,6 +177,7 @@ class CanonicalGameplayEvent(CanonicalModel):
     relative_tick: int | None = Field(default=None, ge=0)
     phase: EventPhase = EventPhase.UNKNOWN
     source_event: str = Field(min_length=1)
+    game_time: float | None = Field(default=None, allow_inf_nan=False)
     warnings: tuple[str, ...] = ()
 
 
@@ -231,6 +232,18 @@ class CanonicalGrenade(CanonicalGameplayEvent):
     x: Coordinate | None = None
     y: Coordinate | None = None
     z: Coordinate | None = None
+    round_start_time: float | None = Field(default=None, allow_inf_nan=False)
+
+
+class CanonicalBlind(CanonicalGameplayEvent):
+    attacker_player_id: UUID | None = None
+    victim_player_id: UUID | None = None
+    attacker_team_id: UUID | None = None
+    victim_team_id: UUID | None = None
+    attacker_side: Side = Side.UNKNOWN
+    victim_side: Side = Side.UNKNOWN
+    duration_seconds: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    entity_id: int | None = Field(default=None, ge=0)
 
 
 class CanonicalBombEvent(CanonicalGameplayEvent):
@@ -329,6 +342,7 @@ class CanonicalMatchDataset(CanonicalModel):
     damages: tuple[CanonicalDamage, ...]
     shots: tuple[CanonicalShot, ...]
     grenades: tuple[CanonicalGrenade, ...]
+    blinds: tuple[CanonicalBlind, ...] = ()
     bomb_events: tuple[CanonicalBombEvent, ...]
     validation_report: ValidationReport
     normalization_metadata: NormalizationMetadata
@@ -346,6 +360,7 @@ class CanonicalizationSummary(CanonicalModel):
     damages: int = Field(ge=0)
     shots: int = Field(ge=0)
     grenades: int = Field(ge=0)
+    blinds: int = Field(default=0, ge=0)
     bomb_events: int = Field(ge=0)
     unassigned_events: int = Field(ge=0)
     validation_issues: dict[ValidationSeverity, int]
@@ -365,6 +380,7 @@ class CanonicalizationSummary(CanonicalModel):
             damages=len(dataset.damages),
             shots=len(dataset.shots),
             grenades=len(dataset.grenades),
+            blinds=len(dataset.blinds),
             bomb_events=len(dataset.bomb_events),
             unassigned_events=dataset.validation_report.unassigned_event_count,
             validation_issues=dataset.validation_report.issue_counts,

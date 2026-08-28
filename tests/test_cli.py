@@ -234,5 +234,5 @@ def test_normalize_cli_warns_for_full_stdout(
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert json.loads(captured.out)["schema_version"] == "1.1.0"
+    assert json.loads(captured.out)["schema_version"] == "1.2.0"
     assert "may be large" in captured.err

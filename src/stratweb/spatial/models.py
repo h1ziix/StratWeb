@@ -24,8 +24,8 @@ from .projectiles import (
     unavailable_projectile_capabilities,
 )
 
-SPATIAL_SCHEMA_VERSION = "1.2.0"
-SPATIAL_RULE_VERSION = "1.3.0"
+SPATIAL_SCHEMA_VERSION = "1.3.0"
+SPATIAL_RULE_VERSION = "1.4.0"
 Coordinate = Annotated[float, Field(allow_inf_nan=False)]
 
 
@@ -135,6 +135,7 @@ class SpatialSourceSample(SpatialModel):
     source_alive: bool | None = None
     source_team_number: int | None = None
     inventory_item_ids: tuple[int, ...] | None = None
+    inventory_names: tuple[str, ...] | None = None
 
 
 class SpatialExtraction(SpatialModel):
@@ -161,6 +162,7 @@ class SnapshotAvailability(SpatialModel):
     view_angles: SpatialAvailabilityStatus
     alive_link: SpatialAvailabilityStatus
     has_bomb: SpatialAvailabilityStatus
+    utility_inventory: SpatialAvailabilityStatus = SpatialAvailabilityStatus.UNAVAILABLE
     warnings: tuple[str, ...] = ()
 
 
@@ -179,6 +181,7 @@ class SpatialSnapshot(SpatialModel):
     pitch: Coordinate | None = None
     alive: bool | None = None
     has_bomb: bool | None = None
+    utility_inventory: tuple[str, ...] | None = None
     physical_team_id: UUID | None = None
     side: Side = Side.UNKNOWN
     map_name: str
@@ -187,6 +190,7 @@ class SpatialSnapshot(SpatialModel):
     view_angle_authority: SpatialAuthority
     alive_source: str = "temporal_snapshot"
     has_bomb_source: str | None = None
+    utility_inventory_source: str | None = None
     availability: SnapshotAvailability
 
     @model_validator(mode="after")

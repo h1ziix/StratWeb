@@ -11,6 +11,7 @@ import pytest
 from stratweb.adapters.persistence import DuckDBMatchRepository
 from stratweb.adapters.persistence.migrations import MIGRATIONS
 from stratweb.application.canonical_models import (
+    CanonicalBlind,
     CapabilityCoverageStatus,
     ResultCapability,
     ValidationIssue,
@@ -66,6 +67,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         26,
         27,
         28,
+        29,
     )
     assert repository.initialize() == ()
 
@@ -73,7 +75,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         rows = connection.execute(
             "SELECT version, name, checksum FROM schema_migrations"
         ).fetchall()
-    assert len(rows) == 28
+    assert len(rows) == 29
     assert rows[0][0:2] == (1, "canonical_match_schema")
     assert len(rows[0][2]) == 64
     assert rows[1][0:2] == (2, "round_result_availability")
@@ -103,6 +105,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
     assert rows[25][0:2] == (26, "tactical_intelligence_v2")
     assert rows[26][0:2] == (27, "local_analyst_notes")
     assert rows[27][0:2] == (28, "bulk_training_pool_imports")
+    assert rows[28][0:2] == (29, "utility_roi_evidence")
 
 
 def test_modified_applied_migration_checksum_is_rejected(tmp_path: Path) -> None:
@@ -199,6 +202,7 @@ def test_stage4_database_migration_preserves_match_round_and_event_rows(
         26,
         27,
         28,
+        29,
     )
     with duckdb.connect(str(database), read_only=True) as connection:
         after = {}
@@ -349,6 +353,47 @@ def test_query_service_exposes_counts_players_rounds_events_and_issues(
     assert grenade_player_id is not None
     assert len(query.get_player_grenades(dataset.match.match_id, grenade_player_id)) == 1
     assert query.get_validation_issues(dataset.match.match_id)[0].code == "fixture_warning"
+
+
+def test_blind_events_and_source_clock_round_trip_through_duckdb(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    dataset = canonical_dataset_factory()
+    grenade = dataset.grenades[0].model_copy(
+        update={"game_time": 25.0, "round_start_time": 5.0}
+    )
+    blind = CanonicalBlind(
+        event_id=uuid4(),
+        match_id=dataset.match.match_id,
+        round_id=dataset.rounds[0].round_id,
+        round_number=1,
+        tick=grenade.tick,
+        relative_tick=grenade.relative_tick,
+        phase=grenade.phase,
+        source_event="player_blind",
+        game_time=25.0,
+        attacker_player_id=dataset.kills[0].attacker_player_id,
+        victim_player_id=dataset.kills[0].victim_player_id,
+        attacker_team_id=dataset.kills[0].attacker_team_id,
+        victim_team_id=dataset.kills[0].victim_team_id,
+        attacker_side=dataset.kills[0].attacker_side,
+        victim_side=dataset.kills[0].victim_side,
+        duration_seconds=2.5,
+        entity_id=grenade.entity_id,
+    )
+    updated = _with_recalculated_fingerprint(
+        dataset.model_copy(update={"grenades": (grenade,), "blinds": (blind,)})
+    )
+    repository = DuckDBMatchRepository(tmp_path / "utility.duckdb")
+
+    result = ImportCanonicalMatchService(repository).import_dataset(updated)
+    events = MatchQueryService(repository).get_round_events(updated.match.match_id, 1)
+
+    assert result.status is ImportStatus.IMPORTED
+    assert events.grenades[0].game_time == 25.0
+    assert events.grenades[0].round_start_time == 5.0
+    assert events.blinds == (blind,)
 
 
 def test_delete_removes_match_and_all_children(
