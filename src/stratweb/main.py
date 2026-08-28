@@ -16,6 +16,7 @@ from stratweb.exceptions import (
     AnalysisFindingNotFoundError,
     CounterStrategyNotFoundError,
     EconomyNotFoundError,
+    HeadToHeadNotFoundError,
     PatternNotFoundError,
     RoundFeatureNotFoundError,
     SpatialNotFoundError,
@@ -28,6 +29,7 @@ from stratweb.web.counter_strategy import counter_strategy_router
 from stratweb.web.design_system import design_system_router
 from stratweb.web.economy import economy_router
 from stratweb.web.findings import finding_router
+from stratweb.web.head_to_head import head_to_head_router
 from stratweb.web.maps import map_router
 from stratweb.web.opponents import opponent_router
 from stratweb.web.patterns import pattern_router
@@ -148,6 +150,15 @@ def create_app(
             content={"detail": str(exc), "error_code": exc.error_code},
         )
 
+    @application.exception_handler(HeadToHeadNotFoundError)
+    async def head_to_head_not_found(
+        request: Request, exc: HeadToHeadNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "error_code": exc.error_code},
+        )
+
     @application.exception_handler(CounterStrategyNotFoundError)
     async def counter_strategy_not_found(
         request: Request, exc: CounterStrategyNotFoundError
@@ -236,6 +247,7 @@ def create_app(
     application.include_router(pattern_router(selected_database))
     application.include_router(statistical_trust_router(selected_database))
     application.include_router(tactical_v2_router(selected_database))
+    application.include_router(head_to_head_router(selected_database))
     application.include_router(finding_router(selected_database))
     application.include_router(
         spatial_explorer_router(

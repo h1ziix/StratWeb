@@ -4,6 +4,27 @@ All notable StratWeb changes are recorded here. The project uses semantic versio
 release baselines; analytics, persistence and report contracts keep their own independent
 schema and rule versions.
 
+## [0.20.0] - 2026-08-28
+
+### Added
+
+- A deterministic “Мы против них” workflow comparing two user-confirmed team profiles using
+  their latest compatible Tactical V2 runs.
+- Evidence-backed opening-pressure versus trade-support and opening-pressure versus early-spacing
+  matchup rules, always scoped to the same map and opposite T/CT sides.
+- A coach-first comparison page with one profile selector, plain observations, separate tactical
+  interpretation and recommendation, two-sided sample counts and links to both teams' rounds.
+- Immutable DuckDB migration 030 for versioned Head-to-Head runs and source Tactical V2 lineage.
+
+### Safety
+
+- Unknown sides are excluded. Different maps, same-side samples and stale Tactical V2 runs are not
+  silently paired.
+- Risk is a deterministic alignment of two historical samples, not a causal claim or a prediction
+  that the opponent will repeat the behaviour.
+- Economy- and zone-specific wording is withheld until both typed evidence dimensions exist; the
+  engine does not invent “eco banana push” labels from unrelated observations.
+
 ## [0.19.0] - 2026-08-28
 
 ### Added

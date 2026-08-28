@@ -8,6 +8,7 @@ from stratweb.adapters.persistence.counter_strategy_duckdb import (
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.adapters.persistence.economy_duckdb import DuckDBEconomyRepository
 from stratweb.adapters.persistence.findings_duckdb import DuckDBAnalysisRepository
+from stratweb.adapters.persistence.head_to_head_duckdb import DuckDBHeadToHeadRepository
 from stratweb.adapters.persistence.import_batches_duckdb import DuckDBImportBatchRepository
 from stratweb.adapters.persistence.import_jobs_duckdb import DuckDBImportJobRepository
 from stratweb.adapters.persistence.opponents_duckdb import DuckDBOpponentRepository
@@ -35,6 +36,7 @@ __all__ = [
     "DuckDBCounterStrategyRepository",
     "DuckDBImportJobRepository",
     "DuckDBImportBatchRepository",
+    "DuckDBHeadToHeadRepository",
     "DuckDBMatchRepository",
     "DuckDBOpponentRepository",
     "DuckDBPatternRepository",

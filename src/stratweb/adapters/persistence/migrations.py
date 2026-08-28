@@ -1595,6 +1595,28 @@ CREATE INDEX idx_blinds_match_attacker
 """
 
 
+HEAD_TO_HEAD_SCHEMA = r"""
+CREATE TABLE head_to_head_runs (
+    head_to_head_run_id UUID PRIMARY KEY,
+    head_to_head_fingerprint VARCHAR NOT NULL UNIQUE,
+    head_to_head_schema_version VARCHAR NOT NULL,
+    head_to_head_rule_version VARCHAR NOT NULL,
+    opponent_profile_id UUID NOT NULL,
+    our_profile_id UUID NOT NULL,
+    opponent_tactical_run_id UUID NOT NULL,
+    our_tactical_run_id UUID NOT NULL,
+    payload JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    CHECK (opponent_profile_id <> our_profile_id)
+);
+
+CREATE INDEX idx_head_to_head_profiles
+    ON head_to_head_runs(opponent_profile_id, our_profile_id, created_at);
+CREATE INDEX idx_head_to_head_sources
+    ON head_to_head_runs(opponent_tactical_run_id, our_tactical_run_id);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1649,4 +1671,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=27, name="local_analyst_notes", sql=ANALYST_NOTES_SCHEMA),
     Migration(version=28, name="bulk_training_pool_imports", sql=BULK_IMPORT_SCHEMA),
     Migration(version=29, name="utility_roi_evidence", sql=UTILITY_ROI_EVIDENCE_SCHEMA),
+    Migration(version=30, name="head_to_head_comparisons", sql=HEAD_TO_HEAD_SCHEMA),
 )

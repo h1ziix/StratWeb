@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Мы против них · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/head-to-head.css') }}">{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ opponent.profile_id }}">{{ opponent.display_name }}</a> / Мы против них</nav>
+
+<section class="h2h-hero">
+  <p class="eyebrow">Head-to-Head</p>
+  <h1>Мы против них</h1>
+  <p>StratWeb сопоставляет доказанные привычки соперника с тем, как в похожих ситуациях играем мы. Никаких догадок о намерениях — только совпадающие карта, стороны и сохранённые раунды.</p>
+  <form class="h2h-selector" method="get" action="/ui/opponents/{{ opponent.profile_id }}/head-to-head">
+    <label>Соперник<input value="{{ opponent.display_name }}" disabled></label>
+    <span aria-hidden="true">против</span>
+    <label>Наша команда
+      <select name="our_profile_id" required>
+        <option value="">Выберите профиль</option>
+        {% for profile in profiles %}<option value="{{ profile.profile_id }}" {% if selected_our_profile_id == profile.profile_id %}selected{% endif %}>{{ profile.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Показать сравнение</button>
+  </form>
+</section>
+
+{% if selected_our_profile_id and unavailable_reason %}
+<section class="h2h-empty">
+  <h2>Сравнение нужно рассчитать</h2>
+  <p>{{ unavailable_reason }}</p>
+  {% if our_profile %}<form method="post" action="/api/opponents/{{ opponent.profile_id }}/head-to-head/compute" data-submit-feedback>
+    <input type="hidden" name="our_profile_id" value="{{ our_profile.profile_id }}">
+    <button type="submit" data-loading-label="Сопоставляем раунды…">Сравнить команды</button>
+  </form>{% endif %}
+</section>
+{% elif not selected_our_profile_id %}
+<section class="h2h-empty"><h2>Выберите нашу команду</h2><p>Создайте для неё обычный профиль, добавьте собственные демки и укажите нашу физическую команду в каждом матче.</p></section>
+{% endif %}
+
+{% if comparison %}
+<section class="h2h-summary">
+  <div><strong>{{ comparison.summary.comparison_count }}</strong><span>совпадений для подготовки</span></div>
+  <div class="high"><strong>{{ comparison.summary.high_risk_count }}</strong><span>важно разобрать</span></div>
+  <div><strong>{{ comparison.summary.common_maps|length }}</strong><span>общих карт</span></div>
+  <form method="post" action="/api/opponents/{{ opponent.profile_id }}/head-to-head/compute" data-submit-feedback>
+    <input type="hidden" name="our_profile_id" value="{{ our_profile.profile_id }}">
+    <button class="secondary" type="submit" data-loading-label="Обновляем…">Пересчитать</button>
+  </form>
+</section>
+
+<section class="h2h-list">
+  {% for item in comparison.comparisons %}
+  <article class="h2h-card {{ item.risk_level.value }}">
+    <header><div><span class="map-chip">{{ item.map_name|map_name }}</span><span class="side-chip">Они {{ item.opponent_side.value }} · Мы {{ item.our_side.value }}</span></div><span class="risk-badge">{% if item.risk_level.value == 'high' %}Важно{% elif item.risk_level.value == 'medium' %}Стоит учесть{% else %}Под контролем{% endif %}</span></header>
+    <h2>{{ item.title }}</h2>
+    <p class="h2h-observation">{{ item.observation }}</p>
+    <div class="h2h-samples">
+      <div><span>{{ opponent.display_name }}</span><strong>{{ item.opponent_insight.numerator }} из {{ item.opponent_insight.denominator }}</strong><small>подтверждённых случаев</small></div>
+      <div><span>{{ our_profile.display_name }}</span><strong>{{ item.our_insight.numerator }} из {{ item.our_insight.denominator }}</strong><small>подтверждённых случаев</small></div>
+    </div>
+    <div class="h2h-reading"><h3>Почему это важно</h3><p>{{ item.tactical_interpretation }}</p></div>
+    <div class="h2h-action"><h3>Что сыграть</h3><p>{{ item.recommendation }}</p></div>
+    <details><summary>Показать доказательства</summary><div class="h2h-evidence-links">
+      <a href="/ui/opponents/{{ opponent.profile_id }}/tactical-v2/insights/{{ item.opponent_insight.insight_id }}/evidence?run_id={{ comparison.opponent_tactical_run_id }}">Раунды соперника</a>
+      <a href="/ui/opponents/{{ our_profile.profile_id }}/tactical-v2/insights/{{ item.our_insight.insight_id }}/evidence?run_id={{ comparison.our_tactical_run_id }}">Наши раунды</a>
+    </div><p>Надёжность: {% if item.reliability.value == 'high' %}высокая{% elif item.reliability.value == 'stable_trend' %}устойчивый тренд{% elif item.reliability.value == 'tactical_trend' %}тактический тренд{% else %}факты отдельных игр{% endif %}. Минимальный общий корпус: {{ item.sample_match_count }} матчей.</p></details>
+  </article>
+  {% else %}<div class="h2h-empty"><h2>Совместимых ситуаций пока нет</h2><p>Нужны разборы обеих команд на одной карте и за противоположные стороны.</p></div>{% endfor %}
+</section>
+
+<details class="product-disclosure"><summary>Ограничения и версии</summary><div class="product-disclosure__content"><p>Сравнение объединяет разные исторические матчи и не доказывает причинность. Экономика и конкретная зона не добавляются, пока оба признака не подтверждены типизированными данными.</p><dl class="technical-facts"><dt>Схема / правила</dt><dd><code>{{ comparison.head_to_head_schema_version }} / {{ comparison.head_to_head_rule_version }}</code></dd><dt>Run</dt><dd><code>{{ comparison.head_to_head_run_id }}</code></dd></dl><a class="button secondary" href="/api/opponents/{{ opponent.profile_id }}/head-to-head/summary?our_profile_id={{ our_profile.profile_id }}&run_id={{ comparison.head_to_head_run_id }}">Скачать JSON</a></div></details>
+{% endif %}
+{% endblock %}

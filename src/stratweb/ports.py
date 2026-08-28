@@ -95,6 +95,11 @@ if TYPE_CHECKING:
         EvidenceReference,
         FindingCategory,
     )
+    from stratweb.head_to_head.models import (
+        HeadToHeadRun,
+        HeadToHeadRunRecord,
+        HeadToHeadSaveResult,
+    )
     from stratweb.patterns.models import (
         CrossMatchPattern,
         PatternAvailability,
@@ -873,6 +878,31 @@ class TacticalV2Repository(Protocol):
     ) -> tuple[TacticalEvidenceReference, ...]: ...
 
     def delete(self, profile_id: UUID) -> int: ...
+
+
+@runtime_checkable
+class HeadToHeadRepository(Protocol):
+    """Persistence boundary for immutable opponent-versus-own-team runs."""
+
+    def initialize(self) -> tuple[int, ...]: ...
+
+    def save(self, state: HeadToHeadRun) -> HeadToHeadSaveResult: ...
+
+    def get_for_sources(
+        self,
+        opponent_profile_id: UUID,
+        our_profile_id: UUID,
+        opponent_tactical_run_id: UUID,
+        our_tactical_run_id: UUID,
+    ) -> HeadToHeadRun | None: ...
+
+    def get_run(
+        self, opponent_profile_id: UUID, our_profile_id: UUID, run_id: UUID
+    ) -> HeadToHeadRun | None: ...
+
+    def list_runs(
+        self, opponent_profile_id: UUID, our_profile_id: UUID
+    ) -> tuple[HeadToHeadRunRecord, ...]: ...
 
 
 @runtime_checkable

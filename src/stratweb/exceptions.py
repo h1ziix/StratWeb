@@ -104,6 +104,18 @@ class OpponentSelectionError(OpponentWorkspaceError):
     error_code = "opponent_selection_error"
 
 
+class HeadToHeadError(PersistenceError):
+    error_code = "head_to_head_error"
+
+
+class HeadToHeadConfigurationError(HeadToHeadError):
+    error_code = "head_to_head_configuration_error"
+
+
+class HeadToHeadNotFoundError(HeadToHeadError):
+    error_code = "head_to_head_not_found"
+
+
 class DatabaseInitializationError(PersistenceError):
     error_code = "database_initialization_error"
 
