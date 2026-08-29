@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.22.0] - 2026-08-29
+
+### Added
+
+- A local-only **Скопировать команды CS2** action in the 2D round viewer. It prepares the exact
+  retained demo in `game/csgo/StratWeb` and copies separate verified `playdemo` and
+  `demo_gototick ...; demo_pause` commands for the currently displayed tick.
+- SHA-256 verification before export, safe UUID destination names, verified-file reuse and an
+  atomic hard-link/copy fallback.
+
+### Safety
+
+- StratWeb never launches CS2, executes console commands, injects code, reads game memory or
+  automates spectator input. Missing retained demos and mismatched hashes are explicit errors.
+- Automatic first-person/player selection is deliberately unavailable until a CS2 spectator
+  entity index can be proven from source data.
+
 ## [0.21.0] - 2026-08-29
 
 ### Added

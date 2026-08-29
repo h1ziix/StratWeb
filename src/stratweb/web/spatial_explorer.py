@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
 from stratweb.adapters.persistence import (
@@ -17,12 +17,17 @@ from stratweb.adapters.persistence import (
     DuckDBTemporalRepository,
     DuckDBZoneAssignmentRepository,
 )
+from stratweb.application.cs2_demo_bridge import (
+    CS2DemoBridgeError,
+    CS2DemoBridgeService,
+    CS2DemoCommand,
+)
 from stratweb.application.spatial_queries import SpatialExplorerService
 from stratweb.exceptions import PlaybackIndexError, SpatialNotFoundError
 from stratweb.maps.registry import MapRegistry
 from stratweb.spatial.map_overviews import MapOverviewRegistry
 from stratweb.spatial.models import SpatialAvailabilityStatus
-from stratweb.web.context import build_match_context
+from stratweb.web.context import build_match_context, require_localhost
 from stratweb.web.rendering import render_template
 
 PLAYBACK_CHUNK_SIZE = 64
@@ -33,6 +38,7 @@ def spatial_explorer_router(
     asset_directory: Path,
     *,
     map_registry: MapRegistry | None = None,
+    cs2_demo_directory: Path | None = None,
 ) -> APIRouter:
     router = APIRouter()
     registry = MapOverviewRegistry(asset_directory, map_registry)
@@ -48,6 +54,23 @@ def spatial_explorer_router(
         analytics_repository=analytics,
         zone_repository=DuckDBZoneAssignmentRepository(database_path),
     )
+    cs2_bridge = CS2DemoBridgeService(database_path, cs2_demo_directory)
+
+    @router.post(
+        "/api/matches/{match_id}/cs2-demo-command",
+        response_model=CS2DemoCommand,
+        tags=["playback"],
+    )
+    def prepare_cs2_demo_command(
+        request: Request,
+        match_id: UUID,
+        tick: Annotated[int, Query(ge=0)],
+    ) -> CS2DemoCommand:
+        require_localhost(request, "CS2 demo preparation")
+        try:
+            return cs2_bridge.prepare(match_id, tick)
+        except CS2DemoBridgeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.get(
         "/assets/map-overviews/{map_name}.png",

@@ -36,7 +36,7 @@
     "metricRecreatedNodes", "metricActivePlayers", "metricActiveProjectiles", "autoFocus",
     "metricClockCrossed", "metricClockMaxCrossed", "metricLabelPlans", "metricAnchorFlips",
     "selectedPlayerStatus", "currentEventStatus", "mapViewport", "selectedZoneBadge",
-    "playerPathLink",
+    "playerPathLink", "copyCs2Command", "cs2CommandStatus",
   ];
   const elements = Object.fromEntries(
     elementIds.map((id) => [id, document.getElementById(id)]),
@@ -115,6 +115,52 @@
 
   function setHidden(element, hidden) {
     if (element && element.hidden !== hidden) element.hidden = hidden;
+  }
+
+  async function copyText(value) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const field = document.createElement("textarea");
+    field.value = value;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    if (!copied) throw new Error("Браузер не разрешил доступ к буферу обмена.");
+  }
+
+  async function copyCs2Commands() {
+    const button = elements.copyCs2Command;
+    const tick = config.ticks[state.index];
+    if (!Number.isInteger(tick)) return;
+    button.disabled = true;
+    setText(button, "Подготавливаем демку…");
+    elements.cs2CommandStatus.classList.remove("error");
+    setText(elements.cs2CommandStatus, "Проверяем исходный файл и папку CS2.");
+    try {
+      const response = await fetch(
+        `/api/matches/${config.match_id}/cs2-demo-command?tick=${tick}`,
+        { method: "POST", headers: { Accept: "application/json" } },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || `Ошибка подготовки (${response.status})`);
+      await copyText(payload.clipboard_text);
+      setText(
+        elements.cs2CommandStatus,
+        "Скопировано: вставьте первую строку в консоль CS2, дождитесь загрузки, затем вторую.",
+      );
+    } catch (error) {
+      elements.cs2CommandStatus.classList.add("error");
+      setText(elements.cs2CommandStatus, error.message);
+    } finally {
+      button.disabled = false;
+      setText(button, "Скопировать команды CS2");
+    }
   }
 
   function indexProjectileSamples(rows) {
@@ -1004,6 +1050,7 @@
   };
   document.getElementById("closeDiagnostics").onclick = () => { elements.diagnosticsDrawer.hidden = true; };
   document.getElementById("fullscreen").onclick = () => document.getElementById("viewerShell").requestFullscreen();
+  elements.copyCs2Command.onclick = () => void copyCs2Commands();
   document.getElementById("zoomIn").onclick = () => zoom(1.25);
   document.getElementById("zoomOut").onclick = () => zoom(0.8);
   document.getElementById("resetView").onclick = resetView;

@@ -63,6 +63,7 @@ def create_app(
     *,
     map_registry: MapRegistry | None = None,
     map_developer_mode: bool | None = None,
+    cs2_demo_directory: Path | None = None,
 ) -> FastAPI:
     """Create the HTTP application without touching storage or parser resources."""
 
@@ -256,6 +257,7 @@ def create_app(
             selected_database,
             selected_overviews,
             map_registry=map_registry,
+            cs2_demo_directory=cs2_demo_directory or settings.cs2_demo_dir,
         )
     )
     application.include_router(

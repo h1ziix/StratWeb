@@ -121,6 +121,30 @@
   font-size: 11px;
 }
 
+.viewer-actions .cs2-command-button,
+.viewer-actions .cs2-command-status {
+  grid-column: 1 / -1;
+}
+
+.viewer-actions .cs2-command-button {
+  min-height: 38px;
+  color: #07130f;
+  background: linear-gradient(135deg, #75e7ca, #58c8e8);
+  border-color: transparent;
+  font-weight: 800;
+}
+
+.cs2-command-status {
+  min-height: 0;
+  color: #9ba9ba;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.cs2-command-status.error {
+  color: #ff9b91;
+}
+
 .map-panel {
   display: grid;
   grid-template-rows: minmax(0, 1fr) 34px 62px;

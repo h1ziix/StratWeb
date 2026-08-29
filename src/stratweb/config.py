@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     duckdb_path: Path = Path("data/stratweb.duckdb")
     map_overview_dir: Path = Path("data/map_overviews")
+    # Optional explicit game/csgo/StratWeb directory used only after a local button press.
+    cs2_demo_dir: Path | None = None
     max_upload_bytes: int = Field(default=2 * 1024 * 1024 * 1024, gt=0)
     max_batch_upload_bytes: int = Field(default=8 * 1024 * 1024 * 1024, gt=0)
     position_sample_interval_ticks: int = Field(default=16, gt=0)
