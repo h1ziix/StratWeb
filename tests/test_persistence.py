@@ -70,6 +70,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         29,
         30,
         31,
+        32,
     )
     assert repository.initialize() == ()
 
@@ -77,7 +78,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
         rows = connection.execute(
             "SELECT version, name, checksum FROM schema_migrations"
         ).fetchall()
-    assert len(rows) == 31
+    assert len(rows) == 32
     assert rows[0][0:2] == (1, "canonical_match_schema")
     assert len(rows[0][2]) == 64
     assert rows[1][0:2] == (2, "round_result_availability")
@@ -110,6 +111,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
     assert rows[28][0:2] == (29, "utility_roi_evidence")
     assert rows[29][0:2] == (30, "head_to_head_comparisons")
     assert rows[30][0:2] == (31, "critical_mistake_filters")
+    assert rows[31][0:2] == (32, "interactive_2d_telestrator")
 
 
 def test_modified_applied_migration_checksum_is_rejected(tmp_path: Path) -> None:
@@ -209,6 +211,7 @@ def test_stage4_database_migration_preserves_match_round_and_event_rows(
         29,
         30,
         31,
+        32,
     )
     with duckdb.connect(str(database), read_only=True) as connection:
         after = {}
@@ -366,9 +369,7 @@ def test_blind_events_and_source_clock_round_trip_through_duckdb(
     canonical_dataset_factory: Any,
 ) -> None:
     dataset = canonical_dataset_factory()
-    grenade = dataset.grenades[0].model_copy(
-        update={"game_time": 25.0, "round_start_time": 5.0}
-    )
+    grenade = dataset.grenades[0].model_copy(update={"game_time": 25.0, "round_start_time": 5.0})
     blind = CanonicalBlind(
         event_id=uuid4(),
         match_id=dataset.match.match_id,

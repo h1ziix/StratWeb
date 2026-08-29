@@ -71,6 +71,7 @@ _MATCH_TABLES: tuple[str, ...] = (
 )
 
 _DELETE_ORDER: tuple[str, ...] = (
+    "telestrator_boards",
     "team_display_labels",
     "opponent_match_selections",
     "round_features",

@@ -282,6 +282,18 @@
   z-index: 70;
 }
 
+.telestrator-layer {
+  z-index: 80;
+  overflow: visible;
+  contain: none;
+  touch-action: none;
+}
+
+.telestrator-layer.is-editing {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
 .player-marker,
 .projectile-marker,
 .effect-marker,
@@ -624,6 +636,135 @@
   font-size: 11px;
 }
 
+.telestrator-panel {
+  position: absolute;
+  z-index: 140;
+  right: 10px;
+  top: 54px;
+  display: grid;
+  width: min(390px, calc(100% - 20px));
+  gap: 11px;
+  padding: 14px;
+  color: #eaf2f7;
+  background: #091218f2;
+  border: 1px solid #31504e;
+  border-radius: 14px;
+  box-shadow: 0 18px 55px #000a;
+  cursor: default;
+  touch-action: manipulation;
+}
+
+.telestrator-panel[hidden] {
+  display: none;
+}
+
+.telestrator-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.telestrator-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.telestrator-heading strong {
+  font-size: 15px;
+}
+
+.telestrator-heading span,
+.telestrator-status {
+  color: #91a4ae;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.telestrator-heading button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 2px;
+  font-size: 20px;
+}
+
+.telestrator-tools,
+.telestrator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.telestrator-tools button,
+.telestrator-actions button {
+  min-height: 34px;
+  flex: 1 1 auto;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+.telestrator-tools button.is-active {
+  color: #06120f;
+  background: #69e5c7;
+  border-color: #69e5c7;
+}
+
+.telestrator-options {
+  display: grid;
+  grid-template-columns: auto minmax(130px, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.telestrator-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #b5c2ca;
+  font-size: 11px;
+}
+
+.telestrator-options input[type="color"] {
+  width: 38px;
+  height: 30px;
+  min-height: 0;
+  padding: 2px;
+}
+
+.telestrator-options input[type="range"] {
+  width: 100%;
+  min-height: 28px;
+  padding: 0;
+}
+
+.telestrator-options #telestratorTextLabel {
+  grid-column: 1 / -1;
+}
+
+.telestrator-options #telestratorText {
+  min-width: 0;
+  flex: 1;
+}
+
+.telestrator-actions #telestratorSave {
+  color: #06120f;
+  background: #69e5c7;
+  border-color: transparent;
+  font-weight: 800;
+}
+
+.telestrator-status.pending {
+  color: #f0c66d;
+}
+
+.telestrator-status.saved {
+  color: #73ddbd;
+}
+
+.telestrator-status.error {
+  color: #ff918d;
+}
+
 .viewer-warning {
   position: absolute;
   z-index: 95;
@@ -922,6 +1063,22 @@
 
   .viewer-warning {
     max-width: calc(100% - 120px);
+  }
+
+  .telestrator-panel {
+    position: fixed;
+    right: 8px;
+    bottom: 8px;
+    top: auto;
+    width: calc(100% - 16px);
+    max-height: min(68dvh, 560px);
+    overflow-y: auto;
+    border-radius: 16px;
+  }
+
+  .telestrator-tools button,
+  .telestrator-actions button {
+    min-height: 42px;
   }
 }
 

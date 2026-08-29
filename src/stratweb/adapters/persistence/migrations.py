@@ -1633,6 +1633,24 @@ CREATE INDEX idx_critical_mistake_runs_profile
 """
 
 
+TELESTRATOR_SCHEMA = r"""
+CREATE TABLE telestrator_boards (
+    board_id UUID PRIMARY KEY,
+    match_id UUID NOT NULL,
+    round_number INTEGER NOT NULL CHECK (round_number >= 1),
+    schema_version VARCHAR NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    payload JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    UNIQUE (match_id, round_number)
+);
+
+CREATE INDEX idx_telestrator_boards_round
+    ON telestrator_boards(match_id, round_number);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1689,4 +1707,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=29, name="utility_roi_evidence", sql=UTILITY_ROI_EVIDENCE_SCHEMA),
     Migration(version=30, name="head_to_head_comparisons", sql=HEAD_TO_HEAD_SCHEMA),
     Migration(version=31, name="critical_mistake_filters", sql=CRITICAL_MISTAKES_SCHEMA),
+    Migration(version=32, name="interactive_2d_telestrator", sql=TELESTRATOR_SCHEMA),
 )

@@ -1457,7 +1457,20 @@ Acceptance evidence: [STAGE_9_6_6.md](STAGE_9_6_6.md).
 - migration rehearsal, disaster restore, security scanning и support matrix;
 - performance budgets и release automation.
 
-## Stage 9.9 — Optional LLM Rephrasing (не начат)
+## Stage 9.9 — Interactive 2D Telestrator (завершён)
+
+- [x] один компактный вход «Разметка» без перегрузки основного 2D viewer;
+- [x] стрелка, карандаш, зона и текст с нормализованными координатами карты;
+- [x] undo, clear, hide/show и явное сохранение одной доски на match/round;
+- [x] versioned Pydantic contract и DuckDB migration 032;
+- [x] optimistic revision: две вкладки не могут молча перезаписать друг друга;
+- [x] отдельный SVG layer вне горячего playback render loop;
+- [x] понятная маркировка: ручные заметки не являются demo evidence или finding;
+- [x] localhost/same-origin mutation policy и адаптивная mobile panel.
+
+Acceptance evidence: [TELESTRATOR.md](TELESTRATOR.md).
+
+## Stage 9.10 — Optional LLM Rephrasing (не начат)
 
 Только после corpus/statistical acceptance. LLM может сокращать, переводить и менять
 стиль подтверждённого текста. LLM не может считать статистику, менять
@@ -1498,7 +1511,7 @@ limitations. Оригинальный deterministic finding всегда хра�
         ↓
 9.5 Tactical V2 → 9.6 UX → 9.7 On-Prem → 9.8 Operations
         ↓
-9.9 Optional LLM
+9.9 Telestrator → 9.10 Optional LLM
         ↓
 10 Cloud Scale
 ```

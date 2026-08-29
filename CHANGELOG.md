@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.23.0] - 2026-08-29
+
+### Added
+
+- An interactive coach telestrator in every exact 2D round view: arrow, pencil, zone and text
+  tools behind one compact **Разметка** button.
+- Per-match/per-round DuckDB boards with normalized map coordinates, schema version `1.0.0`,
+  revision conflict protection, undo, clear, visibility and explicit save controls.
+- A separate SVG annotation layer that is not touched by the playback renderer, including a
+  mobile bottom-sheet layout.
+
+### Safety
+
+- Telestrator marks are user-authored notes, not demo evidence, analytical findings or inferred
+  game facts. They never modify playback, canonical events or deterministic statistics.
+- Writes remain localhost/same-origin only, malformed geometry is rejected and concurrent tabs
+  cannot silently overwrite a newer board.
+
 ## [0.22.0] - 2026-08-29
 
 ### Added

@@ -14,6 +14,7 @@ from stratweb.adapters.persistence import (
     DuckDBAnalyticsRepository,
     DuckDBMatchRepository,
     DuckDBSpatialRepository,
+    DuckDBTelestratorRepository,
     DuckDBTemporalRepository,
     DuckDBZoneAssignmentRepository,
 )
@@ -23,7 +24,13 @@ from stratweb.application.cs2_demo_bridge import (
     CS2DemoCommand,
 )
 from stratweb.application.spatial_queries import SpatialExplorerService
-from stratweb.exceptions import PlaybackIndexError, SpatialNotFoundError
+from stratweb.application.telestrator import (
+    TelestratorBoard,
+    TelestratorBoardUpdate,
+    TelestratorConflictError,
+    TelestratorRoundNotFoundError,
+)
+from stratweb.exceptions import PersistenceError, PlaybackIndexError, SpatialNotFoundError
 from stratweb.maps.registry import MapRegistry
 from stratweb.spatial.map_overviews import MapOverviewRegistry
 from stratweb.spatial.models import SpatialAvailabilityStatus
@@ -55,6 +62,45 @@ def spatial_explorer_router(
         zone_repository=DuckDBZoneAssignmentRepository(database_path),
     )
     cs2_bridge = CS2DemoBridgeService(database_path, cs2_demo_directory)
+    telestrator = DuckDBTelestratorRepository(database_path)
+
+    @router.get(
+        "/api/matches/{match_id}/rounds/{round_number}/telestrator",
+        response_model=TelestratorBoard,
+        tags=["playback"],
+    )
+    def get_telestrator_board(match_id: UUID, round_number: int) -> TelestratorBoard:
+        try:
+            return telestrator.get(match_id, round_number)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TelestratorRoundNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except PersistenceError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @router.put(
+        "/api/matches/{match_id}/rounds/{round_number}/telestrator",
+        response_model=TelestratorBoard,
+        tags=["playback"],
+    )
+    def save_telestrator_board(
+        request: Request,
+        match_id: UUID,
+        round_number: int,
+        update: TelestratorBoardUpdate,
+    ) -> TelestratorBoard:
+        require_localhost(request, "2D telestrator editing")
+        try:
+            return telestrator.save(match_id, round_number, update)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TelestratorRoundNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except TelestratorConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except PersistenceError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.post(
         "/api/matches/{match_id}/cs2-demo-command",

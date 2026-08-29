@@ -37,6 +37,7 @@
     <div class="viewer-actions">
       <button id="copyCs2Command" class="cs2-command-button" type="button">Скопировать команды CS2</button>
       <span id="cs2CommandStatus" class="cs2-command-status" role="status" aria-live="polite"></span>
+      <button id="telestratorToggle" class="secondary" type="button" aria-expanded="false" aria-controls="telestratorPanel">Разметка</button>
       <button id="diagnosticsToggle" class="secondary" type="button">Диагностика</button>
       <button id="fullscreen" class="secondary" type="button">На весь экран</button>
     </div>
@@ -67,6 +68,10 @@
           <div id="bombLayer" class="render-layer bomb-layer" aria-hidden="true"></div>
           <div id="labelsLayer" class="render-layer labels-layer" aria-hidden="true"></div>
           <div id="selectionLayer" class="render-layer selection-layer" aria-hidden="true"></div>
+          <svg id="telestratorLayer" class="render-layer telestrator-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Пользовательская разметка карты">
+            <g id="telestratorItems"></g>
+            <g id="telestratorPreview"></g>
+          </svg>
           <span id="levelBadge" class="level-badge" {% if not overview.lower_image_url %}hidden{% endif %}>Автовыбор этажа</span>
           <span id="selectedZoneBadge" class="selected-zone-badge" hidden></span>
         </div>
@@ -99,6 +104,31 @@
         <button id="resetView" class="secondary" type="button">Сбросить</button>
         <button id="fitMap" class="secondary" type="button">Вписать</button>
       </div>
+
+      <aside id="telestratorPanel" class="telestrator-panel" hidden aria-label="Инструменты разметки карты">
+        <div class="telestrator-heading">
+          <div><strong>Разметка раунда</strong><span>Заметки тренера, не игровые доказательства</span></div>
+          <button id="telestratorClose" class="secondary" type="button" aria-label="Закрыть разметку">×</button>
+        </div>
+        <div class="telestrator-tools" role="toolbar" aria-label="Инструмент рисования">
+          <button class="is-active" type="button" data-telestrator-tool="arrow" aria-pressed="true">Стрелка</button>
+          <button type="button" data-telestrator-tool="pencil" aria-pressed="false">Карандаш</button>
+          <button type="button" data-telestrator-tool="zone" aria-pressed="false">Зона</button>
+          <button type="button" data-telestrator-tool="text" aria-pressed="false">Текст</button>
+        </div>
+        <div class="telestrator-options">
+          <label>Цвет <input id="telestratorColor" type="color" value="#63f2cc"></label>
+          <label>Толщина <input id="telestratorWidth" type="range" min="1" max="12" value="5"></label>
+          <label id="telestratorTextLabel" hidden>Подпись <input id="telestratorText" type="text" maxlength="120" placeholder="Например: выход вдвоём"></label>
+        </div>
+        <div class="telestrator-actions">
+          <button id="telestratorUndo" class="secondary" type="button" disabled>Отменить</button>
+          <button id="telestratorClear" class="secondary" type="button">Очистить</button>
+          <button id="telestratorVisibility" class="secondary" type="button" aria-pressed="false">Скрыть</button>
+          <button id="telestratorSave" type="button">Сохранить</button>
+        </div>
+        <span id="telestratorStatus" class="telestrator-status" role="status" aria-live="polite">Загрузка…</span>
+      </aside>
 
       {% if overview_unavailable %}<div class="viewer-warning">Изображение карты недоступно · координаты остаются доступными</div>{% endif %}
       {% if overview.revision_selection_status == 'unproven' %}<div class="viewer-warning">Версия карты не подтверждена метаданными демки</div>{% endif %}
@@ -138,4 +168,4 @@
 <script id="spatialConfig" type="application/json">{{ config_json|safe }}</script>
 <script id="initialChunk" type="application/json">{{ initial_chunk_json|safe }}</script>
 {% endblock %}
-{% block scripts %}<script src="{{ static_asset('js/label-layout.js') }}" defer></script><script src="{{ static_asset('js/url-state.js') }}" defer></script><script src="{{ static_asset('js/buffer-ranges.js') }}" defer></script><script src="{{ static_asset('js/playback-clock.js') }}" defer></script><script src="{{ static_asset('js/event-buffer.js') }}" defer></script><script src="{{ static_asset('js/map-renderer.js') }}" defer></script><script src="{{ static_asset('js/spatial-player.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static_asset('js/label-layout.js') }}" defer></script><script src="{{ static_asset('js/url-state.js') }}" defer></script><script src="{{ static_asset('js/buffer-ranges.js') }}" defer></script><script src="{{ static_asset('js/playback-clock.js') }}" defer></script><script src="{{ static_asset('js/event-buffer.js') }}" defer></script><script src="{{ static_asset('js/map-renderer.js') }}" defer></script><script src="{{ static_asset('js/spatial-player.js') }}" defer></script><script src="{{ static_asset('js/telestrator.js') }}" defer></script>{% endblock %}

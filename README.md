@@ -6,7 +6,7 @@ StratWeb — локальное backend-приложение для доказа
 демки, матчи и раунды.
 
 Реализованы этапы 1–8.9, release baseline Stage 9.0 и Golden Corpus tooling Stage 9.1: inspection и canonical dataset (`demoparser2==0.41.4`
-за портом), DuckDB persistence (миграции 001–030), `Gameplay Analytics Engine V1`
+за портом), DuckDB persistence (миграции 001–032), `Gameplay Analytics Engine V1`
 (opening/trade/KAST/multikill/advantage/bomb метрики), `Temporal Round State
 Engine 1.1.0` (immutable timeline, snapshots — [TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)),
 Spatial Engine с playback viewer ([SPATIAL_MODEL.md](SPATIAL_MODEL.md),
@@ -23,6 +23,9 @@ evidence-first UI и стабильные JSON/PDF/printable exports описа�
 [SCOUTING_REPORT_UI.md](SCOUTING_REPORT_UI.md) и [REPORT_EXPORT.md](REPORT_EXPORT.md).
 Понятный разбор каждого раунда отделяет подтверждённые события, перелом и проблему от
 полной технической таблицы ([STAGE_9_7_1.md](STAGE_9_7_1.md)).
+В точном 2D-просмотре тренер может поверх карты сохранять стрелки, свободные линии,
+зоны и подписи для конкретного раунда; эта ручная разметка строго отделена от
+доказательств и аналитики ([TELESTRATOR.md](TELESTRATOR.md)).
 Рекомендации больше не требуют жёстко 20 матчей: размер корпуса отображается как
 детерминированный уровень надёжности ([STAGE_9_7_2.md](STAGE_9_7_2.md)).
 Отдельный раздел гранат показывает командные флешки, гранаты в инвентаре погибших и
