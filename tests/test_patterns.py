@@ -86,6 +86,7 @@ from stratweb.web.rendering import render_template
 from stratweb.web.view_models.scouting_report import (
     ScoutingReportFilters,
     build_coach_report_page,
+    build_match_cheat_sheet_page,
     build_scouting_report_page,
 )
 
@@ -713,6 +714,11 @@ def test_pattern_service_persistence_and_feature_cascade(
     coach_report = build_coach_report_page(
         accepted_source, opponent_service.get_workspace(profile.profile_id)
     )
+    cheat_sheet = build_match_cheat_sheet_page(
+        accepted_source,
+        opponent_service.get_workspace(profile.profile_id),
+        map_name=ready_finding.scope.map_name,
+    )
     assert accepted_report.acceptance_status == "passed"
     assert len(accepted_report.recommendations) == 1
     assert coach_report.rule_version == "coach_report_projection_v3"
@@ -731,6 +737,14 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert coach_report.evidence[0].finding.finding_id == ready_finding.finding_id
     assert coach_report.evidence[0].plain_title
     assert coach_report.evidence[0].plain_explanation
+    assert cheat_sheet.rule_version == "map_cheat_sheet_v1"
+    assert cheat_sheet.map_name == ready_finding.scope.map_name
+    assert cheat_sheet.included_matches == 20
+    assert len(cheat_sheet.recommendations) == 1
+    assert all(
+        item.finding.map_name == cheat_sheet.map_name
+        for item in (*cheat_sheet.attack, *cheat_sheet.defence, *cheat_sheet.risks)
+    )
     assert "Наблюдение подтверждено" in accepted_report.recommendations[0].observation
     accepted_html = render_template(
         "opponents/report.html",
@@ -781,21 +795,29 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert ValidationCheckCode.STATISTICS_PRESERVED in rejected.failures
     assert ValidationCheckCode.EVIDENCE_PRESERVED in rejected.failures
     assert ValidationCheckCode.EVIDENCE_WITHIN_CORPUS in rejected.failures
+    rejected_source = ScoutingReportSource(
+        strategy=strategy_twenty_summary,
+        analysis=analysis_twenty,
+        readiness=readiness_twenty,
+        validation=rejected,
+        findings=(ready_finding,),
+        recommendations=(corrupted_recommendation,),
+        skipped_findings=strategy_twenty.skipped_findings,
+    )
     rejected_report = build_scouting_report_page(
-        ScoutingReportSource(
-            strategy=strategy_twenty_summary,
-            analysis=analysis_twenty,
-            readiness=readiness_twenty,
-            validation=rejected,
-            findings=(ready_finding,),
-            recommendations=(corrupted_recommendation,),
-            skipped_findings=strategy_twenty.skipped_findings,
-        ),
+        rejected_source,
         opponent_service.get_workspace(profile.profile_id),
         ScoutingReportFilters(),
     )
+    rejected_cheat_sheet = build_match_cheat_sheet_page(
+        rejected_source,
+        opponent_service.get_workspace(profile.profile_id),
+        map_name=ready_finding.scope.map_name,
+    )
     assert rejected_report.recommendations_suppressed is True
     assert rejected_report.recommendations == ()
+    assert rejected_cheat_sheet.recommendations_suppressed is True
+    assert rejected_cheat_sheet.recommendations == ()
     rejected_html = render_template(
         "opponents/report.html",
         workspace=opponent_service.get_workspace(profile.profile_id),
@@ -900,7 +922,21 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert "data-coach-step" in report_page.text
         assert "data-coach-next" in report_page.text
         assert "data-coach-deck" in report_page.text and "hidden" in report_page.text
+        assert "Шпаргалка на карту" in report_page.text
         assert "Минимальная оценка Уилсона" not in report_page.text
+        cheat_sheet_page = client.get(f"/ui/opponents/{profile_id}/cheat-sheet")
+        assert cheat_sheet_page.status_code == 200
+        assert "План перед матчем" in cheat_sheet_page.text
+        assert "Скопировать план" in cheat_sheet_page.text
+        assert "Что ждать за атаку" in cheat_sheet_page.text
+        assert "Что сыграть против них" in cheat_sheet_page.text
+        assert "cheat-sheet.js" in cheat_sheet_page.text
+        assert "strategy_fingerprint" not in cheat_sheet_page.text
+        missing_map_cheat_sheet = client.get(
+            f"/ui/opponents/{profile_id}/cheat-sheet",
+            params={"map": "de_missing"},
+        )
+        assert missing_map_cheat_sheet.status_code == 404
         analyst_page = client.get(f"/ui/opponents/{profile_id}/report", params={"mode": "analyst"})
         assert analyst_page.status_code == 200
         assert "Доказательный отчёт о сопернике" in analyst_page.text

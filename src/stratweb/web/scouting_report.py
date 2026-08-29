@@ -42,6 +42,7 @@ from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
     ScoutingReportFilters,
     build_coach_report_page,
+    build_match_cheat_sheet_page,
     build_scouting_report_detail,
     build_scouting_report_page,
 )
@@ -117,6 +118,47 @@ def scouting_report_router(database_path: Path) -> APIRouter:
                 report=report,
                 coach_report=coach_report,
                 report_mode=mode,
+                unavailable_reason=None,
+                match_context=None,
+            )
+        )
+
+    @router.get(
+        "/ui/opponents/{profile_id}/cheat-sheet",
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def cheat_sheet_page(
+        profile_id: UUID,
+        run_id: UUID | None = None,
+        map_name: Annotated[str | None, Query(alias="map", max_length=100)] = None,
+    ) -> HTMLResponse:
+        workspace = _workspace(opponents, profile_id)
+        try:
+            source = reports.get_source(profile_id, strategy_run_id=run_id)
+            cheat_sheet = build_match_cheat_sheet_page(
+                source,
+                workspace,
+                map_name=map_name,
+            )
+        except CounterStrategyNotFoundError as exc:
+            return HTMLResponse(
+                render_template(
+                    "opponents/cheat_sheet.html",
+                    workspace=workspace,
+                    cheat_sheet=None,
+                    unavailable_reason=str(exc),
+                    match_context=None,
+                ),
+                status_code=404,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return HTMLResponse(
+            render_template(
+                "opponents/cheat_sheet.html",
+                workspace=workspace,
+                cheat_sheet=cheat_sheet,
                 unavailable_reason=None,
                 match_context=None,
             )

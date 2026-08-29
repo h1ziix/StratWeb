@@ -44,10 +44,12 @@ from stratweb.web.view_models.round_features import (
 from stratweb.web.view_models.scouting_report import (
     CoachReportPageView,
     CoachSignalView,
+    MatchCheatSheetPageView,
     ScoutingReportDetailView,
     ScoutingReportFilters,
     ScoutingReportPageView,
     build_coach_report_page,
+    build_match_cheat_sheet_page,
     build_scouting_report_detail,
     build_scouting_report_page,
 )
@@ -59,6 +61,7 @@ __all__ = [
     "EconomyTeamView",
     "CoachReportPageView",
     "CoachSignalView",
+    "MatchCheatSheetPageView",
     "HealthItemView",
     "MATCH_HUB_VIEW_VERSION",
     "MATCH_READINESS_VIEW_VERSION",
@@ -85,6 +88,7 @@ __all__ = [
     "build_match_readiness",
     "build_match_hub",
     "build_coach_report_page",
+    "build_match_cheat_sheet_page",
     "build_round_feature_page",
     "ScoutingReportDetailView",
     "ScoutingReportFilters",

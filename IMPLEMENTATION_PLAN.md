@@ -1470,7 +1470,20 @@ Acceptance evidence: [STAGE_9_6_6.md](STAGE_9_6_6.md).
 
 Acceptance evidence: [TELESTRATOR.md](TELESTRATOR.md).
 
-## Stage 9.10 — Optional LLM Rephrasing (не начат)
+## Stage 9.10 — One-Page Match Cheat Sheet (завершён)
+
+- [x] одна шпаргалка всегда ограничена одной выбранной картой;
+- [x] надёжность считается по подтверждённым матчам этой карты, а не всему корпусу;
+- [x] максимум два детерминированно выбранных сигнала на T, CT и риски;
+- [x] максимум два готовых ответа с отдельными «сыграть» и «не делать»;
+- [x] validation failure скрывает советы, unknown не заменяется догадкой;
+- [x] каждый сигнал ведёт к полному evidence drill-down;
+- [x] копирование plain text для Discord/team chat без внешней интеграции;
+- [x] адаптивный экран и компактная A4 landscape печать.
+
+Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
+
+## Stage 9.11 — Optional LLM Rephrasing (не начат)
 
 Только после corpus/statistical acceptance. LLM может сокращать, переводить и менять
 стиль подтверждённого текста. LLM не может считать статистику, менять
@@ -1511,7 +1524,7 @@ limitations. Оригинальный deterministic finding всегда хра�
         ↓
 9.5 Tactical V2 → 9.6 UX → 9.7 On-Prem → 9.8 Operations
         ↓
-9.9 Telestrator → 9.10 Optional LLM
+9.9 Telestrator → 9.10 One-Page Cheat Sheet → 9.11 Optional LLM
         ↓
 10 Cloud Scale
 ```

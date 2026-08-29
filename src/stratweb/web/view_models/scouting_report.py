@@ -30,6 +30,8 @@ from stratweb.web.view_models.product import ViewModel
 REPORT_SCHEMA_VERSION = "1.0.0"
 REPORT_VIEW_RULE_VERSION = "scouting_report_view_v2"
 COACH_REPORT_RULE_VERSION = "coach_report_projection_v3"
+CHEAT_SHEET_SCHEMA_VERSION = "1.0.0"
+CHEAT_SHEET_RULE_VERSION = "map_cheat_sheet_v1"
 
 
 class ScoutingReportFilters(ViewModel):
@@ -203,6 +205,29 @@ class CoachReportPageView(ViewModel):
     individual: tuple[CoachSignalView, ...]
     recommendations: tuple[ReportRecommendationView, ...]
     evidence: tuple[CoachSignalView, ...]
+
+
+class MatchCheatSheetPageView(ViewModel):
+    """One-map, one-page projection of immutable findings and recommendations."""
+
+    schema_version: str = CHEAT_SHEET_SCHEMA_VERSION
+    rule_version: str = CHEAT_SHEET_RULE_VERSION
+    profile_id: UUID
+    display_name: str
+    strategy_run_id: UUID
+    map_name: str
+    available_maps: tuple[str, ...] = Field(min_length=1)
+    included_matches: int = Field(ge=0)
+    reliability_tier: str
+    reliability_label: str
+    reliability_message: str
+    recommendations_suppressed: bool
+    attack: tuple[CoachSignalView, ...]
+    defence: tuple[CoachSignalView, ...]
+    risks: tuple[CoachSignalView, ...]
+    recommendations: tuple[ReportRecommendationView, ...]
+    evidence_references: int = Field(ge=0)
+    source_report_href: str
 
 
 class ReportEvidenceView(ViewModel):
@@ -509,6 +534,105 @@ def build_coach_report_page(
         individual=individual,
         recommendations=recommendations,
         evidence=evidence,
+    )
+
+
+def build_match_cheat_sheet_page(
+    source: ScoutingReportSource,
+    workspace: OpponentWorkspace,
+    *,
+    map_name: str | None = None,
+    section_limit: int = 2,
+) -> MatchCheatSheetPageView:
+    """Build a compact map-specific plan without recalculating source statistics."""
+
+    if section_limit < 1:
+        raise ValueError("cheat sheet section limit must be positive")
+    available_maps = tuple(
+        sorted(
+            {
+                *(
+                    item.map_name
+                    for item in source.analysis.input_matches
+                    if item.input_status.value == "included"
+                ),
+                *(item.scope.map_name for item in source.findings),
+            }
+        )
+    )
+    if not available_maps:
+        raise ValueError("В отчёте нет карт для шпаргалки.")
+    selected_map = map_name or available_maps[0]
+    if selected_map not in available_maps:
+        raise ValueError("Выбранной карты нет в закреплённом отчёте.")
+
+    readiness = {item.finding_id: item for item in source.readiness.records}
+    skipped = {item.finding_id: item for item in source.skipped_findings}
+    recommendations_by_finding = {item.source_finding_id: item for item in source.recommendations}
+    source_findings = {
+        item.finding_id: item for item in source.findings if item.scope.map_name == selected_map
+    }
+    cards = tuple(
+        _finding_view(
+            finding,
+            source=source,
+            readiness=readiness[finding.finding_id],
+            skipped=skipped.get(finding.finding_id),
+            recommendation=recommendations_by_finding.get(finding.finding_id),
+        )
+        for finding in source_findings.values()
+    )
+    grouped = {
+        key: tuple(item for item in cards if _group_key(item) == key)
+        for key in ("t_side", "ct_side", "risks")
+    }
+    attack = _coach_signals(grouped["t_side"], source_findings, section_limit)
+    defence = _coach_signals(grouped["ct_side"], source_findings, section_limit)
+    risks = _coach_signals(grouped["risks"], source_findings, section_limit)
+    recommendations_suppressed = source.validation.status is StrategyAcceptanceStatus.FAILED
+    recommendations: tuple[ReportRecommendationView, ...] = ()
+    if not recommendations_suppressed:
+        recommendations = tuple(
+            sorted(
+                (
+                    _recommendation_view(item, workspace.profile.profile_id)
+                    for item in source.recommendations
+                    if item.scope.map_name == selected_map
+                ),
+                key=lambda item: (
+                    -item.evidence_matches,
+                    -_ratio_value(item.ratio),
+                    item.side,
+                    str(item.recommendation_id),
+                ),
+            )[:section_limit]
+        )
+    included_matches = sum(
+        item.map_name == selected_map and item.input_status.value == "included"
+        for item in source.analysis.input_matches
+    )
+    reliability_tier, reliability_label, reliability_message = corpus_reliability(included_matches)
+    selected_signals = (*attack, *defence, *risks)
+    return MatchCheatSheetPageView(
+        profile_id=source.strategy.profile_id,
+        display_name=workspace.profile.display_name,
+        strategy_run_id=source.strategy.strategy_run_id,
+        map_name=selected_map,
+        available_maps=available_maps,
+        included_matches=included_matches,
+        reliability_tier=reliability_tier.value,
+        reliability_label=reliability_label,
+        reliability_message=reliability_message,
+        recommendations_suppressed=recommendations_suppressed,
+        attack=attack,
+        defence=defence,
+        risks=risks,
+        recommendations=recommendations,
+        evidence_references=sum(item.finding.evidence_count for item in selected_signals),
+        source_report_href=(
+            f"/ui/opponents/{source.strategy.profile_id}/report"
+            f"?run_id={source.strategy.strategy_run_id}"
+        ),
     )
 
 

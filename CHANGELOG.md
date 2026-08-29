@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.24.0] - 2026-08-29
+
+### Added
+
+- A map-specific one-page match cheat sheet with at most two deterministic signals for opponent
+  T-side, CT-side, recurring risks and recommended responses.
+- One-click plain-text copy for Discord/team chat and a compact A4 landscape print layout.
+- Explicit map selection and map-scoped corpus reliability instead of mixing findings from
+  different maps on one preparation sheet.
+
+### Safety
+
+- The cheat sheet is only a projection of pinned findings and recommendations; it does not
+  recalculate statistics, infer missing values or use an LLM.
+- Failed strategy validation suppresses recommendations. Small samples remain visibly labelled,
+  and every shown signal links back to its evidence.
+
 ## [0.23.0] - 2026-08-29
 
 ### Added

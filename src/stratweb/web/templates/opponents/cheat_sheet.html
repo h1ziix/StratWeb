@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{% if cheat_sheet %}Шпаргалка · {{ cheat_sheet.map_name|map_name }} · {{ cheat_sheet.display_name }}{% else %}Шпаргалка недоступна{% endif %} · StratWeb{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset('css/cheat-sheet.css') }}">{% endblock %}
+{% block content_class %}cheat-sheet-shell{% endblock %}
+{% block content %}
+{% if not cheat_sheet %}
+<section class="cheat-unavailable"><p class="eyebrow">План на матч</p><h1>Шпаргалка пока недоступна</h1><p>{{ unavailable_reason }}</p><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">Вернуться к сопернику</a></section>
+{% else %}
+<section class="cheat-page" data-cheat-sheet data-cheat-header="StratWeb — {{ cheat_sheet.display_name }} · {{ cheat_sheet.map_name|map_name }} · {{ cheat_sheet.reliability_label }} · матчей: {{ cheat_sheet.included_matches }}">
+  <header class="cheat-header">
+    <div class="cheat-heading">
+      <p class="eyebrow">План перед матчем</p>
+      <h1>{{ cheat_sheet.display_name }}</h1>
+      <p class="cheat-map">{{ cheat_sheet.map_name|map_name }}</p>
+    </div>
+    <div class="cheat-reliability {{ cheat_sheet.reliability_tier }}"><span>Надёжность</span><strong>{{ cheat_sheet.reliability_label }}</strong><small>{{ cheat_sheet.included_matches }} подтверждённых матчей</small></div>
+  </header>
+
+  <nav class="cheat-actions" aria-label="Действия со шпаргалкой">
+    <form method="get" action="/ui/opponents/{{ cheat_sheet.profile_id }}/cheat-sheet">
+      <input type="hidden" name="run_id" value="{{ cheat_sheet.strategy_run_id }}">
+      <label>Карта<select name="map">{% for map_name in cheat_sheet.available_maps %}<option value="{{ map_name }}" {% if map_name == cheat_sheet.map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select></label>
+      <button class="secondary" type="submit">Открыть</button>
+    </form>
+    <div><button id="copyCheatSheet" type="button">Скопировать план</button><button id="printCheatSheet" class="secondary" type="button">Распечатать</button><a class="button secondary" href="{{ cheat_sheet.source_report_href }}">Полный отчёт</a></div>
+    <span id="cheatSheetStatus" role="status" aria-live="polite"></span>
+  </nav>
+
+  {% macro signal_section(title, eyebrow, items, empty_text) -%}
+  <section class="cheat-block" data-cheat-copy-section>
+    <header><p>{{ eyebrow }}</p><h2>{{ title }}</h2></header>
+    {% if items %}<div class="cheat-card-list">{% for item in items %}
+      <article class="cheat-card" data-cheat-copy-item data-cheat-copy-text="{{ item.plain_title }} — {{ t(item.frequency_key) }}. {{ item.finding.reliability_label }}">
+        <div><span>{{ item.kind_label }}</span><span>{{ item.finding.buy_type|buy_type }}</span></div>
+        <h3>{{ item.plain_title }}</h3>
+        <p class="cheat-frequency">{{ t(item.frequency_key) }}</p>
+        <footer><span class="{{ item.finding.reliability_tier }}">{{ item.finding.reliability_label }}</span><a href="{{ item.finding.detail_href }}">Доказательства</a></footer>
+      </article>
+    {% endfor %}</div>{% else %}<p class="cheat-empty">{{ empty_text }}</p>{% endif %}
+  </section>
+  {%- endmacro %}
+
+  <div class="cheat-observations">
+    {{ signal_section('Что ждать за атаку', 'Соперник играет T', cheat_sheet.attack, 'Подтверждённых повторений за атаку пока нет.') }}
+    {{ signal_section('Что ждать за защиту', 'Соперник играет CT', cheat_sheet.defence, 'Подтверждённых повторений за защиту пока нет.') }}
+    {{ signal_section('Где они уязвимы', 'Исторические сигналы риска', cheat_sheet.risks, 'Подтверждённых повторяющихся ошибок пока нет.') }}
+  </div>
+
+  <section class="cheat-responses" data-cheat-copy-section>
+    <header><p>Готовые ответы</p><h2>Что сыграть против них</h2></header>
+    {% if cheat_sheet.recommendations %}<div class="cheat-response-list">{% for item in cheat_sheet.recommendations %}
+      <article class="cheat-response" data-cheat-copy-item data-cheat-copy-text="Сыграть: {{ item.recommended_response }} Не делать: {{ item.avoid }}">
+        <div class="cheat-response__meta"><span>{% if item.side == 'T' %}Соперник за атаку{% elif item.side == 'CT' %}Соперник за защиту{% else %}Сторона неизвестна{% endif %} · {{ item.buy_type|buy_type }}</span><span class="{{ item.reliability_tier }}">{{ item.reliability_label }}</span></div>
+        <h3>{{ item.title }}</h3>
+        <div class="cheat-response__columns"><div><h4>Сыграть</h4><p>{{ item.recommended_response }}</p></div><div><h4>Не делать</h4><p>{{ item.avoid }}</p></div></div>
+        <a href="{{ item.detail_href }}">Почему это показано</a>
+      </article>
+    {% endfor %}</div>
+    {% elif cheat_sheet.recommendations_suppressed %}<div class="cheat-empty important"><strong>Готовые ответы скрыты.</strong><p>Проверка целостности данных не пройдена. StratWeb не выдаёт неподтверждённый совет.</p></div>
+    {% else %}<div class="cheat-empty"><strong>Готовой тактики пока нет.</strong><p>Наблюдения можно использовать как гипотезы, но детерминированное правило ответа не сработало.</p></div>{% endif %}
+  </section>
+
+  <footer class="cheat-footer"><p>{{ cheat_sheet.reliability_message }}</p><span>Исторические данные, а не прогноз · каждый пункт открывается до конкретного раунда</span></footer>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if cheat_sheet %}<script src="{{ static_asset('js/cheat-sheet.js') }}" defer></script>{% endif %}{% endblock %}
