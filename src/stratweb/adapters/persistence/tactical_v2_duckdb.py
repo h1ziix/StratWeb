@@ -767,32 +767,58 @@ class DuckDBTacticalV2Repository:
         with read_connection(self._database_path, "Tactical V2") as connection:
             cursor = connection.execute(
                 """
+                WITH eligible_selections AS (
+                  SELECT selection.match_id, selection.team_id
+                  FROM opponent_match_selections selection
+                  WHERE selection.profile_id = ?
+                    AND EXISTS (
+                      SELECT 1
+                      FROM round_feature_runs feature
+                      WHERE feature.match_id = selection.match_id
+                        AND feature.feature_schema_version = ?
+                        AND feature.feature_rule_version = ?
+                    )
+                )
                 SELECT * FROM tactical_v2_runs
                 WHERE profile_id = ? AND tactical_schema_version = ?
                   AND tactical_rule_version = ?
                   AND (
-                    SELECT count(*) FROM tactical_v2_run_inputs input
-                    WHERE input.tactical_run_id = tactical_v2_runs.tactical_run_id
-                  ) = (
-                    SELECT count(*) FROM opponent_match_selections selection
-                    WHERE selection.profile_id = ?
-                  )
-                  AND NOT EXISTS (
-                    SELECT 1 FROM opponent_match_selections selection
-                    WHERE selection.profile_id = ? AND NOT EXISTS (
-                      SELECT 1 FROM tactical_v2_run_inputs input
-                      WHERE input.tactical_run_id = tactical_v2_runs.tactical_run_id
-                        AND input.match_id = selection.match_id
-                        AND input.team_id = selection.team_id
+                    (
+                      NOT EXISTS (
+                        SELECT 1 FROM opponent_match_selections selection
+                        WHERE selection.profile_id = ?
+                      )
+                      AND NOT EXISTS (
+                        SELECT 1 FROM tactical_v2_run_inputs input
+                        WHERE input.tactical_run_id = tactical_v2_runs.tactical_run_id
+                      )
+                    )
+                    OR (
+                      EXISTS (SELECT 1 FROM eligible_selections)
+                      AND (
+                        SELECT count(*) FROM tactical_v2_run_inputs input
+                        WHERE input.tactical_run_id = tactical_v2_runs.tactical_run_id
+                      ) = (SELECT count(*) FROM eligible_selections)
+                      AND NOT EXISTS (
+                        SELECT 1 FROM eligible_selections selection
+                        WHERE NOT EXISTS (
+                          SELECT 1 FROM tactical_v2_run_inputs input
+                          WHERE input.tactical_run_id = tactical_v2_runs.tactical_run_id
+                            AND input.match_id = selection.match_id
+                            AND input.team_id = selection.team_id
+                        )
+                      )
                     )
                   )
                 ORDER BY created_at DESC, tactical_fingerprint DESC LIMIT 1
                 """,
                 [
                     profile_id,
+                    ROUND_FEATURE_SCHEMA_VERSION,
+                    ROUND_FEATURE_RULE_VERSION,
+                    profile_id,
                     TACTICAL_V2_SCHEMA_VERSION,
                     TACTICAL_V2_RULE_VERSION,
-                    profile_id,
                     profile_id,
                 ],
             )

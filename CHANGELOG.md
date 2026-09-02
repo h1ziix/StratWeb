@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.1] - 2026-08-29
+
+### Fixed
+
+- Tactical V2 now selects the latest compatible partial run when some confirmed matches have not
+  reached the compatible Stage 8.4 feature layer yet. Previously the run was successfully saved
+  but hidden from the overview unless every selected match was fully processed.
+- Run freshness still checks the exact confirmed team for every processed match; an unprocessed
+  selection can no longer make an otherwise valid tactical overview look broken.
+
 ## [0.24.0] - 2026-08-29
 
 ### Added

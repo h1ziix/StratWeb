@@ -24,6 +24,7 @@ from stratweb.application.opponent_models import (
     OpponentSelectionSource,
 )
 from stratweb.domain.enums import Side
+from stratweb.features.models import ROUND_FEATURE_SCHEMA_VERSION
 from stratweb.main import create_app
 from stratweb.tactical_v2.engine import TacticalV2Engine
 from stratweb.tactical_v2.models import (
@@ -658,7 +659,7 @@ def _persist_sources(database: Path) -> None:
             [
                 source.feature_run_id,
                 source.feature_fingerprint,
-                "1",
+                ROUND_FEATURE_SCHEMA_VERSION,
                 source.feature_rule_version,
                 "6" * 64,
                 source.match_id,
@@ -758,6 +759,20 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
     assert "mode=exact" not in spatial_view.items[0].spatial_href
 
     opponents = DuckDBOpponentRepository(database)
+    opponents.save_selection(
+        OpponentMatchSelection(
+            profile_id=_id("profile"),
+            match_id=_id("selected-without-features"),
+            team_id=_id("selected-without-features-team"),
+            selection_source=OpponentSelectionSource.USER_CONFIRMED,
+            created_at=datetime.now(UTC),
+        )
+    )
+    # A selected match that has not reached Stage 8.4 must not hide a valid
+    # partial Tactical V2 run built from the profile's processed matches.
+    assert repository.get_summary(_id("profile")) is not None
+    assert repository.list_runs(_id("profile"))[0].selected_by_default
+
     opponents.save_selection(
         OpponentMatchSelection(
             profile_id=_id("profile"),
