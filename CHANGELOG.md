@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.24.2] - 2026-09-03
+
+### Fixed
+
+- The tactical overview offers **Prepare the match plan** when its separate report pipeline has
+  not run. Only an existing compatible strategy enables the **Open the match plan** link.
+- One localhost-only POST composes existing patterns, findings, readiness and strategy stages,
+  then opens the pinned report. Repeated preparation reuses identical persisted runs.
+- A missing current report now has a readable preparation screen instead of an English Stage 8.7
+  error. No-ready-match and recoverable storage errors include retry/navigation actions.
+- GET requests remain read-only, missing explicitly pinned reports remain 404, and analytical
+  thresholds, evidence validation and small-sample restrictions are unchanged.
+
 ## [0.24.1] - 2026-08-29
 
 ### Fixed

@@ -383,6 +383,103 @@ def _persist_feature_match(database: Path, dataset: Any, tmp_path: Path) -> None
     ).compute(dataset.match.match_id)
 
 
+def test_report_preparation_from_partial_corpus(
+    tmp_path: Path, canonical_dataset_factory: Any, monkeypatch: Any
+) -> None:
+    from stratweb.application.report_preparation import PrepareScoutingReportService
+    from stratweb.exceptions import PersistenceError
+
+    database = tmp_path / "prepare-report.duckdb"
+    ready = canonical_dataset_factory("report-ready")
+    pending = canonical_dataset_factory("report-pending")
+    _persist_feature_match(database, ready, tmp_path)
+    DuckDBMatchRepository(database).save_match(pending)
+    opponents = OpponentWorkspaceService(
+        DuckDBOpponentRepository(database), DuckDBMatchRepository(database)
+    )
+    profile = opponents.create_profile("Preparation fixture")
+    empty = opponents.create_profile("Empty preparation fixture")
+    not_ready = opponents.create_profile("Unprocessed preparation fixture")
+    for dataset in (ready, pending):
+        opponents.assign_match(profile.profile_id, dataset.match.match_id, dataset.teams[0].team_id)
+    opponents.assign_match(not_ready.profile_id, pending.match.match_id, pending.teams[0].team_id)
+    url = f"/ui/opponents/{profile.profile_id}/report"
+    patterns = DuckDBPatternRepository(database)
+
+    with TestClient(create_app(database)) as client:
+        # Navigation is read-only and offers a real recovery action, not a stage/UUID error.
+        page = client.get(url)
+        assert page.status_code == 200
+        assert "Подготовить план" in page.text
+        assert "Stage 8.7" not in page.text
+        assert patterns.list_runs(profile.profile_id) == ()
+        tactical = client.get(f"/ui/opponents/{profile.profile_id}/tactical-v2")
+        assert "Подготовить план на матч" in tactical.text
+        assert "Открыть готовый план на матч" not in tactical.text
+        assert client.get(url + "/prepare").status_code == 405
+        blocked = client.post(url + "/prepare", headers={"Origin": "https://evil.example"})
+        assert blocked.status_code == 403
+        assert patterns.list_runs(profile.profile_id) == ()
+
+        assert client.post(f"/ui/opponents/{empty.profile_id}/report/prepare").status_code == 422
+        unavailable = client.post(f"/ui/opponents/{not_ready.profile_id}/report/prepare")
+        assert unavailable.status_code == 422
+        assert "Пока нет обработанных матчей" in unavailable.text
+        assert "Stage 8.7" not in unavailable.text
+        assert f"/ui/matches/{pending.match.match_id}/diagnostics" in unavailable.text
+
+        prepared = client.post(url + "/prepare", follow_redirects=False)
+        assert prepared.status_code == 303
+        assert prepared.headers["location"].startswith(url + "?run_id=")
+        opened = client.get(prepared.headers["location"])
+        assert opened.status_code == 200
+        assert "Подготовить план" not in opened.text
+        assert client.get(url).status_code == 200
+        assert (
+            "Открыть готовый план на матч"
+            in client.get(f"/ui/opponents/{profile.profile_id}/tactical-v2").text
+        )
+        summary = patterns.get_summary(profile.profile_id)
+        assert summary is not None
+        assert summary.summary.included_matches == 1
+        assert summary.summary.excluded_matches == 1
+
+        repeated = client.post(url + "/prepare", follow_redirects=False)
+        assert repeated.status_code == 303
+        assert repeated.headers["location"] == prepared.headers["location"]
+        assert len(patterns.list_runs(profile.profile_id)) == 1
+        assert (
+            len(
+                DuckDBAnalysisRepository(database).list_runs(
+                    profile.profile_id, current_pattern_run_id=summary.pattern_run_id
+                )
+            )
+            == 1
+        )
+        assert (
+            len(
+                DuckDBCounterStrategyRepository(database).list_runs(
+                    profile.profile_id, current_analysis_run_id=None
+                )
+            )
+            == 1
+        )
+        pinned_missing = client.get(url, params={"run_id": str(_id("missing-report"))})
+        assert pinned_missing.status_code == 404
+        assert "Этот сохранённый план не найден" in pinned_missing.text
+        assert "Stage 8.7" not in pinned_missing.text
+
+        def fail_prepare(*args: Any) -> None:
+            raise PersistenceError("internal SQL detail must not leak")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(PrepareScoutingReportService, "prepare", fail_prepare)
+            failure = client.post(url + "/prepare")
+            assert failure.status_code == 503
+            assert "Повторить подготовку" in failure.text
+            assert "internal SQL detail" not in failure.text
+
+
 def test_pattern_service_persistence_and_feature_cascade(
     tmp_path: Path,
     canonical_dataset_factory: Any,

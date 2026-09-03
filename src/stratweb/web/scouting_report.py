@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from stratweb.adapters.persistence import (
     DuckDBAnalysisRepository,
@@ -15,16 +16,32 @@ from stratweb.adapters.persistence import (
     DuckDBMatchRepository,
     DuckDBOpponentRepository,
     DuckDBPatternRepository,
+    DuckDBRoundFeatureRepository,
     DuckDBTeamNameRepository,
 )
-from stratweb.application.counter_strategy import CounterStrategyQueryService
-from stratweb.application.findings import AnalysisFindingQueryService
+from stratweb.application.counter_strategy import (
+    ComputeCounterStrategiesService,
+    CounterStrategyQueryService,
+)
+from stratweb.application.findings import (
+    AnalysisFindingQueryService,
+    ComputeAnalysisFindingsService,
+)
 from stratweb.application.opponent_models import OpponentWorkspace
 from stratweb.application.opponents import OpponentWorkspaceService
+from stratweb.application.patterns import ComputeCrossMatchPatternsService
+from stratweb.application.report_preparation import (
+    PrepareScoutingReportService,
+    ReportPreparationUnavailableError,
+)
 from stratweb.application.scouting_reports import ScoutingReportService
 from stratweb.domain.enums import Side
 from stratweb.economy.models import BuyType
-from stratweb.exceptions import CounterStrategyNotFoundError, OpponentNotFoundError
+from stratweb.exceptions import (
+    CounterStrategyNotFoundError,
+    OpponentNotFoundError,
+    PersistenceError,
+)
 from stratweb.patterns.models import PatternType
 from stratweb.reporting import ScoutingReportExporter, ScoutingReportPdfRenderer
 from stratweb.reporting.models import ScoutingReportExport
@@ -38,6 +55,7 @@ from stratweb.reporting.presentation import (
     status_label,
     warning_label,
 )
+from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
     ScoutingReportFilters,
@@ -46,6 +64,8 @@ from stratweb.web.view_models import (
     build_scouting_report_detail,
     build_scouting_report_page,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def scouting_report_router(database_path: Path) -> APIRouter:
@@ -62,8 +82,84 @@ def scouting_report_router(database_path: Path) -> APIRouter:
         finding_query, DuckDBCounterStrategyRepository(database_path)
     )
     reports = ScoutingReportService(finding_query, strategy_query)
+    preparation = PrepareScoutingReportService(
+        ComputeCrossMatchPatternsService(
+            DuckDBOpponentRepository(database_path),
+            DuckDBMatchRepository(database_path),
+            DuckDBRoundFeatureRepository(database_path),
+            DuckDBPatternRepository(database_path),
+        ),
+        ComputeAnalysisFindingsService(
+            DuckDBPatternRepository(database_path),
+            DuckDBMatchRepository(database_path),
+            DuckDBAnalysisRepository(database_path),
+        ),
+        ComputeCounterStrategiesService(
+            finding_query, DuckDBCounterStrategyRepository(database_path)
+        ),
+    )
     exporter = ScoutingReportExporter()
     pdf_renderer = ScoutingReportPdfRenderer()
+
+    def pending_report(
+        workspace: OpponentWorkspace,
+        *,
+        error: str | None = None,
+        pinned_missing: bool = False,
+        status_code: int = 200,
+    ) -> HTMLResponse:
+        return HTMLResponse(
+            render_template(
+                "opponents/report.html",
+                workspace=workspace,
+                report=None,
+                coach_report=None,
+                report_mode="coach",
+                preparation_error=error,
+                pinned_missing=pinned_missing,
+                preparation_allowed=bool(workspace.selected_matches) and not pinned_missing,
+                match_context=None,
+            ),
+            status_code=status_code,
+        )
+
+    @router.post(
+        "/ui/opponents/{profile_id}/report/prepare",
+        include_in_schema=False,
+    )
+    def prepare_report(request: Request, profile_id: UUID) -> Response:
+        require_localhost(request, "Match plan preparation")
+        workspace = _workspace(opponents, profile_id)
+        if not workspace.selected_matches:
+            return pending_report(
+                workspace,
+                error="Сначала добавьте матч и подтвердите команду соперника.",
+                status_code=422,
+            )
+        try:
+            preparation.prepare(profile_id)
+            # Resolve the current chain again: do not redirect to a stale result if
+            # the profile or upstream runs changed during preparation.
+            source = reports.get_source(profile_id)
+        except ReportPreparationUnavailableError:
+            return pending_report(
+                workspace,
+                error="Пока нет обработанных матчей для плана. Откройте выбранный матч "
+                "и завершите его обработку, затем повторите подготовку.",
+                status_code=422,
+            )
+        except PersistenceError:
+            logger.exception("Could not prepare match plan for profile %s", profile_id)
+            return pending_report(
+                workspace,
+                error="Не удалось завершить подготовку плана. Сохранённые матчи не потеряны. "
+                "Попробуйте ещё раз; если ошибка повторится, проверьте обработку матчей.",
+                status_code=503,
+            )
+        return RedirectResponse(
+            f"/ui/opponents/{profile_id}/report?run_id={source.strategy.strategy_run_id}",
+            status_code=303,
+        )
 
     @router.get(
         "/ui/opponents/{profile_id}/report",
@@ -96,18 +192,11 @@ def scouting_report_router(database_path: Path) -> APIRouter:
         )
         try:
             source = reports.get_source(profile_id, strategy_run_id=run_id)
-        except CounterStrategyNotFoundError as exc:
-            return HTMLResponse(
-                render_template(
-                    "opponents/report.html",
-                    workspace=workspace,
-                    report=None,
-                    coach_report=None,
-                    report_mode=mode,
-                    unavailable_reason=str(exc),
-                    match_context=None,
-                ),
-                status_code=404,
+        except CounterStrategyNotFoundError:
+            return pending_report(
+                workspace,
+                pinned_missing=run_id is not None,
+                status_code=404 if run_id is not None else 200,
             )
         report = build_scouting_report_page(source, workspace, filters)
         coach_report = build_coach_report_page(source, workspace)

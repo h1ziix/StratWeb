@@ -5,8 +5,16 @@
 {% block content %}
 <nav class="breadcrumbs {% if report_mode == 'coach' %}coach-breadcrumbs{% endif %}"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Отчёт</nav>
 {% if not report %}
-<section class="page-heading report-heading"><div><p class="eyebrow">Stage 8.8</p><h1>Отчёт недоступен</h1><p>{{ unavailable_reason }}</p></div></section>
-<div class="empty-state"><p>Сначала рассчитайте совместимые паттерны, наблюдения, готовность и контрстратегии.</p><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">К сопернику</a></div>
+<section class="page-heading report-heading"><div><p class="eyebrow">План на матч</p><h1>{{ 'Этот сохранённый план не найден' if pinned_missing else 'Подготовим план против ' ~ workspace.profile.display_name }}</h1><p>{% if pinned_missing %}Возможно, этот расчёт был удалён или заменён. Можно открыть текущий план соперника.{% else %}Соберём привычки соперника, проверим доказательства и покажем, что можно попробовать против него.{% endif %}</p></div></section>
+<section class="empty-state" aria-label="Подготовка плана">
+  {% if preparation_error %}<p class="notice warning" role="alert">{{ preparation_error }}</p>{% endif %}
+  {% if preparation_allowed %}
+  <p>Подготовка использует уже обработанные матчи. Если часть матчей пока не готова, это будет отмечено в плане. При малой выборке выводы останутся предварительными.</p>
+  <form method="post" action="/ui/opponents/{{ workspace.profile.profile_id }}/report/prepare" data-submit-feedback><button type="submit" data-loading-label="Готовим план…">{{ 'Повторить подготовку' if preparation_error else 'Подготовить план' }}</button></form>
+  {% elif not pinned_missing %}<p>Сначала добавьте матч и подтвердите, за какую команду играл соперник.</p>{% endif %}
+  <div class="button-row">{% if pinned_missing %}<a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Открыть текущий план</a>{% endif %}<a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">К сопернику</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/tactical-v2">Тактический обзор</a></div>
+</section>
+{% if workspace.selected_matches %}<details class="product-disclosure"><summary>Проверить обработку выбранных матчей</summary><div class="product-disclosure__content">{% for match in workspace.selected_matches %}<p><a href="/ui/matches/{{ match.selection.match_id }}/diagnostics">Матч {{ loop.index }} · {{ match.map_name|map_name }}</a></p>{% endfor %}</div></details>{% endif %}
 {% else %}
 {% if report_mode == 'coach' %}
 {% include "opponents/report_coach.html" %}

@@ -10,12 +10,17 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from stratweb.adapters.persistence import (
+    DuckDBAnalysisRepository,
     DuckDBAnalystNoteRepository,
+    DuckDBCounterStrategyRepository,
     DuckDBOpponentRepository,
+    DuckDBPatternRepository,
     DuckDBTacticalV2Repository,
     DuckDBTacticalV2SourceRepository,
 )
 from stratweb.application.analyst_notes import ANALYST_NOTE_MAX_LENGTH
+from stratweb.application.counter_strategy import CounterStrategyQueryService
+from stratweb.application.findings import AnalysisFindingQueryService
 from stratweb.application.opponent_models import OpponentProfile
 from stratweb.application.tactical_v2 import (
     ComputeTacticalV2Service,
@@ -23,6 +28,7 @@ from stratweb.application.tactical_v2 import (
 )
 from stratweb.domain.enums import Side
 from stratweb.exceptions import (
+    CounterStrategyNotFoundError,
     OpponentNotFoundError,
     TacticalV2ConfigurationError,
     TacticalV2NotFoundError,
@@ -48,6 +54,12 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
     repository = DuckDBTacticalV2Repository(database_path)
     compute = ComputeTacticalV2Service(opponents, sources, repository)
     query = TacticalV2QueryService(repository)
+    strategy_query = CounterStrategyQueryService(
+        AnalysisFindingQueryService(
+            DuckDBPatternRepository(database_path), DuckDBAnalysisRepository(database_path)
+        ),
+        DuckDBCounterStrategyRepository(database_path),
+    )
     notes = DuckDBAnalystNoteRepository(database_path)
 
     @router.post(
@@ -165,6 +177,11 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
             selected = None
             page_view = None
             unavailable_reason = str(exc)
+        try:
+            strategy_query.get_summary(profile_id)
+            report_ready = True
+        except CounterStrategyNotFoundError:
+            report_ready = False
         response = HTMLResponse(
             render_template(
                 "opponents/tactical_v2.html",
@@ -173,6 +190,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
                 summary=selected,
                 page_view=page_view,
                 unavailable_reason=unavailable_reason,
+                report_ready=report_ready,
                 match_context=None,
                 locale_switcher=True,
                 supported_locales=SUPPORTED_LOCALES,

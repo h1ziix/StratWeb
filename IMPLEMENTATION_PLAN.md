@@ -1483,6 +1483,16 @@ Acceptance evidence: [TELESTRATOR.md](TELESTRATOR.md).
 
 Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
 
+### Report preparation recovery — 0.24.2
+
+- [x] действие «Подготовить план» выполняет существующие patterns → findings → strategies;
+- [x] GET остаётся read-only, POST — localhost-only, повтор не создаёт одинаковые runs;
+- [x] нет ложной надписи «готовый план», пока совместимый strategy run не существует;
+- [x] вместо технического тупика — объяснение, повтор и ссылки на обработку матчей;
+- [x] никакого ослабления evidence/readiness правил и автоматического повторного парсинга.
+
+Это исправление перехода к плану, не полный автоматический pipeline обработки всех демо.
+
 ## Stage 9.11 — Optional LLM Rephrasing (не начат)
 
 Только после corpus/statistical acceptance. LLM может сокращать, переводить и менять

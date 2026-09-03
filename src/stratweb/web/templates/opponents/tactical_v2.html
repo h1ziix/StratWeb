@@ -10,7 +10,7 @@
 <section class="page-heading tactical-heading">
   <div><p class="eyebrow">{{ t('tactical.eyebrow') }}</p><h1>{{ profile.display_name }}</h1><p>{{ t('tactical.intro') }}</p></div>
   <div class="button-row tactical-heading-actions">
-    <a class="button" href="/ui/opponents/{{ profile.profile_id }}/report">{{ t('tactical.open_plan') }}</a>
+    {% if report_ready %}<a class="button" href="/ui/opponents/{{ profile.profile_id }}/report">{{ t('tactical.open_plan') }}</a>{% else %}<form method="post" action="/ui/opponents/{{ profile.profile_id }}/report/prepare" data-submit-feedback><button type="submit" data-loading-label="{{ t('tactical.preparing_plan') }}">{{ t('tactical.prepare_plan') }}</button></form>{% endif %}
     <form method="post" action="/api/opponents/{{ profile.profile_id }}/tactical-v2/compute" data-submit-feedback><button class="secondary" type="submit" data-loading-label="{{ t('tactical.computing') }}">{{ t('tactical.compute') }}</button></form>
   </div>
 </section>
