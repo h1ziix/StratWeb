@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.3] - 2026-09-04
+
+### Fixed
+
+- Declared the telestrator schema version as a typing `Final`, preserving the literal default
+  expected by `TelestratorBoard` and restoring a clean strict `mypy src` run.
+
 ## [0.24.2] - 2026-09-03
 
 ### Fixed

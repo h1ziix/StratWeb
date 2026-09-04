@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Final, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-TELESTRATOR_SCHEMA_VERSION = "1.0.0"
+TELESTRATOR_SCHEMA_VERSION: Final = "1.0.0"
 TELESTRATOR_MAX_ANNOTATIONS = 200
 TELESTRATOR_MAX_TOTAL_POINTS = 10_000
 
