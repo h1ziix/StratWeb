@@ -108,6 +108,13 @@ class DuckDBOpponentRepository:
                     return False
                 connection.execute("BEGIN TRANSACTION")
                 try:
+                    if connection.execute(
+                        "SELECT 1 FROM information_schema.tables WHERE table_name='ai_briefings'"
+                    ).fetchone():
+                        connection.execute(
+                            "DELETE FROM ai_briefings WHERE profile_id = ?",
+                            [profile_id],
+                        )
                     connection.execute(
                         "DELETE FROM critical_mistake_runs WHERE profile_id = ?",
                         [profile_id],

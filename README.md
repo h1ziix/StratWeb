@@ -1159,6 +1159,18 @@ Design system `2.0.0` introduces a graphite/mint identity and restrained motion 
 `prefers-reduced-motion` fallback. This is a presentation change: analytical runs, DuckDB rows,
 confidence, evidence and APIs are unchanged. See [STAGE_9_6_6.md](STAGE_9_6_6.md).
 
+### Stage 9.11 Local AI briefing
+
+The coach report can optionally ask a locally running Ollama model to shorten already validated
+recommendations into three Russian sections: what to expect, how to play and what to avoid. The
+model never parses demos or calculates findings. Every generated point retains one source link,
+and invalid source IDs, new numbers and absolute claims are rejected before persistence.
+
+Install Ollama, run `ollama pull qwen3:8b`, then open a prepared opponent report and use
+**Сделать краткую версию плана**. The feature calls only the loopback Ollama API; stopping Ollama
+does not affect deterministic reports. Configuration and safety details are in
+[AI_BRIEFING.md](AI_BRIEFING.md).
+
 ### Stage 9.6.6.1 Tactical language cleanup
 
 The one-tap coach report now replaces parser-facing English labels with deterministic,

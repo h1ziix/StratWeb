@@ -1,5 +1,6 @@
 """Persistence adapters for canonical datasets."""
 
+from stratweb.adapters.persistence.ai_briefings_duckdb import DuckDBAiBriefingRepository
 from stratweb.adapters.persistence.analyst_notes_duckdb import DuckDBAnalystNoteRepository
 from stratweb.adapters.persistence.analytics_duckdb import DuckDBAnalyticsRepository
 from stratweb.adapters.persistence.counter_strategy_duckdb import (
@@ -33,6 +34,7 @@ from stratweb.adapters.persistence.zone_assignments_duckdb import (
 )
 
 __all__ = [
+    "DuckDBAiBriefingRepository",
     "DuckDBAnalyticsRepository",
     "DuckDBAnalystNoteRepository",
     "DuckDBEconomyRepository",

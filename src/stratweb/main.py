@@ -11,6 +11,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from stratweb import __version__
+from stratweb.application.ai_briefing import AiBriefingProvider
 from stratweb.config import get_settings
 from stratweb.exceptions import (
     AnalysisFindingNotFoundError,
@@ -64,6 +65,7 @@ def create_app(
     map_registry: MapRegistry | None = None,
     map_developer_mode: bool | None = None,
     cs2_demo_directory: Path | None = None,
+    ai_briefing_provider: AiBriefingProvider | None = None,
 ) -> FastAPI:
     """Create the HTTP application without touching storage or parser resources."""
 
@@ -243,7 +245,16 @@ def create_app(
     application.include_router(spatial_ui_router(selected_database))
     application.include_router(zone_assignment_router(selected_database))
     application.include_router(economy_router(selected_database))
-    application.include_router(scouting_report_router(selected_database))
+    application.include_router(
+        scouting_report_router(
+            selected_database,
+            ai_briefing_enabled=settings.ai_briefing_enabled,
+            ai_provider=ai_briefing_provider,
+            ollama_base_url=settings.ollama_base_url,
+            ollama_model=settings.ollama_model,
+            ollama_timeout_seconds=settings.ollama_timeout_seconds,
+        )
+    )
     application.include_router(round_feature_router(selected_database))
     application.include_router(counter_strategy_router(selected_database))
     application.include_router(critical_mistakes_router(selected_database))

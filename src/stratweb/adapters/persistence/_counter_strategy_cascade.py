@@ -15,6 +15,11 @@ def delete_strategy_runs(
         return
     placeholders = ", ".join("?" for _ in strategy_run_ids)
     parameters = list(strategy_run_ids)
+    if _table_exists(connection, "ai_briefings"):
+        connection.execute(
+            f"DELETE FROM ai_briefings WHERE strategy_run_id IN ({placeholders})",
+            parameters,
+        )
     for table in (
         "counter_strategy_evidence",
         "counter_strategy_recommendations",

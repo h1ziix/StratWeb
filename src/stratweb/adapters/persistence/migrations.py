@@ -1651,6 +1651,30 @@ CREATE INDEX idx_telestrator_boards_round
 """
 
 
+AI_BRIEFING_SCHEMA = r"""
+CREATE TABLE ai_briefings (
+    briefing_id UUID PRIMARY KEY,
+    briefing_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    briefing_schema_version VARCHAR NOT NULL,
+    briefing_rule_version VARCHAR NOT NULL,
+    prompt_version VARCHAR NOT NULL,
+    profile_id UUID NOT NULL,
+    strategy_run_id UUID NOT NULL,
+    source_fingerprint VARCHAR(64) NOT NULL,
+    provider VARCHAR NOT NULL,
+    model_name VARCHAR NOT NULL,
+    model_digest VARCHAR(64) NOT NULL,
+    payload JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+
+CREATE INDEX idx_ai_briefings_source
+    ON ai_briefings(profile_id, strategy_run_id, created_at);
+CREATE INDEX idx_ai_briefings_compatibility
+    ON ai_briefings(source_fingerprint, model_name, model_digest, prompt_version);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1708,4 +1732,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=30, name="head_to_head_comparisons", sql=HEAD_TO_HEAD_SCHEMA),
     Migration(version=31, name="critical_mistake_filters", sql=CRITICAL_MISTAKES_SCHEMA),
     Migration(version=32, name="interactive_2d_telestrator", sql=TELESTRATOR_SCHEMA),
+    Migration(version=33, name="optional_local_ai_briefings", sql=AI_BRIEFING_SCHEMA),
 )

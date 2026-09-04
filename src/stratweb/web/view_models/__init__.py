@@ -1,5 +1,10 @@
 """Typed presentation models for the local product UI."""
 
+from stratweb.web.view_models.ai_briefing import (
+    AiBriefingPageView,
+    AiBriefingPointView,
+    build_ai_briefing_page,
+)
 from stratweb.web.view_models.economy import (
     EconomyPageView,
     EconomyPlayerView,
@@ -55,6 +60,8 @@ from stratweb.web.view_models.scouting_report import (
 )
 
 __all__ = [
+    "AiBriefingPageView",
+    "AiBriefingPointView",
     "EconomyPageView",
     "EconomyPlayerView",
     "EconomyRoundView",
@@ -85,6 +92,7 @@ __all__ = [
     "RoundStoryView",
     "TeamScoreView",
     "build_economy_page",
+    "build_ai_briefing_page",
     "build_match_readiness",
     "build_match_hub",
     "build_coach_report_page",

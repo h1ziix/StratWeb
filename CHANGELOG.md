@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.25.0] - 2026-09-04
+
+### Added
+
+- Optional local Ollama rephrasing of a pinned, validated match plan into short Russian coach
+  sections: what to expect, how to play and what to avoid.
+- Immutable DuckDB AI artifacts with source/model fingerprints, prompt/schema/rule versions and
+  direct evidence links for every generated point.
+- A coach-report action and readable offline/error states; deterministic reports remain usable
+  when Ollama is stopped or its answer is rejected.
+
+### Safety
+
+- Ollama is restricted to loopback HTTP and receives at most six already-published source items,
+  never raw demos, coordinates or Steam IDs.
+- Structured responses are rejected for unknown source IDs, source-absent numbers, absolute
+  claims and several unsafe literal translations. AI text is labelled as a draft and never
+  replaces the original statistics, evidence or limitations.
+
 ## [0.24.4] - 2026-09-04
 
 ### Fixed

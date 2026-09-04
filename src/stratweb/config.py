@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     import_minimum_free_disk_bytes: int = Field(default=2 * 1024 * 1024 * 1024, ge=0)
     import_cancel_grace_seconds: float = Field(default=5.0, ge=0.1, le=60)
     map_developer_mode: bool = False
+    # Optional localhost-only wording layer. Deterministic report generation does
+    # not depend on this service and remains available when Ollama is stopped.
+    ai_briefing_enabled: bool = True
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "qwen3:8b"
+    ollama_timeout_seconds: float = Field(default=120, ge=5, le=600)
 
 
 @lru_cache(maxsize=1)

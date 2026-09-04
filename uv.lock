@@ -1230,7 +1230,7 @@ wheels = [
 
 [[package]]
 name = "stratweb"
-version = "0.24.4"
+version = "0.25.0"
 source = { editable = "." }
 dependencies = [
     { name = "demoparser2" },

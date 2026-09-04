@@ -1493,12 +1493,20 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
 
 Это исправление перехода к плану, не полный автоматический pipeline обработки всех демо.
 
-## Stage 9.11 — Optional LLM Rephrasing (не начат)
+## Stage 9.11 — Optional Local AI Rephrasing (реализован, ручная приёмка продолжается)
 
-Только после corpus/statistical acceptance. LLM может сокращать, переводить и менять
-стиль подтверждённого текста. LLM не может считать статистику, менять
-numerator/denominator/confidence, создавать findings, выбирать evidence или удалять
-limitations. Оригинальный deterministic finding всегда хранится рядом.
+- [x] Ollama используется только через loopback API и только после явного действия;
+- [x] источник ограничен проверенными рекомендациями pinned strategy run;
+- [x] LLM не считает статистику, не выбирает evidence и не меняет исходные artifacts;
+- [x] structured output проходит Pydantic, source-id, number и certainty validation;
+- [x] невалидный/недоступный ответ не сохраняется и не ломает обычный отчёт;
+- [x] model digest, prompt/rule/schema versions и source fingerprint сохраняются в DuckDB;
+- [x] coach UI показывает три коротких раздела и ссылку на источник каждого пункта;
+- [ ] владелец должен вручную принять качество текста на нескольких реальных профилях.
+
+Оригинальные numerator/denominator/frequency/sample size, limitations и evidence остаются
+рядом в immutable source bundle. AI-текст явно маркируется как черновик формулировок.
+Подробности: [AI_BRIEFING.md](AI_BRIEFING.md).
 
 ## Stage 10 — Cloud Scale (не начат)
 

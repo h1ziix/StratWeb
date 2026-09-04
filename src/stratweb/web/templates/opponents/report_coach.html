@@ -35,6 +35,30 @@
   <a class="button coach-start" href="#coach-deck" data-coach-start>{{ t('coach.start') }} <span aria-hidden="true">→</span></a>
 </section>
 
+<section id="ai-briefing" class="ai-briefing" aria-labelledby="ai-briefing-title">
+  <header class="ai-briefing__header">
+    <div><p class="eyebrow">Локальный AI-пересказ</p><h2 id="ai-briefing-title">Коротко перед матчем</h2></div>
+    <span class="ai-briefing__local">Работает на этом компьютере</span>
+  </header>
+  <p class="ai-briefing__lead">Ollama не анализирует демки заново. Она только переводит уже проверенный план на короткий тренерский язык.</p>
+  {% if ai_briefing_error == 'provider' %}<p class="notice warning" role="alert">Не удалось получить безопасный ответ от Ollama. Убедитесь, что Ollama запущена и модель установлена, затем повторите.</p>{% endif %}
+  {% if ai_briefing_error == 'unavailable' %}<p class="notice warning" role="alert">Для этого расчёта пока нет проверенных рекомендаций, которые можно безопасно пересказать.</p>{% endif %}
+  {% if ai_briefing %}
+  <div class="ai-briefing__grid">
+    <article><h3>Что ждать</h3>{% for item in ai_briefing.expect %}<div class="ai-briefing__point"><p>{{ item.text }}</p><a href="{{ item.evidence_href }}">{{ item.map_name|map_name }} · {{ item.side }} · источник</a></div>{% else %}<p class="ai-briefing__empty">Этот раздел модель пропустила.</p>{% endfor %}</article>
+    <article class="play"><h3>Как сыграть</h3>{% for item in ai_briefing.play %}<div class="ai-briefing__point"><p>{{ item.text }}</p><a href="{{ item.evidence_href }}">{{ item.map_name|map_name }} · {{ item.side }} · источник</a></div>{% else %}<p class="ai-briefing__empty">Этот раздел модель пропустила.</p>{% endfor %}</article>
+    <article class="avoid"><h3>Чего не делать</h3>{% for item in ai_briefing.avoid %}<div class="ai-briefing__point"><p>{{ item.text }}</p><a href="{{ item.evidence_href }}">{{ item.map_name|map_name }} · {{ item.side }} · источник</a></div>{% else %}<p class="ai-briefing__empty">Этот раздел модель пропустила.</p>{% endfor %}</article>
+  </div>
+  <footer class="ai-briefing__footer"><p>Это черновик формулировок, а не новый расчёт. Нажмите «источник», чтобы увидеть точные данные и раунды.</p><details><summary>Технические сведения</summary><code>{{ ai_briefing.model_name }}</code></details></footer>
+  {% endif %}
+  {% if ai_briefing_enabled %}
+  <form method="post" action="/ui/opponents/{{ report.profile_id }}/report/briefing/generate" data-submit-feedback>
+    <input type="hidden" name="run_id" value="{{ report.strategy_run_id }}">
+    <button type="submit" data-loading-label="Ollama готовит текст…">{{ 'Обновить краткий пересказ' if ai_briefing else 'Сделать краткую версию плана' }}</button>
+  </form>
+  {% else %}<p class="ai-briefing__empty">Локальный AI-пересказ отключён в настройках StratWeb.</p>{% endif %}
+</section>
+
 <section id="coach-deck" class="coach-deck" data-coach-deck data-next-label="{{ t('coach.next') }}" data-finish-label="{{ t('coach.finish') }}" hidden>
   <header class="coach-progress">
     <p><span data-coach-current>1</span> {{ t('coach.progress_of') }} <span data-coach-total>6</span></p>

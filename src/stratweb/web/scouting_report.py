@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from stratweb.adapters.ollama import OllamaBriefingClient
 from stratweb.adapters.persistence import (
+    DuckDBAiBriefingRepository,
     DuckDBAnalysisRepository,
     DuckDBCounterStrategyRepository,
     DuckDBMatchRepository,
@@ -18,6 +20,13 @@ from stratweb.adapters.persistence import (
     DuckDBPatternRepository,
     DuckDBRoundFeatureRepository,
     DuckDBTeamNameRepository,
+)
+from stratweb.ai_briefing.models import AiBriefingArtifact
+from stratweb.application.ai_briefing import (
+    AiBriefingProvider,
+    AiBriefingProviderError,
+    AiBriefingUnavailableError,
+    GenerateAiBriefingService,
 )
 from stratweb.application.counter_strategy import (
     ComputeCounterStrategiesService,
@@ -59,6 +68,7 @@ from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
     ScoutingReportFilters,
+    build_ai_briefing_page,
     build_coach_report_page,
     build_match_cheat_sheet_page,
     build_scouting_report_detail,
@@ -68,7 +78,15 @@ from stratweb.web.view_models import (
 logger = logging.getLogger(__name__)
 
 
-def scouting_report_router(database_path: Path) -> APIRouter:
+def scouting_report_router(
+    database_path: Path,
+    *,
+    ai_briefing_enabled: bool = True,
+    ai_provider: AiBriefingProvider | None = None,
+    ollama_base_url: str = "http://127.0.0.1:11434",
+    ollama_model: str = "qwen3:8b",
+    ollama_timeout_seconds: float = 120,
+) -> APIRouter:
     router = APIRouter()
     opponents = OpponentWorkspaceService(
         DuckDBOpponentRepository(database_path),
@@ -100,6 +118,21 @@ def scouting_report_router(database_path: Path) -> APIRouter:
     )
     exporter = ScoutingReportExporter()
     pdf_renderer = ScoutingReportPdfRenderer()
+    briefing_repository = DuckDBAiBriefingRepository(database_path)
+    briefing_generation: GenerateAiBriefingService | None = None
+    if ai_briefing_enabled:
+        try:
+            selected_provider = ai_provider or OllamaBriefingClient(
+                base_url=ollama_base_url,
+                model=ollama_model,
+                timeout_seconds=ollama_timeout_seconds,
+            )
+            briefing_generation = GenerateAiBriefingService(
+                briefing_repository,
+                selected_provider,
+            )
+        except ValueError as exc:
+            logger.warning("Local AI briefing configuration rejected: %s", exc)
 
     def pending_report(
         workspace: OpponentWorkspace,
@@ -118,6 +151,9 @@ def scouting_report_router(database_path: Path) -> APIRouter:
                 preparation_error=error,
                 pinned_missing=pinned_missing,
                 preparation_allowed=bool(workspace.selected_matches) and not pinned_missing,
+                ai_briefing=None,
+                ai_briefing_enabled=ai_briefing_enabled,
+                ai_briefing_error=None,
                 match_context=None,
             ),
             status_code=status_code,
@@ -178,6 +214,7 @@ def scouting_report_router(database_path: Path) -> APIRouter:
         page: Annotated[int, Query(ge=1)] = 1,
         page_size: Annotated[int, Query(ge=10, le=100)] = 30,
         mode: Literal["coach", "analyst"] = "coach",
+        ai_error: Literal["provider", "unavailable"] | None = None,
     ) -> HTMLResponse:
         workspace = _workspace(opponents, profile_id)
         filters = ScoutingReportFilters(
@@ -200,6 +237,7 @@ def scouting_report_router(database_path: Path) -> APIRouter:
             )
         report = build_scouting_report_page(source, workspace, filters)
         coach_report = build_coach_report_page(source, workspace)
+        briefing = briefing_repository.get_latest(profile_id, source.strategy.strategy_run_id)
         return HTMLResponse(
             render_template(
                 "opponents/report.html",
@@ -208,9 +246,61 @@ def scouting_report_router(database_path: Path) -> APIRouter:
                 coach_report=coach_report,
                 report_mode=mode,
                 unavailable_reason=None,
+                ai_briefing=build_ai_briefing_page(briefing) if briefing else None,
+                ai_briefing_enabled=ai_briefing_enabled,
+                ai_briefing_error=ai_error,
                 match_context=None,
             )
         )
+
+    @router.post(
+        "/ui/opponents/{profile_id}/report/briefing/generate",
+        include_in_schema=False,
+    )
+    def generate_briefing(
+        request: Request,
+        profile_id: UUID,
+        run_id: Annotated[UUID, Form()],
+    ) -> Response:
+        require_localhost(request, "AI briefing generation")
+        if not ai_briefing_enabled:
+            raise HTTPException(status_code=404, detail="AI-пересказ отключён в настройках.")
+        if briefing_generation is None:
+            return RedirectResponse(
+                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=provider#ai-briefing",
+                status_code=303,
+            )
+        workspace = _workspace(opponents, profile_id)
+        source = reports.get_source(profile_id, strategy_run_id=run_id)
+        try:
+            briefing_generation.generate(source, workspace)
+        except AiBriefingUnavailableError:
+            return RedirectResponse(
+                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=unavailable"
+                "#ai-briefing",
+                status_code=303,
+            )
+        except AiBriefingProviderError as exc:
+            logger.warning("Local AI briefing rejected for profile %s: %s", profile_id, exc)
+            return RedirectResponse(
+                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=provider#ai-briefing",
+                status_code=303,
+            )
+        return RedirectResponse(
+            f"/ui/opponents/{profile_id}/report?run_id={run_id}#ai-briefing",
+            status_code=303,
+        )
+
+    @router.get(
+        "/api/opponents/{profile_id}/report/briefing",
+        tags=["ai-briefing"],
+        response_model=AiBriefingArtifact,
+    )
+    def briefing_json(profile_id: UUID, run_id: UUID) -> AiBriefingArtifact:
+        artifact = briefing_repository.get_latest(profile_id, run_id)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="AI briefing not found.")
+        return artifact
 
     @router.get(
         "/ui/opponents/{profile_id}/cheat-sheet",
