@@ -5,9 +5,9 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-OPPONENT_SCHEMA_VERSION = "1.0.0"
+OPPONENT_SCHEMA_VERSION = "2.0.0"
 OPPONENT_IDENTITY_RULE_VERSION = "steam_id_else_match_occurrence_v1"
 OPPONENT_OVERLAP_RULE_VERSION = "candidate_known_steam_ids_v1"
 
@@ -18,6 +18,13 @@ class OpponentModel(BaseModel):
 
 class OpponentSelectionSource(StrEnum):
     USER_CONFIRMED = "user_confirmed"
+
+
+class OpponentSubjectType(StrEnum):
+    """The real-world subject whose historical behaviour is being studied."""
+
+    TEAM = "team"
+    PLAYER = "player"
 
 
 class RosterIdentityStatus(StrEnum):
@@ -41,8 +48,20 @@ class OverlapStrength(StrEnum):
 class OpponentProfile(OpponentModel):
     profile_id: UUID
     display_name: str = Field(min_length=1, max_length=100)
+    subject_type: OpponentSubjectType = OpponentSubjectType.TEAM
+    target_steam_id: str | None = None
+    target_player_name: str | None = Field(default=None, min_length=1, max_length=100)
     created_at: AwareDatetime
     updated_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def validate_subject(self) -> OpponentProfile:
+        target = (self.target_steam_id, self.target_player_name)
+        if self.subject_type is OpponentSubjectType.TEAM and any(target):
+            raise ValueError("team profiles cannot have an individual player target")
+        if self.subject_type is OpponentSubjectType.PLAYER and any(target) and not all(target):
+            raise ValueError("player target Steam ID and name must be set together")
+        return self
 
 
 class OpponentMatchSelection(OpponentModel):
@@ -122,6 +141,7 @@ class OpponentWorkspace(OpponentModel):
     profile: OpponentProfile
     selected_matches: tuple[SelectedOpponentMatch, ...]
     roster: tuple[OpponentRosterMember, ...]
+    suggested_player_target: OpponentRosterMember | None = None
     candidates: tuple[CandidateMatch, ...]
     warnings: tuple[str, ...] = ()
 
@@ -136,6 +156,7 @@ __all__ = [
     "OpponentProfile",
     "OpponentProfileSummary",
     "OpponentSelectionSource",
+    "OpponentSubjectType",
     "OpponentWorkspace",
     "OverlapStrength",
     "RosterIdentityStatus",

@@ -1675,6 +1675,18 @@ CREATE INDEX idx_ai_briefings_compatibility
 """
 
 
+OPPONENT_SUBJECT_SCHEMA = r"""
+ALTER TABLE opponent_profiles
+    ADD COLUMN subject_type VARCHAR DEFAULT 'team';
+UPDATE opponent_profiles SET subject_type = 'team' WHERE subject_type IS NULL;
+ALTER TABLE opponent_profiles ADD COLUMN target_steam_id VARCHAR;
+ALTER TABLE opponent_profiles ADD COLUMN target_player_name VARCHAR;
+
+CREATE INDEX idx_opponent_profiles_subject
+    ON opponent_profiles(subject_type, display_name);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="canonical_match_schema", sql=INITIAL_SCHEMA),
     Migration(version=2, name="round_result_availability", sql=RESULT_AVAILABILITY_SCHEMA),
@@ -1733,4 +1745,5 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=31, name="critical_mistake_filters", sql=CRITICAL_MISTAKES_SCHEMA),
     Migration(version=32, name="interactive_2d_telestrator", sql=TELESTRATOR_SCHEMA),
     Migration(version=33, name="optional_local_ai_briefings", sql=AI_BRIEFING_SCHEMA),
+    Migration(version=34, name="opponent_player_or_team_subject", sql=OPPONENT_SUBJECT_SCHEMA),
 )

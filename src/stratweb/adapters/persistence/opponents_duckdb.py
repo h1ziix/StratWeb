@@ -38,12 +38,16 @@ class DuckDBOpponentRepository:
                 connection.execute(
                     """
                     INSERT INTO opponent_profiles (
-                        profile_id, display_name, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?)
+                        profile_id, display_name, subject_type, target_steam_id,
+                        target_player_name, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         profile.profile_id,
                         profile.display_name,
+                        profile.subject_type.value,
+                        profile.target_steam_id,
+                        profile.target_player_name,
                         _utc_naive(profile.created_at),
                         _utc_naive(profile.updated_at),
                     ],
@@ -95,6 +99,30 @@ class DuckDBOpponentRepository:
             ) from exc
         except duckdb.Error as exc:
             raise PersistenceError(f"Could not rename opponent profile {profile_id}.") from exc
+
+    def update_subject(self, profile: OpponentProfile) -> None:
+        self.initialize()
+        try:
+            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                connection.execute(
+                    """
+                    UPDATE opponent_profiles
+                    SET subject_type = ?, target_steam_id = ?, target_player_name = ?,
+                        updated_at = ?
+                    WHERE profile_id = ?
+                    """,
+                    [
+                        profile.subject_type.value,
+                        profile.target_steam_id,
+                        profile.target_player_name,
+                        _utc_naive(profile.updated_at),
+                        profile.profile_id,
+                    ],
+                )
+        except duckdb.Error as exc:
+            raise PersistenceError(
+                f"Could not update opponent subject {profile.profile_id}."
+            ) from exc
 
     def delete_profile(self, profile_id: UUID) -> bool:
         self.initialize()

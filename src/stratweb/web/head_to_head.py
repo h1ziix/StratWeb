@@ -15,6 +15,7 @@ from stratweb.adapters.persistence import (
     DuckDBTacticalV2Repository,
 )
 from stratweb.application.head_to_head import HeadToHeadService
+from stratweb.application.opponent_models import OpponentProfile, OpponentSubjectType
 from stratweb.application.tactical_v2 import TacticalV2QueryService
 from stratweb.exceptions import (
     HeadToHeadConfigurationError,
@@ -46,6 +47,8 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         our_profile_id: Annotated[UUID, Form()],
     ) -> Response:
         require_localhost(request, "Head-to-head computation")
+        _require_team_profile(opponents, opponent_profile_id)
+        _require_team_profile(opponents, our_profile_id)
         try:
             state, saved = service.compute(opponent_profile_id, our_profile_id)
         except HeadToHeadConfigurationError as exc:
@@ -74,6 +77,8 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         our_profile_id: UUID,
         run_id: UUID | None = None,
     ) -> dict[str, Any]:
+        _require_team_profile(opponents, opponent_profile_id)
+        _require_team_profile(opponents, our_profile_id)
         try:
             result = (
                 service.get_run(opponent_profile_id, our_profile_id, run_id)
@@ -89,6 +94,8 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         tags=["head-to-head"],
     )
     def head_to_head_runs(opponent_profile_id: UUID, our_profile_id: UUID) -> dict[str, Any]:
+        _require_team_profile(opponents, opponent_profile_id)
+        _require_team_profile(opponents, our_profile_id)
         values = service.list_runs(opponent_profile_id, our_profile_id)
         return {
             "opponent_profile_id": str(opponent_profile_id),
@@ -107,15 +114,16 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         our_profile_id: UUID | None = None,
         run_id: UUID | None = None,
     ) -> HTMLResponse:
-        opponent = opponents.get_profile(opponent_profile_id)
-        if opponent is None:
-            raise HTTPException(status_code=404, detail="Профиль соперника не найден.")
+        opponent = _require_team_profile(opponents, opponent_profile_id)
         profiles = tuple(
             profile
             for profile in opponents.list_profiles()
             if profile.profile_id != opponent_profile_id
+            and profile.subject_type is OpponentSubjectType.TEAM
         )
-        own_profile = opponents.get_profile(our_profile_id) if our_profile_id is not None else None
+        own_profile = (
+            _require_team_profile(opponents, our_profile_id) if our_profile_id is not None else None
+        )
         comparison = None
         unavailable_reason = None
         if our_profile_id is not None:
@@ -144,6 +152,18 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         )
 
     return router
+
+
+def _require_team_profile(opponents: DuckDBOpponentRepository, profile_id: UUID) -> OpponentProfile:
+    profile = opponents.get_profile(profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Профиль соперника не найден.")
+    if profile.subject_type is OpponentSubjectType.PLAYER:
+        raise HTTPException(
+            status_code=409,
+            detail="Сравнение «мы против них» доступно только для командных профилей.",
+        )
+    return profile
 
 
 __all__ = ["head_to_head_router"]

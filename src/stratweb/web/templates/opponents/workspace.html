@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 {% block title %}{{ workspace.profile.display_name }} · StratWeb{% endblock %}
 {% block content %}
-<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / {{ workspace.profile.display_name }}</nav>
+<nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / {{ 'Игроки' if workspace.profile.subject_type == 'player' else 'Команды' }} / {{ workspace.profile.display_name }}</nav>
 <section class="page-heading">
-  <div><p class="eyebrow">Подтверждённый корпус матчей</p><h1>{{ workspace.profile.display_name }}</h1>
-  <p>В корпус попадают только команды, которые вы выбрали вручную. Совпадение Steam ID служит подсказкой, но ничего не подтверждает автоматически.</p></div>
+  <div><p class="eyebrow">{{ 'Личный стратбук игрока' if workspace.profile.subject_type == 'player' else 'Стратбук против команды' }}</p><h1>{{ workspace.profile.target_player_name or workspace.profile.display_name }}</h1>
+  <p>{% if workspace.profile.subject_type == 'player' %}{% if workspace.profile.target_steam_id %}Все личные выводы относятся только к выбранному игроку. Командные привычки в них не подмешиваются.{% else %}Добавьте хотя бы один матч, затем выберите конкретного игрока из подтверждённого состава.{% endif %}{% else %}В корпус попадают только команды, которые вы выбрали вручную. Совпадение Steam ID служит подсказкой, но ничего не подтверждает автоматически.{% endif %}</p></div>
   <span class="status available">Подтверждено матчей: {{ workspace.selected_matches|length }}</span>
 </section>
-<div class="workspace-primary-action"><a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Показать план на матч <span aria-hidden="true">→</span></a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/critical-mistakes">Критические ошибки</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/head-to-head">Мы против них</a><details class="workspace-actions-menu"><summary>Другие действия</summary><div><a href="/ui/opponents/{{ workspace.profile.profile_id }}/tactical-v2">Все тактические данные</a><a href="/ui/opponents/{{ workspace.profile.profile_id }}/statistical-trust">Надёжность анализа</a><a href="/api/opponents/{{ workspace.profile.profile_id }}/report">Отчёт JSON</a></div></details></div>
+{% if workspace.suggested_player_target %}<section class="subject-suggestion">
+  <div><p class="eyebrow">Похоже, это личный корпус</p><h2>{{ workspace.suggested_player_target.current_name }} — единственный игрок во всех {{ workspace.selected_matches|length }} матчах</h2><p>StratWeb ничего не переключил сам. Подтвердите, если хотите видеть только личные действия этого игрока вместо анализа каждой выбранной команды.</p></div>
+  <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/subject"><input type="hidden" name="subject_type" value="player"><input type="hidden" name="target_steam_id" value="{{ workspace.suggested_player_target.steam_id }}"><button type="submit">Сделать личным стратбуком</button></form>
+</section>{% endif %}
+<div class="workspace-primary-action">{% if workspace.profile.subject_type == 'team' or workspace.profile.target_steam_id %}<a class="button" href="/ui/opponents/{{ workspace.profile.profile_id }}/report">Открыть стратбук <span aria-hidden="true">→</span></a>{% endif %}{% if workspace.profile.subject_type == 'team' %}<a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/critical-mistakes">Критические ошибки</a><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}/head-to-head">Мы против них</a>{% endif %}<details class="workspace-actions-menu"><summary>Другие действия</summary><div>{% if workspace.profile.subject_type == 'team' %}<a href="/ui/opponents/{{ workspace.profile.profile_id }}/tactical-v2">Все командные данные</a>{% endif %}<a href="/ui/opponents/{{ workspace.profile.profile_id }}/statistical-trust">Надёжность анализа</a><a href="/api/opponents/{{ workspace.profile.profile_id }}/report">Отчёт JSON</a></div></details></div>
 <details class="workspace-settings"><summary>Настройки профиля</summary><form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/rename" class="opponent-create">
   <label>Название соперника<input type="text" name="display_name" value="{{ workspace.profile.display_name }}" minlength="1" maxlength="100" required></label>
   <button class="secondary" type="submit">Переименовать</button>
+</form>
+<form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/subject" class="opponent-create">
+  <label>Что анализируем<select name="subject_type"><option value="team" {% if workspace.profile.subject_type == 'team' %}selected{% endif %}>Команду целиком</option><option value="player" {% if workspace.profile.subject_type == 'player' %}selected{% endif %}>Одного игрока</option></select></label>
+  <label>Целевой игрок<select name="target_steam_id"><option value="">Выбрать после добавления матча</option>{% for player in workspace.roster if player.steam_id %}<option value="{{ player.steam_id }}" {% if workspace.profile.target_steam_id == player.steam_id %}selected{% endif %}>{{ player.current_name }} · {{ player.appearance_count }}/{{ player.selected_match_count }} матчей</option>{% endfor %}</select></label>
+  <button class="secondary" type="submit">Сохранить режим</button>
 </form></details>
 {% for warning in workspace.warnings %}<p class="notice warning">{{ warning|warning_label }}</p>{% endfor %}
 
@@ -42,7 +51,7 @@
 </section>
 
 <section>
-  <div class="section-heading"><h2>Состав</h2><span>Только игроки подтверждённых команд</span></div>
+  <div class="section-heading"><h2>{{ 'Выберите цель' if workspace.profile.subject_type == 'player' and not workspace.profile.target_steam_id else 'Состав' }}</h2><span>{{ 'Один игрок станет целью личного стратбука' if workspace.profile.subject_type == 'player' else 'Только игроки подтверждённых команд' }}</span></div>
   {% if workspace.roster %}
   <div class="table-wrap"><table><thead><tr><th>Игрок</th><th>Идентификация</th><th>Матчи</th><th>Роль</th><th>Известные ники</th></tr></thead><tbody>
   {% for player in workspace.roster %}<tr>

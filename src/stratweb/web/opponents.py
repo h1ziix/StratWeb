@@ -14,7 +14,10 @@ from stratweb.adapters.persistence import (
     DuckDBOpponentRepository,
     DuckDBTeamNameRepository,
 )
-from stratweb.application.opponent_models import OpponentWorkspace
+from stratweb.application.opponent_models import (
+    OpponentSubjectType,
+    OpponentWorkspace,
+)
 from stratweb.application.opponents import OpponentWorkspaceService
 from stratweb.exceptions import (
     MatchNotFoundError,
@@ -36,10 +39,21 @@ def opponent_router(database_path: Path) -> APIRouter:
 
     @router.get("/ui/opponents", response_class=HTMLResponse, include_in_schema=False)
     def opponent_library() -> HTMLResponse:
+        profiles = service.list_profiles()
         return HTMLResponse(
             render_template(
                 "opponents/library.html",
-                profiles=service.list_profiles(),
+                profiles=profiles,
+                team_profiles=tuple(
+                    item
+                    for item in profiles
+                    if item.profile.subject_type is OpponentSubjectType.TEAM
+                ),
+                player_profiles=tuple(
+                    item
+                    for item in profiles
+                    if item.profile.subject_type is OpponentSubjectType.PLAYER
+                ),
                 match_context=None,
             )
         )
@@ -71,10 +85,11 @@ def opponent_router(database_path: Path) -> APIRouter:
     def create_opponent(
         request: Request,
         display_name: Annotated[str, Form(min_length=1, max_length=100)],
+        subject_type: Annotated[OpponentSubjectType, Form()] = OpponentSubjectType.TEAM,
     ) -> Response:
         _require_localhost(request)
         try:
-            profile = service.create_profile(display_name)
+            profile = service.create_profile(display_name, subject_type)
         except OpponentConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except OpponentSelectionError as exc:
@@ -126,6 +141,33 @@ def opponent_router(database_path: Path) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except OpponentConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except OpponentSelectionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/opponents/{profile_id}", status_code=303)
+        return JSONResponse(status_code=200, content=profile.model_dump(mode="json"))
+
+    @router.post(
+        "/api/opponents/{profile_id}/subject",
+        status_code=200,
+        tags=["opponents"],
+        response_model=None,
+    )
+    def update_opponent_subject(
+        request: Request,
+        profile_id: UUID,
+        subject_type: Annotated[OpponentSubjectType, Form()],
+        target_steam_id: Annotated[str | None, Form()] = None,
+    ) -> Response:
+        _require_localhost(request)
+        try:
+            profile = service.update_subject(
+                profile_id,
+                subject_type,
+                target_steam_id=target_steam_id,
+            )
+        except OpponentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         except OpponentSelectionError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if "text/html" in request.headers.get("accept", ""):

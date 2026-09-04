@@ -7,6 +7,8 @@ import json
 from typing import Any
 
 from stratweb.application.opponent_models import OpponentWorkspace
+from stratweb.application.opponent_scope import finding_belongs_to_subject
+from stratweb.application.player_stratbook import PlayerMovementChapter
 from stratweb.application.scouting_reports import ScoutingReportSource
 from stratweb.counter_strategy.models import CounterStrategyRecommendation
 from stratweb.findings.models import AnalysisFinding
@@ -28,18 +30,37 @@ class ScoutingReportExporter:
         self,
         source: ScoutingReportSource,
         workspace: OpponentWorkspace,
+        *,
+        player_movement: PlayerMovementChapter | None = None,
     ) -> ScoutingReportExport:
         selected = {item.selection.match_id: item for item in workspace.selected_matches}
         findings = tuple(
-            sorted((_sorted_finding(item) for item in source.findings), key=_finding_key)
+            sorted(
+                (
+                    _sorted_finding(item)
+                    for item in source.findings
+                    if finding_belongs_to_subject(item, workspace)
+                ),
+                key=_finding_key,
+            )
         )
+        finding_ids = {item.finding_id for item in findings}
         recommendations = tuple(
             sorted(
-                (_sorted_recommendation(item) for item in source.recommendations),
+                (
+                    _sorted_recommendation(item)
+                    for item in source.recommendations
+                    if item.source_finding_id in finding_ids
+                ),
                 key=lambda item: str(item.recommendation_id),
             )
         )
-        skipped = tuple(sorted(source.skipped_findings, key=lambda item: str(item.finding_id)))
+        skipped = tuple(
+            sorted(
+                (item for item in source.skipped_findings if item.finding_id in finding_ids),
+                key=lambda item: str(item.finding_id),
+            )
+        )
         reliability_tier, reliability_label, reliability_message = corpus_reliability(
             source.validation.coverage.included_matches
         )
@@ -100,6 +121,9 @@ class ScoutingReportExporter:
             "export_rule_version": REPORT_EXPORT_RULE_VERSION,
             "profile_id": source.strategy.profile_id,
             "display_name": workspace.profile.display_name,
+            "subject_type": workspace.profile.subject_type,
+            "target_steam_id": workspace.profile.target_steam_id,
+            "target_player_name": workspace.profile.target_player_name,
             "analysis_created_at": source.analysis_created_at,
             "strategy_created_at": source.strategy_created_at,
             "analysis_run_id": source.analysis.analysis_run_id,
@@ -133,9 +157,13 @@ class ScoutingReportExporter:
                 maps=tuple(sorted(validation.coverage.maps)),
                 sides=tuple(sorted(validation.coverage.sides)),
                 buy_types=tuple(sorted(validation.coverage.buy_types)),
-                source_findings=validation.coverage.source_findings,
-                ready_findings=validation.coverage.ready_findings,
-                recommendations=validation.coverage.recommendations,
+                source_findings=len(findings),
+                ready_findings=sum(
+                    item.eligible_for_stage_8_7
+                    for item in source.readiness.records
+                    if item.finding_id in finding_ids
+                ),
+                recommendations=len(recommendations),
                 evidence_references=sum(len(item.evidence_references) for item in findings),
             ),
             "corpus": corpus,
@@ -144,6 +172,7 @@ class ScoutingReportExporter:
             "findings": findings,
             "recommendations": recommendations,
             "skipped_findings": skipped,
+            "player_movement": player_movement,
             "sample_limitations": sample_limitations,
             "warnings": warnings,
         }

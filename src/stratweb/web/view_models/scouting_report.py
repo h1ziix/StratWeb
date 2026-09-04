@@ -8,7 +8,10 @@ from uuid import UUID
 
 from pydantic import Field
 
-from stratweb.application.opponent_models import OpponentWorkspace
+from stratweb.application.opponent_models import OpponentSubjectType, OpponentWorkspace
+from stratweb.application.opponent_scope import (
+    subject_findings,
+)
 from stratweb.application.scouting_reports import ScoutingReportSource
 from stratweb.counter_strategy.models import (
     CounterStrategyRecommendation,
@@ -140,6 +143,8 @@ class ScoutingReportPageView(ViewModel):
     report_view_rule_version: str = REPORT_VIEW_RULE_VERSION
     profile_id: UUID
     display_name: str
+    subject_type: OpponentSubjectType
+    target_player_name: str | None = None
     strategy_run_id: UUID
     strategy_fingerprint: str
     source_analysis_run_id: UUID
@@ -199,6 +204,8 @@ class CoachReportPageView(ViewModel):
     """Small, deterministic set of signals for the one-tap report flow."""
 
     rule_version: str = COACH_REPORT_RULE_VERSION
+    subject_type: OpponentSubjectType
+    subject_name: str
     attack: tuple[CoachSignalView, ...]
     defence: tuple[CoachSignalView, ...]
     risks: tuple[CoachSignalView, ...]
@@ -214,6 +221,7 @@ class MatchCheatSheetPageView(ViewModel):
     rule_version: str = CHEAT_SHEET_RULE_VERSION
     profile_id: UUID
     display_name: str
+    subject_type: OpponentSubjectType
     strategy_run_id: UUID
     map_name: str
     available_maps: tuple[str, ...] = Field(min_length=1)
@@ -278,10 +286,18 @@ def build_scouting_report_page(
     workspace: OpponentWorkspace,
     filters: ScoutingReportFilters,
 ) -> ScoutingReportPageView:
+    scoped_findings = subject_findings(source.findings, workspace)
+    subject_ids = {item.finding_id for item in scoped_findings}
     readiness = {item.finding_id: item for item in source.readiness.records}
-    skipped = {item.finding_id: item for item in source.skipped_findings}
-    recommendations_by_finding = {item.source_finding_id: item for item in source.recommendations}
-    filtered = tuple(item for item in source.findings if _matches_filter(item, filters))
+    skipped = {
+        item.finding_id: item for item in source.skipped_findings if item.finding_id in subject_ids
+    }
+    recommendations_by_finding = {
+        item.source_finding_id: item
+        for item in source.recommendations
+        if item.source_finding_id in subject_ids
+    }
+    filtered = tuple(item for item in scoped_findings if _matches_filter(item, filters))
     filtered = tuple(
         sorted(
             filtered,
@@ -366,6 +382,8 @@ def build_scouting_report_page(
     return ScoutingReportPageView(
         profile_id=source.strategy.profile_id,
         display_name=workspace.profile.display_name,
+        subject_type=workspace.profile.subject_type,
+        target_player_name=workspace.profile.target_player_name,
         strategy_run_id=source.strategy.strategy_run_id,
         strategy_fingerprint=source.strategy.strategy_fingerprint,
         source_analysis_run_id=source.analysis.analysis_run_id,
@@ -384,12 +402,14 @@ def build_scouting_report_page(
         corpus_reliability_label=reliability_label,
         corpus_reliability_message=reliability_message,
         corpus_reliability_css_class=_reliability_css(reliability_tier.value),
-        source_findings=validation.coverage.source_findings,
-        ready_findings=validation.coverage.ready_findings,
-        recommendations_count=validation.coverage.recommendations,
+        source_findings=len(scoped_findings),
+        ready_findings=sum(
+            readiness[item.finding_id].eligible_for_stage_8_7 for item in scoped_findings
+        ),
+        recommendations_count=len(recommendations_by_finding),
         recommendations_suppressed=recommendations_suppressed,
-        skipped_findings=validation.coverage.skipped_findings,
-        evidence_references=sum(len(item.evidence_references) for item in source.findings),
+        skipped_findings=len(skipped),
+        evidence_references=sum(len(item.evidence_references) for item in scoped_findings),
         maps=validation.coverage.maps,
         sides=validation.coverage.sides,
         buy_types=validation.coverage.buy_types,
@@ -413,12 +433,12 @@ def build_scouting_report_page(
         warnings=tuple(dict.fromkeys((*validation.warnings, *source.strategy.warnings))),
         filters=effective_filters,
         filter_options=ReportFilterOptions(
-            maps=tuple(sorted({item.scope.map_name for item in source.findings})),
+            maps=tuple(sorted({item.scope.map_name for item in scoped_findings})),
             buy_types=tuple(
                 sorted(
                     {
                         item.scope.buy_type.value
-                        for item in source.findings
+                        for item in scoped_findings
                         if item.scope.buy_type is not None
                     }
                 )
@@ -426,7 +446,7 @@ def build_scouting_report_page(
             pattern_types=tuple(
                 (item.value, _human(item.value))
                 for item in PatternType
-                if any(candidate.pattern_type is item for candidate in source.findings)
+                if any(candidate.pattern_type is item for candidate in scoped_findings)
             ),
         ),
         filtered_findings=len(filtered),
@@ -456,7 +476,7 @@ def build_scouting_report_page(
         finding_groups=groups,
         recommendations=recommendation_views,
         corpus_matches=corpus_matches,
-        skip_reason_counts=dict(Counter(item.reason.value for item in source.skipped_findings)),
+        skip_reason_counts=dict(Counter(item.reason.value for item in skipped.values())),
         report_json_href=_report_json_href(
             source.strategy.profile_id,
             source.strategy.strategy_run_id,
@@ -487,9 +507,17 @@ def build_coach_report_page(
 
     if section_limit < 1:
         raise ValueError("coach report section limit must be positive")
+    scoped_findings = subject_findings(source.findings, workspace)
+    subject_ids = {item.finding_id for item in scoped_findings}
     readiness = {item.finding_id: item for item in source.readiness.records}
-    skipped = {item.finding_id: item for item in source.skipped_findings}
-    recommendations_by_finding = {item.source_finding_id: item for item in source.recommendations}
+    skipped = {
+        item.finding_id: item for item in source.skipped_findings if item.finding_id in subject_ids
+    }
+    recommendations_by_finding = {
+        item.source_finding_id: item
+        for item in source.recommendations
+        if item.source_finding_id in subject_ids
+    }
     cards = tuple(
         _finding_view(
             finding,
@@ -498,17 +526,42 @@ def build_coach_report_page(
             skipped=skipped.get(finding.finding_id),
             recommendation=recommendations_by_finding.get(finding.finding_id),
         )
-        for finding in source.findings
+        for finding in scoped_findings
     )
     grouped = {
         key: tuple(item for item in cards if _group_key(item) == key)
         for key in ("t_side", "ct_side", "risks", "individual")
     }
-    findings_by_id = {item.finding_id: item for item in source.findings}
-    attack = _coach_signals(grouped["t_side"], findings_by_id, section_limit)
-    defence = _coach_signals(grouped["ct_side"], findings_by_id, section_limit)
-    risks = _coach_signals(grouped["risks"], findings_by_id, section_limit)
-    individual = _coach_signals(grouped["individual"], findings_by_id, section_limit)
+    findings_by_id = {item.finding_id: item for item in scoped_findings}
+    individual: tuple[CoachSignalView, ...]
+    if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
+        personal = grouped["individual"]
+        attack = _coach_signals(
+            tuple(item for item in personal if item.side == Side.T.value),
+            findings_by_id,
+            section_limit,
+        )
+        defence = _coach_signals(
+            tuple(item for item in personal if item.side == Side.CT.value),
+            findings_by_id,
+            section_limit,
+        )
+        risks = _coach_signals(
+            tuple(
+                item
+                for item in personal
+                if findings_by_id[item.finding_id].pattern_type
+                is PatternType.RECURRING_OPENING_DEATH
+            ),
+            findings_by_id,
+            section_limit,
+        )
+        individual = ()
+    else:
+        attack = _coach_signals(grouped["t_side"], findings_by_id, section_limit)
+        defence = _coach_signals(grouped["ct_side"], findings_by_id, section_limit)
+        risks = _coach_signals(grouped["risks"], findings_by_id, section_limit)
+        individual = _coach_signals(grouped["individual"], findings_by_id, section_limit)
     evidence = _unique_signals((*attack, *defence, *risks, *individual), limit=4)
     recommendations: tuple[ReportRecommendationView, ...] = ()
     if source.validation.status is not StrategyAcceptanceStatus.FAILED:
@@ -517,6 +570,7 @@ def build_coach_report_page(
                 (
                     _recommendation_view(item, workspace.profile.profile_id)
                     for item in source.recommendations
+                    if item.source_finding_id in subject_ids
                 ),
                 key=lambda item: (
                     -item.evidence_matches,
@@ -528,6 +582,8 @@ def build_coach_report_page(
             )[:section_limit]
         )
     return CoachReportPageView(
+        subject_type=workspace.profile.subject_type,
+        subject_name=workspace.profile.target_player_name or workspace.profile.display_name,
         attack=attack,
         defence=defence,
         risks=risks,
@@ -548,6 +604,7 @@ def build_match_cheat_sheet_page(
 
     if section_limit < 1:
         raise ValueError("cheat sheet section limit must be positive")
+    scoped_findings = subject_findings(source.findings, workspace)
     available_maps = tuple(
         sorted(
             {
@@ -556,7 +613,7 @@ def build_match_cheat_sheet_page(
                     for item in source.analysis.input_matches
                     if item.input_status.value == "included"
                 ),
-                *(item.scope.map_name for item in source.findings),
+                *(item.scope.map_name for item in scoped_findings),
             }
         )
     )
@@ -570,7 +627,7 @@ def build_match_cheat_sheet_page(
     skipped = {item.finding_id: item for item in source.skipped_findings}
     recommendations_by_finding = {item.source_finding_id: item for item in source.recommendations}
     source_findings = {
-        item.finding_id: item for item in source.findings if item.scope.map_name == selected_map
+        item.finding_id: item for item in scoped_findings if item.scope.map_name == selected_map
     }
     cards = tuple(
         _finding_view(
@@ -586,9 +643,32 @@ def build_match_cheat_sheet_page(
         key: tuple(item for item in cards if _group_key(item) == key)
         for key in ("t_side", "ct_side", "risks")
     }
-    attack = _coach_signals(grouped["t_side"], source_findings, section_limit)
-    defence = _coach_signals(grouped["ct_side"], source_findings, section_limit)
-    risks = _coach_signals(grouped["risks"], source_findings, section_limit)
+    if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
+        personal = tuple(item for item in cards if _group_key(item) == "individual")
+        attack = _coach_signals(
+            tuple(item for item in personal if item.side == Side.T.value),
+            source_findings,
+            section_limit,
+        )
+        defence = _coach_signals(
+            tuple(item for item in personal if item.side == Side.CT.value),
+            source_findings,
+            section_limit,
+        )
+        risks = _coach_signals(
+            tuple(
+                item
+                for item in personal
+                if source_findings[item.finding_id].pattern_type
+                is PatternType.RECURRING_OPENING_DEATH
+            ),
+            source_findings,
+            section_limit,
+        )
+    else:
+        attack = _coach_signals(grouped["t_side"], source_findings, section_limit)
+        defence = _coach_signals(grouped["ct_side"], source_findings, section_limit)
+        risks = _coach_signals(grouped["risks"], source_findings, section_limit)
     recommendations_suppressed = source.validation.status is StrategyAcceptanceStatus.FAILED
     recommendations: tuple[ReportRecommendationView, ...] = ()
     if not recommendations_suppressed:
@@ -616,6 +696,7 @@ def build_match_cheat_sheet_page(
     return MatchCheatSheetPageView(
         profile_id=source.strategy.profile_id,
         display_name=workspace.profile.display_name,
+        subject_type=workspace.profile.subject_type,
         strategy_run_id=source.strategy.strategy_run_id,
         map_name=selected_map,
         available_maps=available_maps,

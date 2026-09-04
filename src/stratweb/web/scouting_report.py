@@ -36,9 +36,11 @@ from stratweb.application.findings import (
     AnalysisFindingQueryService,
     ComputeAnalysisFindingsService,
 )
-from stratweb.application.opponent_models import OpponentWorkspace
+from stratweb.application.opponent_models import OpponentSubjectType, OpponentWorkspace
+from stratweb.application.opponent_scope import finding_belongs_to_subject
 from stratweb.application.opponents import OpponentWorkspaceService
 from stratweb.application.patterns import ComputeCrossMatchPatternsService
+from stratweb.application.player_stratbook import PlayerMovementStratbookService
 from stratweb.application.report_preparation import (
     PrepareScoutingReportService,
     ReportPreparationUnavailableError,
@@ -119,6 +121,10 @@ def scouting_report_router(
     exporter = ScoutingReportExporter()
     pdf_renderer = ScoutingReportPdfRenderer()
     briefing_repository = DuckDBAiBriefingRepository(database_path)
+    movement_service = PlayerMovementStratbookService(
+        DuckDBMatchRepository(database_path),
+        DuckDBRoundFeatureRepository(database_path),
+    )
     briefing_generation: GenerateAiBriefingService | None = None
     if ai_briefing_enabled:
         try:
@@ -154,6 +160,7 @@ def scouting_report_router(
                 ai_briefing=None,
                 ai_briefing_enabled=ai_briefing_enabled,
                 ai_briefing_error=None,
+                player_movement=None,
                 match_context=None,
             ),
             status_code=status_code,
@@ -237,6 +244,7 @@ def scouting_report_router(
             )
         report = build_scouting_report_page(source, workspace, filters)
         coach_report = build_coach_report_page(source, workspace)
+        player_movement = movement_service.build(workspace)
         briefing = briefing_repository.get_latest(profile_id, source.strategy.strategy_run_id)
         return HTMLResponse(
             render_template(
@@ -249,6 +257,7 @@ def scouting_report_router(
                 ai_briefing=build_ai_briefing_page(briefing) if briefing else None,
                 ai_briefing_enabled=ai_briefing_enabled,
                 ai_briefing_error=ai_error,
+                player_movement=player_movement,
                 match_context=None,
             )
         )
@@ -271,6 +280,12 @@ def scouting_report_router(
                 status_code=303,
             )
         workspace = _workspace(opponents, profile_id)
+        if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
+            return RedirectResponse(
+                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=unavailable"
+                "#ai-briefing",
+                status_code=303,
+            )
         source = reports.get_source(profile_id, strategy_run_id=run_id)
         try:
             briefing_generation.generate(source, workspace)
@@ -297,6 +312,12 @@ def scouting_report_router(
         response_model=AiBriefingArtifact,
     )
     def briefing_json(profile_id: UUID, run_id: UUID) -> AiBriefingArtifact:
+        workspace = _workspace(opponents, profile_id)
+        if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
+            raise HTTPException(
+                status_code=404,
+                detail="AI briefing is not available for individual player profiles.",
+            )
         artifact = briefing_repository.get_latest(profile_id, run_id)
         if artifact is None:
             raise HTTPException(status_code=404, detail="AI briefing not found.")
@@ -356,7 +377,7 @@ def scouting_report_router(
         workspace = _workspace(opponents, profile_id)
         source = reports.get_source(profile_id, strategy_run_id=run_id)
         finding = next((item for item in source.findings if item.finding_id == finding_id), None)
-        if finding is None:
+        if finding is None or not finding_belongs_to_subject(finding, workspace):
             raise HTTPException(
                 status_code=404,
                 detail="Finding does not belong to the pinned report run.",
@@ -381,7 +402,11 @@ def scouting_report_router(
     ) -> HTMLResponse:
         workspace = _workspace(opponents, profile_id)
         source = reports.get_source(profile_id, strategy_run_id=run_id)
-        exported = exporter.build(source, workspace)
+        exported = exporter.build(
+            source,
+            workspace,
+            player_movement=movement_service.build(workspace),
+        )
         return HTMLResponse(
             render_template(
                 "opponents/report_print.html",
@@ -441,7 +466,11 @@ def scouting_report_router(
     ) -> Response:
         workspace = _workspace(opponents, profile_id)
         source = reports.get_source(profile_id, strategy_run_id=run_id)
-        exported = exporter.build(source, workspace)
+        exported = exporter.build(
+            source,
+            workspace,
+            player_movement=movement_service.build(workspace),
+        )
         return _export_response(
             exporter.render_json(exported),
             media_type="application/json",
@@ -459,7 +488,11 @@ def scouting_report_router(
     ) -> Response:
         workspace = _workspace(opponents, profile_id)
         source = reports.get_source(profile_id, strategy_run_id=run_id)
-        exported = exporter.build(source, workspace)
+        exported = exporter.build(
+            source,
+            workspace,
+            player_movement=movement_service.build(workspace),
+        )
         try:
             content = pdf_renderer.render(exported)
         except PdfFontUnavailableError as exc:

@@ -1,28 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Соперники · StratWeb{% endblock %}
 {% block content %}
-<section class="page-heading">
-  <div><p class="eyebrow">Анализ нескольких матчей</p><h1>Соперники</h1>
-  <p>Объединяйте завершённые демки одной команды, чтобы находить повторяющиеся паттерны.</p></div>
+<section class="page-heading opponent-library-hero">
+  <div><p class="eyebrow">Стратбуки по завершённым матчам</p><h1>Кого разбираем?</h1>
+  <p>Команда и отдельный игрок — разные цели. StratWeb больше не смешивает их тактики.</p></div>
 </section>
-<form class="opponent-create" method="post" action="/api/opponents">
-  <label>Название соперника<input name="display_name" maxlength="100" placeholder="Например: Команда физика" required></label>
-  <button type="submit">Создать соперника</button>
+<form class="opponent-create subject-create" method="post" action="/api/opponents">
+  <label>Режим анализа<select name="subject_type"><option value="team">Команда целиком</option><option value="player">Один игрок</option></select></label>
+  <label>Название<input name="display_name" maxlength="100" placeholder="Например: team_fizik или h1ziix" required></label>
+  <button type="submit">Создать стратбук</button>
 </form>
 {% if profiles %}
-<section class="opponent-grid" aria-label="Список соперников">
-{% for item in profiles %}
+<section class="opponent-mode-section"><div class="section-heading"><div><p class="eyebrow">Командный режим</p><h2>Команды</h2></div><span>{{ team_profiles|length }}</span></div>
+<div class="opponent-grid" aria-label="Список команд">
+{% for item in team_profiles %}
   <article class="opponent-card">
-    <p class="eyebrow">Профиль соперника</p>
+    <p class="eyebrow">Стратбук против команды</p>
     <h2>{{ item.profile.display_name }}</h2>
     <div class="metric-row"><span><strong>{{ item.match_count }}</strong> матчей</span><span><strong>{{ item.identified_player_count }}</strong> игроков со Steam ID</span></div>
     <p class="muted">{% if item.map_names %}{% for map in item.map_names %}{{ map|map_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Подтверждённых карт пока нет{% endif %}</p>
     {% if item.unresolved_occurrence_count %}<p class="warning">Игроков без подтверждённого Steam ID: {{ item.unresolved_occurrence_count }}</p>{% endif %}
     <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть</a>
   </article>
-{% endfor %}
-</section>
+{% else %}<div class="empty-state"><p>Командных стратбуков пока нет.</p></div>{% endfor %}
+</div></section>
+<section class="opponent-mode-section"><div class="section-heading"><div><p class="eyebrow">Индивидуальный режим</p><h2>Игроки</h2></div><span>{{ player_profiles|length }}</span></div>
+<div class="opponent-grid" aria-label="Список игроков">
+{% for item in player_profiles %}
+  <article class="opponent-card player-card">
+    <p class="eyebrow">Личный стратбук</p>
+    <h2>{{ item.profile.target_player_name or item.profile.display_name }}</h2>
+    <div class="metric-row"><span><strong>{{ item.match_count }}</strong> матчей</span><span><strong>{{ item.profile.target_steam_id and '✓' or '—' }}</strong> цель</span></div>
+    <p class="muted">{% if item.profile.target_steam_id %}Игрок подтверждён по Steam ID{% else %}Выберите игрока после добавления матча{% endif %}</p>
+    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть</a>
+  </article>
+{% else %}<div class="empty-state"><p>Личных стратбуков пока нет.</p></div>{% endfor %}
+</div></section>
 {% else %}
-<section class="empty-state"><h2>Соперников пока нет</h2><p>Создайте профиль, затем явно выберите команду соперника в каждой загруженной демке.</p></section>
+<section class="empty-state"><h2>Стратбуков пока нет</h2><p>Выберите режим, создайте профиль и добавьте завершённые матчи.</p></section>
 {% endif %}
 {% endblock %}

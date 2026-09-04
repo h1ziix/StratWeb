@@ -21,7 +21,7 @@ from stratweb.adapters.persistence import (
 from stratweb.application.analyst_notes import ANALYST_NOTE_MAX_LENGTH
 from stratweb.application.counter_strategy import CounterStrategyQueryService
 from stratweb.application.findings import AnalysisFindingQueryService
-from stratweb.application.opponent_models import OpponentProfile
+from stratweb.application.opponent_models import OpponentProfile, OpponentSubjectType
 from stratweb.application.tactical_v2 import (
     ComputeTacticalV2Service,
     TacticalV2QueryService,
@@ -74,6 +74,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         force: bool = False,
     ) -> Response:
         require_localhost(request, "Tactical V2 computation")
+        _require_team_profile(opponents, profile_id)
         try:
             result = compute.compute(
                 profile_id,
@@ -88,10 +89,12 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
 
     @router.get("/api/opponents/{profile_id}/tactical-v2/summary", tags=["tactical-v2"])
     def summary(profile_id: UUID, run_id: UUID | None = None) -> dict[str, Any]:
+        _require_team_profile(opponents, profile_id)
         return query.get_summary(profile_id, tactical_run_id=run_id).model_dump(mode="json")
 
     @router.get("/api/opponents/{profile_id}/tactical-v2/runs", tags=["tactical-v2"])
     def runs(profile_id: UUID) -> dict[str, Any]:
+        _require_team_profile(opponents, profile_id)
         values = query.list_runs(profile_id)
         return {
             "profile_id": str(profile_id),
@@ -109,6 +112,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         limit: Annotated[int, Query(ge=1, le=5000)] = 500,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> dict[str, Any]:
+        _require_team_profile(opponents, profile_id)
         values = query.list_insights(
             profile_id,
             tactical_run_id=run_id,
@@ -129,6 +133,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         tags=["tactical-v2"],
     )
     def evidence(profile_id: UUID, insight_id: UUID, run_id: UUID | None = None) -> dict[str, Any]:
+        _require_team_profile(opponents, profile_id)
         values = query.list_evidence(profile_id, insight_id, tactical_run_id=run_id)
         return {
             "profile_id": str(profile_id),
@@ -153,9 +158,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         lang: Annotated[str | None, Query(max_length=20)] = None,
     ) -> HTMLResponse:
         locale = resolve_locale(lang, request.cookies.get(LOCALE_COOKIE_NAME))
-        profile = opponents.get_profile(profile_id)
-        if profile is None:
-            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        profile = _require_team_profile(opponents, profile_id)
         try:
             selected = query.get_summary(profile_id, tactical_run_id=run_id)
             values = query.list_insights(
@@ -214,9 +217,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         note_status: Literal["saved", "deleted"] | None = None,
     ) -> HTMLResponse:
         locale = resolve_locale(lang, request.cookies.get(LOCALE_COOKIE_NAME))
-        profile = opponents.get_profile(profile_id)
-        if profile is None:
-            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        profile = _require_team_profile(opponents, profile_id)
         try:
             selected = query.get_summary(profile_id, tactical_run_id=run_id)
             insight = query.get_insight(
@@ -287,9 +288,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
     ) -> Response:
         require_localhost(request, "Analyst note editing")
         locale = resolve_locale(None, request.cookies.get(LOCALE_COOKIE_NAME))
-        profile = opponents.get_profile(profile_id)
-        if profile is None:
-            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        profile = _require_team_profile(opponents, profile_id)
         try:
             query.get_insight(profile_id, insight_id, tactical_run_id=run_id)
             note = notes.save(profile_id, run_id, insight_id, body)
@@ -317,9 +316,7 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
     ) -> Response:
         require_localhost(request, "Analyst note editing")
         locale = resolve_locale(None, request.cookies.get(LOCALE_COOKIE_NAME))
-        profile = opponents.get_profile(profile_id)
-        if profile is None:
-            raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+        profile = _require_team_profile(opponents, profile_id)
         try:
             query.get_insight(profile_id, insight_id, tactical_run_id=run_id)
         except TacticalV2NotFoundError:
@@ -333,6 +330,18 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         )
 
     return router
+
+
+def _require_team_profile(opponents: DuckDBOpponentRepository, profile_id: UUID) -> OpponentProfile:
+    profile = opponents.get_profile(profile_id)
+    if profile is None:
+        raise OpponentNotFoundError(f"Opponent profile not found: {profile_id}")
+    if profile.subject_type is OpponentSubjectType.PLAYER:
+        raise HTTPException(
+            status_code=409,
+            detail="Командный тактический обзор недоступен для профиля одного игрока.",
+        )
+    return profile
 
 
 def _remember_locale(response: Response, requested: str | None, resolved: str) -> None:

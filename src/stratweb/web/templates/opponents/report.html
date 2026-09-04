@@ -3,9 +3,9 @@
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% if report_mode == 'coach' %}<link rel="stylesheet" href="{{ static_asset('css/coach-report.css') }}">{% endif %}{% endblock %}
 {% block content_class %}report-shell{% endblock %}
 {% block content %}
-<nav class="breadcrumbs {% if report_mode == 'coach' %}coach-breadcrumbs{% endif %}"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Отчёт</nav>
+<nav class="breadcrumbs {% if report_mode == 'coach' %}coach-breadcrumbs{% endif %}"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Стратбук</nav>
 {% if not report %}
-<section class="page-heading report-heading"><div><p class="eyebrow">План на матч</p><h1>{{ 'Этот сохранённый план не найден' if pinned_missing else 'Подготовим план против ' ~ workspace.profile.display_name }}</h1><p>{% if pinned_missing %}Возможно, этот расчёт был удалён или заменён. Можно открыть текущий план соперника.{% else %}Соберём привычки соперника, проверим доказательства и покажем, что можно попробовать против него.{% endif %}</p></div></section>
+<section class="page-heading report-heading"><div><p class="eyebrow">{{ 'Личный стратбук' if workspace.profile.subject_type == 'player' else 'Командный стратбук' }}</p><h1>{{ 'Этот сохранённый план не найден' if pinned_missing else 'Подготовим план против ' ~ (workspace.profile.target_player_name or workspace.profile.display_name) }}</h1><p>{% if pinned_missing %}Возможно, этот расчёт был удалён или заменён. Можно открыть текущий план соперника.{% elif workspace.profile.subject_type == 'player' %}Покажем только действия выбранного игрока. Командные паттерны в личный стратбук не попадут.{% else %}Соберём привычки команды, проверим доказательства и покажем, что можно попробовать против неё.{% endif %}</p></div></section>
 <section class="empty-state" aria-label="Подготовка плана">
   {% if preparation_error %}<p class="notice warning" role="alert">{{ preparation_error }}</p>{% endif %}
   {% if preparation_allowed %}
@@ -20,7 +20,7 @@
 {% include "opponents/report_coach.html" %}
 {% else %}
 <section class="page-heading report-heading">
-  <div><p class="eyebrow">Доказательный отчёт о сопернике</p><h1>{{ report.display_name }}</h1><p>Исторические наблюдения по завершённым демкам. Без live-данных, причинных утверждений и статистики от LLM.</p></div>
+  <div><p class="eyebrow">{{ 'Личный доказательный стратбук' if report.subject_type == 'player' else 'Командный доказательный стратбук' }}</p><h1>{{ report.target_player_name or report.display_name }}</h1><p>{% if report.subject_type == 'player' %}Только подтверждённые действия этого игрока по Steam ID. Командные выводы скрыты.{% else %}Исторические наблюдения по выбранной команде.{% endif %} Без live-данных, причинных утверждений и статистики от LLM.</p></div>
   <div class="report-acceptance {{ report.corpus_reliability_css_class }}"><span>Надёжность выборки</span><strong>{{ report.corpus_reliability_label }}</strong><small>подтверждено матчей: {{ report.included_matches }}</small></div>
 </section>
 

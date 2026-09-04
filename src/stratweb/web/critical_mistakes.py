@@ -14,6 +14,7 @@ from stratweb.adapters.persistence import (
     DuckDBOpponentRepository,
 )
 from stratweb.application.critical_mistakes import CriticalMistakesService
+from stratweb.application.opponent_models import OpponentProfile, OpponentSubjectType
 from stratweb.critical_mistakes.models import CriticalMistakeType
 from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
@@ -31,8 +32,7 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
     )
     def compute(request: Request, profile_id: UUID) -> Response:
         require_localhost(request, "Critical mistakes computation")
-        if opponents.get_profile(profile_id) is None:
-            raise HTTPException(status_code=404, detail="Профиль соперника не найден.")
+        _require_team_profile(opponents, profile_id)
         state, result = service.compute(profile_id)
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(
@@ -47,6 +47,7 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
         tags=["critical-mistakes"],
     )
     def summary(profile_id: UUID) -> dict[str, Any]:
+        _require_team_profile(opponents, profile_id)
         state = service.get_latest(profile_id)
         if state is None:
             raise HTTPException(status_code=404, detail="Фильтр ещё не рассчитан.")
@@ -61,9 +62,7 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
         profile_id: UUID,
         mistake_type: CriticalMistakeType | None = None,
     ) -> HTMLResponse:
-        profile = opponents.get_profile(profile_id)
-        if profile is None:
-            raise HTTPException(status_code=404, detail="Профиль соперника не найден.")
+        profile = _require_team_profile(opponents, profile_id)
         state = service.get_latest(profile_id)
         mistakes = (
             tuple(
@@ -101,6 +100,18 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
         )
 
     return router
+
+
+def _require_team_profile(opponents: DuckDBOpponentRepository, profile_id: UUID) -> OpponentProfile:
+    profile = opponents.get_profile(profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Профиль соперника не найден.")
+    if profile.subject_type is OpponentSubjectType.PLAYER:
+        raise HTTPException(
+            status_code=409,
+            detail="Фильтр командных ошибок недоступен для профиля одного игрока.",
+        )
+    return profile
 
 
 __all__ = ["critical_mistakes_router"]

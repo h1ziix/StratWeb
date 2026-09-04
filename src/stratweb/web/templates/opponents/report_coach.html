@@ -19,23 +19,43 @@
 
 <section class="coach-hero">
   <div class="coach-hero__top">
-    <span class="coach-mode-pill">{{ t('coach.mode') }}</span>
+    <span class="coach-mode-pill">{{ 'ЛИЧНЫЙ СТРАТБУК' if coach_report.subject_type == 'player' else 'КОМАНДНЫЙ СТРАТБУК' }}</span>
     <details class="coach-tools"><summary aria-label="{{ t('coach.more') }}">•••</summary><div>
       <a href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}&mode=analyst">{{ t('coach.analyst_mode') }}</a>
-      <a href="/ui/opponents/{{ report.profile_id }}/tactical-v2">{{ t('coach.tactical_details') }}</a>
+      {% if coach_report.subject_type == 'team' %}<a href="/ui/opponents/{{ report.profile_id }}/tactical-v2">{{ t('coach.tactical_details') }}</a>{% endif %}
       <a href="/ui/opponents/{{ report.profile_id }}/cheat-sheet?run_id={{ report.strategy_run_id }}">Шпаргалка на карту</a>
+      <a href="{{ report.report_pdf_href }}">Скачать PDF</a>
+      <a href="{{ report.report_export_json_href }}">Скачать JSON</a>
     </div></details>
   </div>
-  <p class="eyebrow">{{ t('coach.eyebrow') }}</p>
-  <h1>{{ report.display_name }}</h1>
-  <p class="coach-hero__lead">{{ t('coach.lead') }}</p>
+
+  <p class="eyebrow">Стратбук перед матчем</p>
+  <h1>{{ coach_report.subject_name }}</h1>
+  <p class="coach-hero__lead">{% if coach_report.subject_type == 'player' %}Как играет именно этот человек, где он появляется и как подготовить контакт против него.{% else %}Как команда действует за обе стороны, где повторяется и как подготовить ответ.{% endif %}</p>
   <div class="coach-readiness {{ report.acceptance_css_class }}">
     <span></span><p><strong>{{ report.corpus_reliability_label }}</strong> · {{ report.corpus_reliability_message }}</p>
   </div>
   <a class="button coach-start" href="#coach-deck" data-coach-start>{{ t('coach.start') }} <span aria-hidden="true">→</span></a>
 </section>
 
-<section id="ai-briefing" class="ai-briefing" aria-labelledby="ai-briefing-title">
+{% if coach_report.subject_type == 'player' %}
+<section class="coach-step player-movement-chapter" data-player-movement>
+  <p class="eyebrow">Личная глава · Раннее движение</p>
+  <h2>Где появляется {{ coach_report.subject_name }}</h2>
+  <p class="coach-step__lead">В знаменатель входят только раунды, где ранняя позиция выбранного игрока действительно наблюдалась.</p>
+  {% if player_movement and player_movement.signals %}<div class="coach-response-list">
+    {% for item in player_movement.signals[:6] %}<article class="coach-response">
+      <header><span>{{ item.map_name|map_name }} · {{ item.side.value }}</span><span>{{ '%.0f'|format(item.frequency * 100) }}%</span></header>
+      <h3>{{ item.zone_display_name }}</h3><p>{{ item.observation }}</p>
+      <div><h4>Как подготовиться</h4><p>{{ item.recommendation }}</p></div>
+      <div class="avoid"><h4>Чего не делать</h4><p>{{ item.avoid }}</p></div>
+      <details><summary>Показать конкретные раунды</summary>{% for evidence in item.evidence[:8] %}<p><a href="{{ evidence.map_href }}">Матч {{ evidence.match_id|string|truncate(8, True, '') }} · раунд {{ evidence.round_number }} · открыть 2D</a></p>{% endfor %}<p>Доля: {{ item.numerator }}/{{ item.denominator }} наблюдавшихся раундов · матчей: {{ item.match_count }}</p></details>
+    </article>{% endfor %}
+  </div>{% else %}<div class="coach-empty"><p>Ранние позиции этого игрока пока не подтверждены. StratWeb не подставляет вместо них командные маршруты.</p></div>{% endif %}
+</section>
+{% endif %}
+
+{% if coach_report.subject_type == 'team' %}<section id="ai-briefing" class="ai-briefing" aria-labelledby="ai-briefing-title">
   <header class="ai-briefing__header">
     <div><p class="eyebrow">Локальный AI-пересказ</p><h2 id="ai-briefing-title">Коротко перед матчем</h2></div>
     <span class="ai-briefing__local">Работает на этом компьютере</span>
@@ -58,6 +78,7 @@
   </form>
   {% else %}<p class="ai-briefing__empty">Локальный AI-пересказ отключён в настройках StratWeb.</p>{% endif %}
 </section>
+{% else %}<section class="ai-briefing"><p class="eyebrow">Строгий личный режим</p><h2>Без командных догадок</h2><p>Локальный AI-пересказ для личного профиля временно отключён: сначала все его источники должны быть индивидуальными. Точные личные факты и доказательства доступны ниже.</p></section>{% endif %}
 
 <section id="coach-deck" class="coach-deck" data-coach-deck data-next-label="{{ t('coach.next') }}" data-finish-label="{{ t('coach.finish') }}" hidden>
   <header class="coach-progress">
@@ -71,25 +92,25 @@
       <h2>{{ t('coach.step.overview.title') }}</h2>
       <p class="coach-step__lead">{{ report.corpus_reliability_message }}</p>
       <div class="coach-overview-grid">
-        <article><span>{{ t('coach.step.overview.attack') }}</span><strong>{{ coach_report.attack|length }}</strong><p>{{ t('coach.step.overview.signals') }}</p></article>
-        <article><span>{{ t('coach.step.overview.defence') }}</span><strong>{{ coach_report.defence|length }}</strong><p>{{ t('coach.step.overview.signals') }}</p></article>
+        <article><span>{{ 'Игрок за атаку' if coach_report.subject_type == 'player' else t('coach.step.overview.attack') }}</span><strong>{{ coach_report.attack|length }}</strong><p>подтверждённых сигналов</p></article>
+        <article><span>{{ 'Игрок за защиту' if coach_report.subject_type == 'player' else t('coach.step.overview.defence') }}</span><strong>{{ coach_report.defence|length }}</strong><p>подтверждённых сигналов</p></article>
         <article><span>{{ t('coach.step.overview.answers') }}</span><strong>{{ coach_report.recommendations|length }}</strong><p>{{ t('coach.step.overview.answers_help') }}</p></article>
       </div>
       <details class="coach-exact"><summary>{{ t('coach.exact_sample') }}</summary><p>{{ t('coach.exact_sample_text', matches=report.included_matches, required=report.required_matches, findings=report.source_findings) }}</p></details>
     </section>
 
     <section class="coach-step" id="coach-step-2" data-coach-step>
-      <p class="eyebrow">{{ t('coach.step.attack.eyebrow') }}</p><h2>{{ t('coach.step.attack.title') }}</h2><p class="coach-step__lead">{{ t('coach.step.attack.help') }}</p>
+      <p class="eyebrow">Глава 1 · Атака</p><h2>{{ 'Как ' ~ coach_report.subject_name ~ ' играет за атаку' if coach_report.subject_type == 'player' else t('coach.step.attack.title') }}</h2><p class="coach-step__lead">{% if coach_report.subject_type == 'player' %}Только действия, где личность подтверждена Steam ID.{% else %}{{ t('coach.step.attack.help') }}{% endif %}</p>
       {{ signal_cards(coach_report.attack) }}
     </section>
 
     <section class="coach-step" id="coach-step-3" data-coach-step>
-      <p class="eyebrow">{{ t('coach.step.defence.eyebrow') }}</p><h2>{{ t('coach.step.defence.title') }}</h2><p class="coach-step__lead">{{ t('coach.step.defence.help') }}</p>
+      <p class="eyebrow">Глава 2 · Защита</p><h2>{{ 'Как ' ~ coach_report.subject_name ~ ' играет за защиту' if coach_report.subject_type == 'player' else t('coach.step.defence.title') }}</h2><p class="coach-step__lead">{% if coach_report.subject_type == 'player' %}Стартовые контакты и личные повторения без командных маршрутов.{% else %}{{ t('coach.step.defence.help') }}{% endif %}</p>
       {{ signal_cards(coach_report.defence) }}
     </section>
 
     <section class="coach-step" id="coach-step-4" data-coach-step>
-      <p class="eyebrow">{{ t('coach.step.risks.eyebrow') }}</p><h2>{{ t('coach.step.risks.title') }}</h2><p class="coach-step__lead">{{ t('coach.step.risks.help') }}</p>
+      <p class="eyebrow">Глава 3 · Риски</p><h2>{{ 'Где игрок может быть уязвим' if coach_report.subject_type == 'player' else t('coach.step.risks.title') }}</h2><p class="coach-step__lead">{{ 'Это личные исторические сигналы, а не обещание следующего действия.' if coach_report.subject_type == 'player' else t('coach.step.risks.help') }}</p>
       {{ signal_cards(coach_report.risks) }}
       {% if coach_report.individual %}<details class="coach-individual"><summary>{{ t('coach.step.risks.players') }}</summary>{{ signal_cards(coach_report.individual) }}</details>{% endif %}
     </section>

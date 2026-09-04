@@ -16,6 +16,7 @@ from stratweb.application.opponent_models import (
     OpponentProfileSummary,
     OpponentRosterMember,
     OpponentSelectionSource,
+    OpponentSubjectType,
     OpponentWorkspace,
     OverlapStrength,
     RosterIdentityStatus,
@@ -55,7 +56,11 @@ class OpponentWorkspaceService:
         self._matches = matches
         self._team_names = team_names
 
-    def create_profile(self, display_name: str) -> OpponentProfile:
+    def create_profile(
+        self,
+        display_name: str,
+        subject_type: OpponentSubjectType = OpponentSubjectType.TEAM,
+    ) -> OpponentProfile:
         normalized = _normalized_profile_name(display_name)
         if any(
             profile.display_name.casefold() == normalized.casefold()
@@ -66,6 +71,7 @@ class OpponentWorkspaceService:
         profile = OpponentProfile(
             profile_id=uuid4(),
             display_name=normalized,
+            subject_type=subject_type,
             created_at=now,
             updated_at=now,
         )
@@ -132,10 +138,25 @@ class OpponentWorkspaceService:
                 f"{unresolved} player occurrence(s) have no Steam ID and were not merged by "
                 "nickname."
             )
+        stable_players = tuple(
+            item
+            for item in roster
+            if item.role is RosterRole.CORE
+            and item.identity_status is RosterIdentityStatus.STEAM_ID
+            and item.steam_id is not None
+        )
+        suggested_target = (
+            stable_players[0]
+            if profile.subject_type is OpponentSubjectType.TEAM
+            and len(selections) >= 2
+            and len(stable_players) == 1
+            else None
+        )
         return OpponentWorkspace(
             profile=profile,
             selected_matches=selected,
             roster=roster,
+            suggested_player_target=suggested_target,
             candidates=candidates,
             warnings=tuple(warnings),
         )
@@ -153,6 +174,15 @@ class OpponentWorkspaceService:
             raise OpponentSelectionError(
                 "Selected physical team does not belong to the requested match."
             )
+        profile = self._require_profile(profile_id)
+        if profile.subject_type is OpponentSubjectType.PLAYER and profile.target_steam_id:
+            selected_steam_ids = {
+                player.steam_id for player in self._team_players(match_id, team_id)
+            }
+            if profile.target_steam_id not in selected_steam_ids:
+                raise OpponentSelectionError(
+                    "В выбранной команде этого матча нет подтверждённого целевого игрока."
+                )
         selection = OpponentMatchSelection(
             profile_id=profile_id,
             match_id=match_id,
@@ -179,6 +209,74 @@ class OpponentWorkspaceService:
         updated_at = datetime.now(UTC)
         self._opponents.rename_profile(profile_id, normalized, updated_at)
         return profile.model_copy(update={"display_name": normalized, "updated_at": updated_at})
+
+    def update_subject(
+        self,
+        profile_id: UUID,
+        subject_type: OpponentSubjectType,
+        *,
+        target_steam_id: str | None = None,
+    ) -> OpponentProfile:
+        profile = self._require_profile(profile_id)
+        updated_at = datetime.now(UTC)
+        if subject_type is OpponentSubjectType.TEAM:
+            updated = profile.model_copy(
+                update={
+                    "subject_type": subject_type,
+                    "target_steam_id": None,
+                    "target_player_name": None,
+                    "updated_at": updated_at,
+                }
+            )
+        else:
+            if not target_steam_id:
+                updated = profile.model_copy(
+                    update={
+                        "subject_type": subject_type,
+                        "target_steam_id": None,
+                        "target_player_name": None,
+                        "updated_at": updated_at,
+                    }
+                )
+            else:
+                roster = self._roster(self._opponents.list_selections(profile_id))
+                target = next(
+                    (
+                        item
+                        for item in roster
+                        if item.identity_status is RosterIdentityStatus.STEAM_ID
+                        and item.steam_id == target_steam_id
+                    ),
+                    None,
+                )
+                if target is None:
+                    raise OpponentSelectionError(
+                        "Игрок с таким Steam ID не найден в подтверждённых матчах профиля."
+                    )
+                missing_matches = [
+                    selection.match_id
+                    for selection in self._opponents.list_selections(profile_id)
+                    if target_steam_id
+                    not in {
+                        player.steam_id
+                        for player in self._team_players(selection.match_id, selection.team_id)
+                    }
+                ]
+                if missing_matches:
+                    raise OpponentSelectionError(
+                        "Целевой игрок найден не во всех выбранных матчах. "
+                        "Сначала уберите матчи без этого игрока из личного корпуса."
+                    )
+                updated = profile.model_copy(
+                    update={
+                        "subject_type": subject_type,
+                        "target_steam_id": target_steam_id,
+                        "target_player_name": target.current_name,
+                        "updated_at": updated_at,
+                    }
+                )
+        self._opponents.update_subject(updated)
+        return updated
 
     def delete_profile(self, profile_id: UUID) -> None:
         self._require_profile(profile_id)

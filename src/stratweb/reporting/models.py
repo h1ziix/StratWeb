@@ -8,6 +8,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from stratweb.application.canonical_models import Sha256
+from stratweb.application.opponent_models import OpponentSubjectType
+from stratweb.application.player_stratbook import PlayerMovementChapter
 from stratweb.counter_strategy.models import (
     CounterStrategyRecommendation,
     SkippedStrategyFinding,
@@ -16,8 +18,8 @@ from stratweb.counter_strategy.validation_models import CounterStrategyValidatio
 from stratweb.findings.models import AnalysisFinding
 from stratweb.readiness.models import FindingReadinessAudit
 
-REPORT_EXPORT_SCHEMA_VERSION = "1.1.0"
-REPORT_EXPORT_RULE_VERSION = "evidence_report_export_v2"
+REPORT_EXPORT_SCHEMA_VERSION = "2.0.0"
+REPORT_EXPORT_RULE_VERSION = "subject_scoped_stratbook_export_v1"
 
 
 class ExportModel(BaseModel):
@@ -75,6 +77,9 @@ class ScoutingReportExport(ExportModel):
     export_fingerprint: Sha256
     profile_id: UUID
     display_name: str
+    subject_type: OpponentSubjectType
+    target_steam_id: str | None = None
+    target_player_name: str | None = None
     analysis_created_at: datetime | None = None
     strategy_created_at: datetime | None = None
     analysis_run_id: UUID
@@ -90,6 +95,7 @@ class ScoutingReportExport(ExportModel):
     findings: tuple[AnalysisFinding, ...]
     recommendations: tuple[CounterStrategyRecommendation, ...]
     skipped_findings: tuple[SkippedStrategyFinding, ...]
+    player_movement: PlayerMovementChapter | None = None
     sample_limitations: tuple[str, ...]
     warnings: tuple[str, ...]
 

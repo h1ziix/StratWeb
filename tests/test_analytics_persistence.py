@@ -225,6 +225,7 @@ def test_migration_004_preserves_and_marks_legacy_ambiguous_runs(tmp_path: Path)
         31,
         32,
         33,
+        34,
     )
     summary = repository.get_summary(UUID(match_id))
 

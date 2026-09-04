@@ -213,6 +213,9 @@
 .coach-response h4,
 .coach-response p { margin: 0; }
 .coach-response h4 { margin-bottom: 4px; color: var(--color-text-primary); font-size: 12px; }
+.player-movement-chapter { margin: 18px 0; padding: 34px; background: linear-gradient(145deg, #0e1b1c, #091112); border: 1px solid #6ee7c747; border-radius: 24px; }
+.player-movement-chapter h2 { margin-top: 5px; font-size: clamp(28px, 4vw, 44px); }
+.player-movement-chapter .coach-response-list { margin-top: 22px; }
 .coach-individual { margin-top: 24px; }
 .coach-individual[open] > summary { margin-bottom: 12px; }
 .coach-empty { margin-top: 24px; text-align: center; }

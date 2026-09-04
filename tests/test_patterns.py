@@ -30,6 +30,8 @@ from stratweb.application.findings import (
     AnalysisFindingQueryService,
     ComputeAnalysisFindingsService,
 )
+from stratweb.application.opponent_models import OpponentSubjectType
+from stratweb.application.opponent_scope import subject_findings
 from stratweb.application.opponents import OpponentWorkspaceService
 from stratweb.application.patterns import ComputeCrossMatchPatternsService
 from stratweb.application.readiness import FindingReadinessService
@@ -72,6 +74,7 @@ from stratweb.patterns.models import (
     PatternPlayerIdentity,
     PatternRoundInput,
     PatternType,
+    PlayerPatternValue,
 )
 from stratweb.readiness.engine import FindingReadinessEngine
 from stratweb.readiness.models import (
@@ -559,6 +562,29 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert analysis_summary.source_pattern_run_id == refreshed.pattern_run_id
     findings = analysis_query.list_findings(profile.profile_id, limit=5000)
     assert findings
+    player_finding = next(
+        item for item in findings if isinstance(item.pattern_value, PlayerPatternValue)
+    )
+    assert player_finding.pattern_value.steam_id is not None
+    team_workspace = opponent_service.get_workspace(profile.profile_id)
+    player_workspace = team_workspace.model_copy(
+        update={
+            "profile": team_workspace.profile.model_copy(
+                update={
+                    "subject_type": OpponentSubjectType.PLAYER,
+                    "target_steam_id": player_finding.pattern_value.steam_id,
+                    "target_player_name": player_finding.pattern_value.current_name,
+                }
+            )
+        }
+    )
+    scoped = subject_findings(findings, player_workspace)
+    assert scoped
+    assert all(
+        isinstance(item.pattern_value, PlayerPatternValue)
+        and item.pattern_value.steam_id == player_finding.pattern_value.steam_id
+        for item in scoped
+    )
     finding = findings[0]
     assert finding.observation.availability is FindingTextAvailability.AVAILABLE
     assert finding.tactical_implication.availability is (FindingTextAvailability.UNAVAILABLE)
@@ -1036,7 +1062,7 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert missing_map_cheat_sheet.status_code == 404
         analyst_page = client.get(f"/ui/opponents/{profile_id}/report", params={"mode": "analyst"})
         assert analyst_page.status_code == 200
-        assert "Доказательный отчёт о сопернике" in analyst_page.text
+        assert "Командный доказательный стратбук" in analyst_page.text
         assert 'name="mode" value="analyst"' in analyst_page.text
         assert "Простой режим" in analyst_page.text
         assert "Фильтры только показывают или скрывают готовые наблюдения" in analyst_page.text
@@ -1064,9 +1090,9 @@ def test_pattern_service_persistence_and_feature_cascade(
         )
         assert export_json.status_code == 200
         assert export_json.headers["content-disposition"].endswith('.json"')
-        assert export_json.headers["x-stratweb-export-schema"] == "1.1.0"
+        assert export_json.headers["x-stratweb-export-schema"] == "2.0.0"
         exported = export_json.json()
-        assert exported["export_rule_version"] == "evidence_report_export_v2"
+        assert exported["export_rule_version"] == "subject_scoped_stratbook_export_v1"
         assert exported["strategy_run_id"] == str(strategy_result.strategy_run_id)
         assert exported["scope"]["source_findings"] == len(findings)
         assert len(exported["findings"]) == len(findings)

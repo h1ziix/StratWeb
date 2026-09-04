@@ -15,8 +15,8 @@
 </header>
 <main>
   <header class="report-cover">
-    <p class="eyebrow">STRATWEB · ДОКАЗАТЕЛЬНЫЙ ОТЧЁТ</p>
-    <h1>{{ exported.display_name }}</h1>
+    <p class="eyebrow">STRATWEB · {{ 'ЛИЧНЫЙ СТРАТБУК' if exported.subject_type == 'player' else 'КОМАНДНЫЙ СТРАТБУК' }}</p>
+    <h1>{{ exported.target_player_name or exported.display_name }}</h1>
     <p>Офлайн-анализ завершённых матчей CS2. Неизвестные данные не заменены предположениями.</p>
     <dl class="summary-grid">
       <div><dt>Статус</dt><dd>{{ export_status_label(exported.acceptance_status) }}</dd></div>
@@ -47,6 +47,10 @@
     </article>
     {% endfor %}
   </section>
+
+  {% if exported.player_movement %}<section><h2>Раннее движение игрока</h2>
+    {% for item in exported.player_movement.signals %}<article class="finding"><header><p class="eyebrow">{{ item.map_name|map_name }} · {{ item.side.value }}</p><h3>{{ item.zone_display_name }}</h3></header><dl class="stats"><div><dt>Числитель</dt><dd>{{ item.numerator }}</dd></div><div><dt>Знаменатель</dt><dd>{{ item.denominator }}</dd></div><div><dt>Частота</dt><dd>{{ '%.1f'|format(item.frequency * 100) }}%</dd></div><div><dt>Матчи</dt><dd>{{ item.match_count }}</dd></div></dl><h4>Наблюдение</h4><p>{{ item.observation }}</p><div class="recommendation"><h4>Тактическая интерпретация</h4><p>{{ item.tactical_interpretation }}</p><h4>Рекомендуемый ответ</h4><p>{{ item.recommendation }}</p><h4>Чего избегать</h4><p>{{ item.avoid }}</p></div><h4>Доказательства</h4>{% for evidence in item.evidence %}<p>Матч {{ evidence.match_id }} · раунд {{ evidence.round_number }} · тик {{ evidence.tick }}</p>{% endfor %}</article>{% endfor %}
+  </section>{% endif %}
 
   <section class="provenance"><h2>Воспроизводимость</h2><dl><dt>Экспорт</dt><dd><code>{{ exported.export_schema_version }} / {{ exported.export_rule_version }}</code></dd><dt>Отпечаток экспорта</dt><dd><code>{{ exported.export_fingerprint }}</code></dd><dt>Профиль соперника</dt><dd><code>{{ exported.versions.opponent_schema_version }} / {{ exported.versions.opponent_identity_rule_version }} / {{ exported.versions.opponent_overlap_rule_version }}</code></dd><dt>Паттерны</dt><dd><code>{{ exported.versions.source_pattern_schema_version }} / {{ exported.versions.source_pattern_rule_version }}</code></dd><dt>Готовность</dt><dd><code>{{ exported.versions.readiness_schema_version }} / {{ exported.versions.readiness_rule_version }}</code></dd><dt>Проверка</dt><dd><code>{{ exported.versions.validation_schema_version }} / {{ exported.versions.validation_rule_version }}</code></dd><dt>Расчёт анализа</dt><dd><code>{{ exported.analysis_run_id }} / {{ exported.analysis_fingerprint }} / {{ exported.versions.analysis_schema_version }} / {{ exported.versions.analysis_rule_version }}</code></dd><dt>Расчёт стратегии</dt><dd><code>{{ exported.strategy_run_id }} / {{ exported.strategy_fingerprint }} / {{ exported.versions.strategy_schema_version }} / {{ exported.versions.strategy_rule_version }}</code></dd></dl></section>
 </main>

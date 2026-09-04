@@ -1,6 +1,16 @@
 # Opponent Workspace Model
 
-Status: Stage 8.1 contract, version `1.0.0`.
+Status: Stage 9.12 contract, version `2.0.0`.
+
+Every profile has an explicit analytical subject:
+
+- `team`, the safe default for existing profiles;
+- `player`, optionally pinned to one confirmed `target_steam_id` and player name.
+
+The display name never determines the mode. A configured player must occur in every selected
+physical team, and later assignments without that Steam ID are rejected. Team tendencies are not
+rendered or exported as individual habits. The full stratbook projection is documented in
+[STAGE_9_12.md](STAGE_9_12.md).
 
 ## Purpose
 
@@ -17,7 +27,8 @@ switches.
 
 ## Persisted records
 
-`opponent_profiles` stores the user-facing profile name and timestamps.
+`opponent_profiles` stores the user-facing profile name, subject type, optional confirmed player
+target and timestamps.
 `opponent_match_selections` stores exactly one selected physical team per profile and
 match. `selection_source=user_confirmed` is the only Stage 8.1 source.
 

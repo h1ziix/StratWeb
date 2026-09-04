@@ -27,6 +27,7 @@ reports/
 .runtime/
 output/
 tmp/
+.server*.log
 .stage5-manual/
 .stage6-manual/
 .stage7-manual/

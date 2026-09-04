@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.26.0] - 2026-09-04
+
+### Added
+
+- Explicit opponent subject modes: a whole team or one confirmed player, with a Steam-ID target
+  stored separately from the profile's display name.
+- Separate team and player sections in the opponent library and subject-aware workspace setup.
+- A deterministic personal stratbook chapter for observed early player positions, including
+  numerator, denominator, frequency, source feature-run pins and direct 2D evidence links.
+- Subject metadata and personal movement evidence in JSON, printable and PDF exports.
+
+### Changed
+
+- Coach and analyst reports now present themselves as stratbooks and use player-specific wording
+  for personal profiles.
+- Existing profiles migrate to team mode without guessing their meaning. Owners can explicitly
+  select a player from the confirmed roster.
+
+### Safety
+
+- Team findings and recommendations are excluded from player pages and exports.
+- A player target must be confirmed by Steam ID in every selected match; a mismatching team is
+  rejected instead of silently changing the analytical subject.
+- Local AI rephrasing stays disabled for player mode until all of its inputs are individually
+  scoped. Unknown positions are never inferred.
+
 ## [0.25.0] - 2026-09-04
 
 ### Added

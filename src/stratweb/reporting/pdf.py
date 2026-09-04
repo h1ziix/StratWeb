@@ -94,8 +94,16 @@ class ScoutingReportPdfRenderer:
         styles: dict[str, ParagraphStyle],
     ) -> list[Any]:
         story: list[Any] = [
-            Paragraph("STRATWEB / ДОКАЗАТЕЛЬНЫЙ ОТЧЁТ", styles["eyebrow"]),
-            Paragraph(_safe(report.display_name), styles["title"]),
+            Paragraph(
+                "STRATWEB / "
+                + (
+                    "ЛИЧНЫЙ СТРАТБУК"
+                    if report.subject_type.value == "player"
+                    else "КОМАНДНЫЙ СТРАТБУК"
+                ),
+                styles["eyebrow"],
+            ),
+            Paragraph(_safe(report.target_player_name or report.display_name), styles["title"]),
             Paragraph(
                 "Офлайн-анализ завершённых матчей CS2. Статистика рассчитана "
                 "детерминированным кодом; неизвестные значения не заменены предположениями.",
@@ -111,6 +119,43 @@ class ScoutingReportPdfRenderer:
         if report.warnings:
             story.extend((Spacer(1, 2 * mm), Paragraph("Предупреждения", styles["h2"])))
             story.extend(_bullet(warning_label(item), styles) for item in report.warnings)
+
+        if report.player_movement is not None:
+            story.extend(
+                (
+                    PageBreak(),
+                    Paragraph("Раннее движение игрока", styles["h1"]),
+                    Paragraph(
+                        "Только раунды, где позиция выбранного Steam ID действительно "
+                        "наблюдалась. Неизвестные позиции не заменены предположениями.",
+                        styles["body"],
+                    ),
+                )
+            )
+            for item in report.player_movement.signals:
+                story.extend(
+                    (
+                        CondPageBreak(48 * mm),
+                        Paragraph(
+                            _safe(
+                                f"{item.map_name} / {item.side.value} / {item.zone_display_name}"
+                            ),
+                            styles["h2"],
+                        ),
+                        Paragraph(_safe(item.observation), styles["body"]),
+                        Paragraph(
+                            _safe(
+                                f"Доля: {item.numerator}/{item.denominator} "
+                                f"({item.frequency * 100:.1f}%), матчей: {item.match_count}."
+                            ),
+                            styles["meta"],
+                        ),
+                        Paragraph("Как подготовиться", styles["label"]),
+                        Paragraph(_safe(item.recommendation), styles["body"]),
+                        Paragraph("Чего избегать", styles["label"]),
+                        Paragraph(_safe(item.avoid), styles["body"]),
+                    )
+                )
 
         story.extend(
             (

@@ -18,6 +18,7 @@ from stratweb.application.canonical_models import (
 )
 from stratweb.application.opponent_models import (
     OpponentSelectionSource,
+    OpponentSubjectType,
     OverlapStrength,
     RosterIdentityStatus,
     RosterRole,
@@ -213,6 +214,93 @@ def test_profile_validation_and_team_membership_are_explicit(
         service.assign_match(profile.profile_id, dataset.match.match_id, UUID(int=0))
 
 
+def test_player_profile_requires_confirmed_target_and_rejects_wrong_team(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    database = tmp_path / "player-subject.duckdb"
+    dataset = canonical_dataset_factory("player-subject")
+    DuckDBMatchRepository(database).save_match(dataset)
+    service = _service(database)
+    profile = service.create_profile("Alpha player", OpponentSubjectType.PLAYER)
+
+    assert profile.subject_type is OpponentSubjectType.PLAYER
+    assert profile.target_steam_id is None
+    service.assign_match(
+        profile.profile_id,
+        dataset.match.match_id,
+        dataset.teams[0].team_id,
+    )
+    target = service.update_subject(
+        profile.profile_id,
+        OpponentSubjectType.PLAYER,
+        target_steam_id="76561198000000001",
+    )
+
+    assert target.target_player_name == "Alpha"
+    assert DuckDBOpponentRepository(database).get_profile(profile.profile_id) == target
+    with pytest.raises(OpponentSelectionError, match="нет подтверждённого целевого игрока"):
+        service.assign_match(
+            profile.profile_id,
+            dataset.match.match_id,
+            dataset.teams[1].team_id,
+        )
+
+    team_profile = service.update_subject(profile.profile_id, OpponentSubjectType.TEAM)
+    assert team_profile.target_steam_id is None
+    assert team_profile.target_player_name is None
+
+
+def test_team_profile_suggests_only_one_steam_player_present_in_every_match(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    database = tmp_path / "subject-suggestion.duckdb"
+    first = canonical_dataset_factory("subject-suggestion-one")
+    second = canonical_dataset_factory("subject-suggestion-two")
+    matches = DuckDBMatchRepository(database)
+    matches.save_match(first)
+    matches.save_match(second)
+    service = _service(database)
+    profile = service.create_profile("Possible individual")
+    for dataset in (first, second):
+        service.assign_match(
+            profile.profile_id,
+            dataset.match.match_id,
+            dataset.teams[0].team_id,
+        )
+
+    workspace = service.get_workspace(profile.profile_id)
+
+    assert workspace.suggested_player_target is not None
+    assert workspace.suggested_player_target.current_name == "Alpha"
+    assert workspace.suggested_player_target.steam_id == "76561198000000001"
+
+
+def test_player_profile_does_not_expose_team_only_analysis_routes(tmp_path: Path) -> None:
+    database = tmp_path / "player-route-scope.duckdb"
+    service = _service(database)
+    player = service.create_profile("One player", OpponentSubjectType.PLAYER)
+    our_team = service.create_profile("Our team", OpponentSubjectType.TEAM)
+
+    with TestClient(create_app(database)) as client:
+        critical = client.get(f"/api/opponents/{player.profile_id}/critical-mistakes")
+        tactical = client.get(f"/api/opponents/{player.profile_id}/tactical-v2/summary")
+        head_to_head = client.get(
+            f"/api/opponents/{player.profile_id}/head-to-head/summary",
+            params={"our_profile_id": str(our_team.profile_id)},
+        )
+        ai_briefing = client.get(
+            f"/api/opponents/{player.profile_id}/report/briefing",
+            params={"run_id": str(UUID(int=1))},
+        )
+
+    assert critical.status_code == 409
+    assert tactical.status_code == 409
+    assert head_to_head.status_code == 409
+    assert ai_briefing.status_code == 404
+
+
 def test_opponent_ui_create_confirm_and_remove_flow(
     tmp_path: Path,
     canonical_dataset_factory: Any,
@@ -259,7 +347,7 @@ def test_opponent_ui_create_confirm_and_remove_flow(
     assert "faceit.dem" not in workspace.text
     assert "Alpha" in workspace.text
     assert "team_fizik" in workspace.text
-    assert "Показать план на матч" in workspace.text
+    assert "Открыть стратбук" in workspace.text
     assert "Другие действия" in workspace.text
     assert "Открыть отчёт" not in workspace.text
     assert api_workspace.json()["selected_matches"][0]["selection"]["selection_source"] == (

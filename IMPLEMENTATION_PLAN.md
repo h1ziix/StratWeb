@@ -1544,8 +1544,21 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
         ↓
 9.9 Telestrator → 9.10 One-Page Cheat Sheet → 9.11 Optional LLM
         ↓
+9.12 Player/Team Stratbooks
+        ↓
 10 Cloud Scale
 ```
+
+## Stage 9.12 — Player/Team Stratbooks (completed)
+
+- [x] explicit `team` and `player` subjects persisted in opponent profiles;
+- [x] safe migration of legacy profiles to team mode without inference;
+- [x] Steam-ID target selection and cross-match membership validation;
+- [x] subject-scoped coach, analyst, finding-detail and export projections;
+- [x] deterministic early-movement chapter for a selected player;
+- [x] separate team/player library sections and stratbook wording;
+- [x] JSON, printable and PDF exports include subject metadata and personal evidence;
+- [x] personal Ollama rephrasing remains disabled until its whole input contract is scoped.
 
 ## Stage 8.8.1 — interface productization
 
