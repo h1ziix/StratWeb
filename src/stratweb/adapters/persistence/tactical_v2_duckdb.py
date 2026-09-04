@@ -16,6 +16,11 @@ from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.application.opponent_models import OpponentMatchSelection
 from stratweb.domain.enums import Side
+from stratweb.economy.models import (
+    ECONOMY_RULE_VERSION,
+    ECONOMY_SCHEMA_VERSION,
+    PlayerEquipmentSnapshot,
+)
 from stratweb.exceptions import PersistenceError
 from stratweb.features.models import (
     ROUND_FEATURE_RULE_VERSION,
@@ -115,7 +120,9 @@ class DuckDBTacticalV2SourceRepository:
                    f.spatial_run_id, f.spatial_fingerprint, f.spatial_rule_version,
                    f.zone_assignment_run_id, f.zone_assignment_fingerprint,
                    f.zone_assignment_rule_version, f.feature_run_id,
-                   f.feature_fingerprint, f.feature_rule_version
+                   f.feature_fingerprint, f.feature_rule_version,
+                   economy.economy_run_id, economy.economy_fingerprint,
+                   economy.economy_schema_version, economy.economy_rule_version
             FROM round_feature_runs f
             JOIN matches m ON m.match_id = f.match_id
             JOIN analytics_runs a
@@ -131,6 +138,17 @@ class DuckDBTacticalV2SourceRepository:
               ON z.match_id = f.match_id
              AND z.zone_assignment_run_id = f.zone_assignment_run_id
              AND z.zone_assignment_fingerprint = f.zone_assignment_fingerprint
+            LEFT JOIN economy_runs economy
+              ON economy.economy_run_id = (
+                SELECT candidate.economy_run_id
+                FROM economy_runs candidate
+                WHERE candidate.match_id = f.match_id
+                  AND candidate.dataset_fingerprint = f.dataset_fingerprint
+                  AND candidate.economy_schema_version = ?
+                  AND candidate.economy_rule_version = ?
+                ORDER BY candidate.created_at DESC, candidate.economy_fingerprint DESC
+                LIMIT 1
+              )
             WHERE f.match_id = ?
               AND f.feature_schema_version = ? AND f.feature_rule_version = ?
             ORDER BY f.created_at DESC, f.feature_fingerprint DESC
@@ -138,6 +156,8 @@ class DuckDBTacticalV2SourceRepository:
             """,
             [
                 selection.team_id,
+                ECONOMY_SCHEMA_VERSION,
+                ECONOMY_RULE_VERSION,
                 selection.match_id,
                 ROUND_FEATURE_SCHEMA_VERSION,
                 ROUND_FEATURE_RULE_VERSION,
@@ -269,13 +289,22 @@ class DuckDBTacticalV2SourceRepository:
     def _samples(
         connection: duckdb.DuckDBPyConnection, source: TacticalSourcePin
     ) -> dict[int, list[TacticalPlayerSample]]:
+        weapons: dict[tuple[int, UUID], tuple[str, ...] | None] = {}
+        if source.economy_run_id is not None:
+            for (payload,) in connection.execute(
+                "SELECT payload FROM player_equipment_snapshots "
+                "WHERE economy_run_id = ? AND match_id = ? ORDER BY round_number, participant_id",
+                [source.economy_run_id, source.match_id],
+            ).fetchall():
+                snapshot = PlayerEquipmentSnapshot.model_validate(_json(payload))
+                weapons[(snapshot.round_number, snapshot.participant_id)] = snapshot.weapons.value
         rows = _rows(
             connection.execute(
                 """
                 SELECT sample.snapshot_id, sample.round_number, sample.tick,
                        sample.participant_id, sample.x, sample.y, sample.z,
                        sample.alive, sample.side, zone.zone_id, zone.zone_name,
-                       sample.payload, player.current_name
+                       sample.payload, player.current_name, player.steam_id
                 FROM spatial_snapshots sample
                 LEFT JOIN players player
                   ON player.match_id = sample.match_id
@@ -313,6 +342,10 @@ class DuckDBTacticalV2SourceRepository:
                     zone_name=str(row["zone_name"]) if row["zone_name"] is not None else None,
                     player_name=(
                         str(row["current_name"]) if row["current_name"] is not None else None
+                    ),
+                    steam_id=str(row["steam_id"]) if row["steam_id"] is not None else None,
+                    weapons=weapons.get(
+                        (int(row["round_number"]), UUID(str(row["participant_id"])))
                     ),
                     utility_inventory=stored.utility_inventory,
                 )
@@ -872,6 +905,18 @@ class DuckDBTacticalV2Repository:
                 ).fetchone()
                 if feature_row is None:
                     raise PersistenceError("Tactical V2 feature lineage is incompatible.")
+            if source.economy_run_id is not None:
+                economy_row = connection.execute(
+                    "SELECT 1 FROM economy_runs WHERE match_id = ? AND economy_run_id = ? "
+                    "AND economy_fingerprint = ?",
+                    [
+                        source.match_id,
+                        source.economy_run_id,
+                        source.economy_fingerprint,
+                    ],
+                ).fetchone()
+                if economy_row is None:
+                    raise PersistenceError("Tactical V2 economy lineage is incompatible.")
 
     @staticmethod
     def _insert(

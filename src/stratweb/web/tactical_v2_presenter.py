@@ -8,7 +8,8 @@ from urllib.parse import urlencode
 from uuid import UUID
 
 from stratweb.domain.enums import Side
-from stratweb.tactical_v2.models import TacticalInsight, TacticalInsightType
+from stratweb.tactical_v2.models import CTSetupProfile, TacticalInsight, TacticalInsightType
+from stratweb.tactical_v2.setups import ct_setup_profiles_from_insights
 
 TACTICAL_V2_PAGE_SIZE = 18
 
@@ -40,6 +41,7 @@ class TacticalV2Page:
     cards: tuple[TacticalInsightCard, ...]
     highlights: tuple[TacticalInsightCard, ...]
     utility_cards: tuple[TacticalInsightCard, ...]
+    ct_setups: tuple[CTSetupProfile, ...]
     maps: tuple[str, ...]
     type_counts: dict[TacticalInsightType, int]
     total_count: int
@@ -60,7 +62,10 @@ def build_tactical_v2_page(
     filters: TacticalV2Filters,
     page: int,
 ) -> TacticalV2Page:
-    ordered = _ordered(insights)
+    display_insights = tuple(
+        item for item in insights if item.insight_type is not TacticalInsightType.CT_SETUP_ROLE
+    )
+    ordered = _ordered(display_insights)
     matching = tuple(item for item in ordered if _matches(item, filters))
     curated = filters.insight_type is None
     filtered = _representatives(matching, filters) if curated else matching
@@ -74,6 +79,11 @@ def build_tactical_v2_page(
         )
     )
     base_path = f"/ui/opponents/{profile_id}/tactical-v2"
+    setup_profiles = ct_setup_profiles_from_insights(insights)
+    if filters.map_name is not None:
+        setup_profiles = tuple(item for item in setup_profiles if item.map_name == filters.map_name)
+    if filters.side is Side.T:
+        setup_profiles = ()
     return TacticalV2Page(
         filters=filters,
         cards=tuple(build_tactical_insight_card(item) for item in visible),
@@ -81,9 +91,14 @@ def build_tactical_v2_page(
         utility_cards=tuple(
             build_tactical_insight_card(item) for item in _utility_representatives(matching)
         ),
+        ct_setups=setup_profiles,
         maps=tuple(sorted({item.map_name for item in insights})),
         type_counts={
-            insight_type: sum(item.insight_type is insight_type for item in insights)
+            insight_type: (
+                0
+                if insight_type is TacticalInsightType.CT_SETUP_ROLE
+                else sum(item.insight_type is insight_type for item in display_insights)
+            )
             for insight_type in TacticalInsightType
         },
         total_count=len(insights),

@@ -44,6 +44,7 @@ from stratweb.tactical_v2.models import (
     TacticalV2Run,
     TacticalV2Summary,
 )
+from stratweb.tactical_v2.setups import compute_ct_setups, ct_setup_role_metrics
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +88,7 @@ class TacticalV2Engine:
             canonical_json(selected.model_dump(mode="json")).encode()
         ).hexdigest()
         families = (
+            self._ct_setups(matches, selected),
             self._paths(matches, selected),
             self._executes(matches, selected),
             self._utility(matches, selected),
@@ -194,6 +196,45 @@ class TacticalV2Engine:
             insights=insights,
             warnings=tuple(sorted(warnings)),
         )
+
+    def _ct_setups(
+        self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config
+    ) -> tuple[tuple[_Draft, ...], dict[TacticalInsightType, TacticalCapability]]:
+        calculation = compute_ct_setups(matches, config)
+        drafts = tuple(
+            _Draft(
+                insight_type=TacticalInsightType.CT_SETUP_ROLE,
+                map_name=profile.map_name,
+                side=Side.CT,
+                key=f"{assignment.role.value}:{assignment.identity_key}",
+                label=f"{assignment.player_name}: {assignment.role.value}",
+                numerator=assignment.numerator,
+                denominator=assignment.denominator,
+                metrics=ct_setup_role_metrics(assignment, profile),
+                evidence=assignment.evidence_references,
+                limitations=assignment.limitations,
+                availability=(
+                    TacticalAvailability.PARTIAL
+                    if profile.covered_rounds < profile.sample_rounds
+                    else TacticalAvailability.AVAILABLE
+                ),
+            )
+            for profile in calculation.profiles
+            for assignment in (
+                *profile.site_a_anchors,
+                *profile.site_b_anchors,
+                *profile.mid_players,
+                *profile.rotators,
+            )
+        )
+        return drafts, {
+            TacticalInsightType.CT_SETUP_ROLE: _capability(
+                calculation.eligible_rounds,
+                calculation.covered_rounds,
+                len(drafts),
+                "ct_early_zone_or_role_semantics_unavailable",
+            )
+        }
 
     def _paths(
         self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config

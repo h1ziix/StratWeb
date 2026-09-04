@@ -12,8 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from stratweb.application.canonical_models import Sha256
 from stratweb.domain.enums import Side
 
-TACTICAL_V2_SCHEMA_VERSION = "1.1.0"
-TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.1.0"
+TACTICAL_V2_SCHEMA_VERSION = "1.2.0"
+TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.2.0"
 TACTICAL_V2_ROUTE_RULE = "checkpoint_zone_formation_exact_v1"
 TACTICAL_V2_UTILITY_RULE = "owner_weapon_time_association_v1"
 TACTICAL_V2_TEAM_FLASH_RULE = "entity_tick_attacker_team_blind_v1"
@@ -23,6 +23,8 @@ TACTICAL_V2_UTILITY_PRICE_POLICY = "cs2_competitive_utility_prices_2026_08_v1"
 TACTICAL_V2_ROTATION_RULE = "post_contact_zone_transition_v1"
 TACTICAL_V2_CLUTCH_RULE = "post_tick_group_one_vs_many_v1"
 TACTICAL_V2_HEATMAP_RULE = "world_grid_sample_share_v1"
+TACTICAL_V2_CT_SETUP_RULE = "ct_first_20s_zone_role_v1"
+TACTICAL_V2_CT_SETUP_ZONE_RULE = "explicit_map_role_zone_sets_v1"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 
@@ -39,6 +41,7 @@ class TacticalAvailability(StrEnum):
 
 
 class TacticalInsightType(StrEnum):
+    CT_SETUP_ROLE = "ct_setup_role"
     PATH_CLUSTER = "path_cluster"
     EXECUTE_PACKAGE = "execute_package"
     UTILITY_OUTCOME = "utility_outcome"
@@ -58,6 +61,13 @@ class TacticalComputeStatus(StrEnum):
     COMPUTED = "computed"
     ALREADY_EXISTS = "already_exists"
     REPLACED = "replaced"
+
+
+class CTSetupRole(StrEnum):
+    A_ANCHOR = "a_anchor"
+    B_ANCHOR = "b_anchor"
+    MID_SNIPER = "mid_sniper"
+    ROTATOR = "rotator"
 
 
 class TacticalV2Config(TacticalModel):
@@ -81,6 +91,9 @@ class TacticalV2Config(TacticalModel):
     isolated_player_distance_units: FiniteFloat = Field(default=1500.0, gt=0)
     heatmap_cell_size_units: FiniteFloat = Field(default=512.0, gt=0)
     target_corpus_matches: int = Field(default=15, ge=1)
+    ct_setup_window_ticks: int = Field(default=1280, ge=64, le=4096)
+    ct_setup_min_rotator_rounds: int = Field(default=2, ge=1, le=100)
+    ct_setup_min_rotator_frequency: FiniteFloat = Field(default=0.2, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_checkpoints(self) -> TacticalV2Config:
@@ -108,6 +121,10 @@ class TacticalSourcePin(TacticalModel):
     feature_run_id: UUID | None = None
     feature_fingerprint: Sha256 | None = None
     feature_rule_version: str | None = None
+    economy_run_id: UUID | None = None
+    economy_fingerprint: Sha256 | None = None
+    economy_schema_version: str | None = None
+    economy_rule_version: str | None = None
 
     @model_validator(mode="after")
     def validate_optional_feature_lineage(self) -> TacticalSourcePin:
@@ -120,6 +137,16 @@ class TacticalSourcePin(TacticalModel):
             value is None for value in feature_values
         ):
             raise ValueError("tactical feature lineage must be complete or absent")
+        economy_values = (
+            self.economy_run_id,
+            self.economy_fingerprint,
+            self.economy_schema_version,
+            self.economy_rule_version,
+        )
+        if any(value is not None for value in economy_values) and any(
+            value is None for value in economy_values
+        ):
+            raise ValueError("tactical economy lineage must be complete or absent")
         return self
 
 
@@ -135,6 +162,8 @@ class TacticalPlayerSample(TacticalModel):
     zone_id: str | None = None
     zone_name: str | None = None
     player_name: str | None = None
+    steam_id: str | None = None
+    weapons: tuple[str, ...] | None = None
     utility_inventory: tuple[str, ...] | None = None
 
 
@@ -288,6 +317,71 @@ class TacticalEvidenceReference(TacticalModel):
         return self
 
 
+class CTSetupPlayerRole(TacticalModel):
+    identity_key: str = Field(min_length=1)
+    player_ids: tuple[UUID, ...] = Field(min_length=1)
+    steam_id: str | None = None
+    player_name: str = Field(min_length=1)
+    role: CTSetupRole
+    numerator: int = Field(ge=1)
+    denominator: int = Field(ge=1)
+    frequency: float = Field(gt=0, le=1, allow_inf_nan=False)
+    sample_rounds: int = Field(ge=1)
+    match_count: int = Field(ge=1)
+    primary_zones: tuple[str, ...] = Field(min_length=1)
+    awp_rounds: int = Field(ge=0)
+    awp_observed_rounds: int = Field(ge=0)
+    awp_frequency: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    evidence_references: tuple[TacticalEvidenceReference, ...] = Field(min_length=1)
+    limitations: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_ratio(self) -> CTSetupPlayerRole:
+        if self.numerator > self.denominator or self.sample_rounds != self.denominator:
+            raise ValueError("CT setup role ratio is inconsistent")
+        if abs(self.frequency - self.numerator / self.denominator) > 1e-12:
+            raise ValueError("CT setup role frequency is inconsistent")
+        if self.awp_rounds > self.awp_observed_rounds:
+            raise ValueError("CT setup AWP count exceeds observed equipment rounds")
+        expected_awp = (
+            self.awp_rounds / self.awp_observed_rounds if self.awp_observed_rounds else None
+        )
+        if expected_awp is None and self.awp_frequency is not None:
+            raise ValueError("CT setup AWP frequency requires equipment evidence")
+        if expected_awp is not None and (
+            self.awp_frequency is None or abs(self.awp_frequency - expected_awp) > 1e-12
+        ):
+            raise ValueError("CT setup AWP frequency is inconsistent")
+        if len({item.match_id for item in self.evidence_references}) != self.match_count:
+            raise ValueError("CT setup evidence match count is inconsistent")
+        return self
+
+
+class CTSetupProfile(TacticalModel):
+    map_name: str = Field(min_length=1)
+    site_a_anchors: tuple[CTSetupPlayerRole, ...]
+    site_b_anchors: tuple[CTSetupPlayerRole, ...]
+    mid_players: tuple[CTSetupPlayerRole, ...]
+    rotators: tuple[CTSetupPlayerRole, ...]
+    sample_rounds: int = Field(ge=1)
+    covered_rounds: int = Field(ge=0)
+    limitations: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_profile(self) -> CTSetupProfile:
+        if self.covered_rounds > self.sample_rounds:
+            raise ValueError("CT setup coverage exceeds sample rounds")
+        expected = (
+            (self.site_a_anchors, CTSetupRole.A_ANCHOR),
+            (self.site_b_anchors, CTSetupRole.B_ANCHOR),
+            (self.mid_players, CTSetupRole.MID_SNIPER),
+            (self.rotators, CTSetupRole.ROTATOR),
+        )
+        if any(item.role is not role for values, role in expected for item in values):
+            raise ValueError("CT setup role is stored in the wrong profile group")
+        return self
+
+
 class TacticalInsight(TacticalModel):
     insight_id: UUID
     tactical_run_id: UUID
@@ -410,5 +504,7 @@ class TacticalV2ComputeResult(TacticalModel):
 
 
 __all__ = [
-    name for name in globals() if name.startswith("TACTICAL_V2_") or name.startswith("Tactical")
+    name
+    for name in globals()
+    if name.startswith("TACTICAL_V2_") or name.startswith("Tactical") or name.startswith("CTSetup")
 ]

@@ -239,10 +239,55 @@ form[aria-busy="true"] { opacity: .72; }
 .utility-roi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .utility-roi-copy { color: var(--text-muted); line-height: 1.55; }
 
+.ct-setup-section {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(96, 217, 192, .12), transparent 34%),
+    var(--surface-raised);
+}
+.ct-setup-maps { display: grid; gap: 14px; }
+.ct-setup-map {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--color-surface-1) 88%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.ct-setup-map > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+.ct-setup-map > header h3 { margin: 0; font-size: 22px; }
+.ct-setup-map > header span { color: var(--color-text-tertiary); font-size: 12px; }
+.ct-role-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ct-role-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 160px;
+  padding: 14px;
+  background: #0d1a1c;
+  border: 1px solid #28403f;
+  border-top: 3px solid #69dbc0;
+  border-radius: 13px;
+}
+.ct-role-card.b { border-top-color: #66aef2; }
+.ct-role-card.mid { border-top-color: #e6c36a; }
+.ct-role-card.rotate { border-top-color: #c795ed; }
+.ct-role-card p,
+.ct-role-card h4,
+.ct-role-card span,
+.ct-role-card small { margin: 0; }
+.ct-role-card > p { color: var(--color-text-tertiary); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.ct-role-card h4 { font-size: 18px; }
+.ct-role-card strong { color: var(--color-accent); font-size: 25px; }
+.ct-role-card span,
+.ct-role-card small { color: var(--color-text-secondary); font-size: 12px; line-height: 1.4; }
+.ct-role-card a { align-self: end; margin-top: auto; font-size: 11px; }
+.ct-role-empty { margin-top: 12px !important; }
+
 @media (max-width: 1050px) {
   .tactical-highlight-grid,
   .tactical-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .utility-roi-grid { grid-template-columns: 1fr; }
+  .ct-role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tactical-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tactical-coach-banner { grid-template-columns: 1fr; }
 }
@@ -267,6 +312,7 @@ form[aria-busy="true"] { opacity: .72; }
   .evidence-primary-action { width: 100%; }
   .plain-facts,
   .plain-facts.compact { grid-template-columns: 1fr 1fr; }
+  .ct-setup-map > header { align-items: start; flex-direction: column; }
 }
 
 @media (max-width: 460px) {
@@ -276,4 +322,5 @@ form[aria-busy="true"] { opacity: .72; }
   .evidence-card { padding: 13px; }
   .plain-facts,
   .plain-facts.compact { grid-template-columns: 1fr; }
+  .ct-role-grid { grid-template-columns: 1fr; }
 }

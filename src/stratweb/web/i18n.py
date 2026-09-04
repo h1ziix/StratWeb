@@ -85,6 +85,27 @@ _WARNING_LABELS: Final[dict[str, str]] = {
     "authoritative_alive_position_unavailable": (
         "Часть подтверждённых позиций живых игроков недоступна"
     ),
+    "ct_early_zone_or_role_semantics_unavailable": (
+        "Не во всех CT-раундах доступны ранние зоны игроков и их роль на карте"
+    ),
+    "role_label_is_a_deterministic_summary_not_proof_of_called_responsibility": (
+        "Название роли описывает повторение позиций, но не доказывает командную установку"
+    ),
+    "denominator_contains_only_rounds_with_known_early_player_zone": (
+        "В долю входят только раунды с известной ранней зоной игрока"
+    ),
+    "twenty_second_label_assumes_the_versioned_64_tick_policy": (
+        "Окно первых 20 секунд закреплено политикой 64 тика в секунду"
+    ),
+    "unmapped_or_unknown_zones_are_not_assigned_to_a_site": (
+        "Неизвестные зоны не назначаются точкам A, B или миду"
+    ),
+    "nickname_is_never_used_to_merge_players_across_matches": (
+        "Игроки между матчами не объединяются только по нику"
+    ),
+    "awp_signal_is_shown_only_when_pinned_freeze_end_equipment_is_available": (
+        "AWP учитывается только при доступном инвентаре на конец freeze-time"
+    ),
     "absence_of_a_trade_event_is_not_proof_that_no_trade_was_attempted": (
         "Отсутствие размена в данных не доказывает, что команда не пыталась разменять игрока"
     ),

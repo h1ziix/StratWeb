@@ -19,6 +19,7 @@ from stratweb.adapters.persistence import (
     DuckDBOpponentRepository,
     DuckDBPatternRepository,
     DuckDBRoundFeatureRepository,
+    DuckDBTacticalV2Repository,
     DuckDBTeamNameRepository,
 )
 from stratweb.ai_briefing.models import AiBriefingArtifact
@@ -46,12 +47,14 @@ from stratweb.application.report_preparation import (
     ReportPreparationUnavailableError,
 )
 from stratweb.application.scouting_reports import ScoutingReportService
+from stratweb.application.tactical_v2 import TacticalV2QueryService
 from stratweb.domain.enums import Side
 from stratweb.economy.models import BuyType
 from stratweb.exceptions import (
     CounterStrategyNotFoundError,
     OpponentNotFoundError,
     PersistenceError,
+    TacticalV2NotFoundError,
 )
 from stratweb.patterns.models import PatternType
 from stratweb.reporting import ScoutingReportExporter, ScoutingReportPdfRenderer
@@ -66,6 +69,8 @@ from stratweb.reporting.presentation import (
     status_label,
     warning_label,
 )
+from stratweb.tactical_v2.models import CTSetupProfile
+from stratweb.tactical_v2.setups import ct_setup_profiles_from_insights
 from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
 from stratweb.web.view_models import (
@@ -125,6 +130,7 @@ def scouting_report_router(
         DuckDBMatchRepository(database_path),
         DuckDBRoundFeatureRepository(database_path),
     )
+    tactical_query = TacticalV2QueryService(DuckDBTacticalV2Repository(database_path))
     briefing_generation: GenerateAiBriefingService | None = None
     if ai_briefing_enabled:
         try:
@@ -334,12 +340,25 @@ def scouting_report_router(
         map_name: Annotated[str | None, Query(alias="map", max_length=100)] = None,
     ) -> HTMLResponse:
         workspace = _workspace(opponents, profile_id)
+        ct_setups: tuple[CTSetupProfile, ...] = ()
+        if workspace.profile.subject_type is OpponentSubjectType.TEAM:
+            try:
+                tactical_summary = tactical_query.get_summary(profile_id)
+                tactical_insights = tactical_query.list_insights(
+                    profile_id,
+                    tactical_run_id=tactical_summary.tactical_run_id,
+                    limit=5000,
+                )
+                ct_setups = ct_setup_profiles_from_insights(tactical_insights)
+            except TacticalV2NotFoundError:
+                pass
         try:
             source = reports.get_source(profile_id, strategy_run_id=run_id)
             cheat_sheet = build_match_cheat_sheet_page(
                 source,
                 workspace,
                 map_name=map_name,
+                ct_setups=ct_setups,
             )
         except CounterStrategyNotFoundError as exc:
             return HTMLResponse(

@@ -5,14 +5,14 @@ recommendations, infer a caller's intent or treat temporal association as causal
 
 ## Versioned boundary
 
-- schema: `1.0.0`;
-- rules: `tactical_intelligence_v2.0.0`;
+- schema: `1.2.0`;
+- rules: `tactical_intelligence_v2.2.0`;
 - persistence migration: `026`;
 - input: one user-confirmed opponent team per match and one exact compatible Stage 8.4 lineage;
 - output: immutable profile run, typed capabilities, ratio observations and evidence references.
 
-Each source pin stores dataset, Analytics, Temporal, Spatial, Zone Assignment and optional Round
-Feature IDs, fingerprints and rule versions. The run fingerprint covers sorted pins, configuration,
+Each source pin stores dataset, Analytics, Temporal, Spatial, Zone Assignment, optional Round
+Feature lineage and optional compatible Economy lineage. The run fingerprint covers sorted pins, configuration,
 excluded matches, capabilities and complete observation payloads. Identical inputs produce the same
 run and insight IDs.
 
@@ -24,6 +24,7 @@ history but are never silently presented as current.
 
 | Family | Population and numerator | Important limitation |
 |---|---|---|
+| CT setup role | complete CT rounds with known live start and early alive player zones; player rounds observed in the explicit A/B/mid group or in multiple groups | player identity merges only by Steam ID; roles summarize first-20-second positions and do not prove responsibility or intent; unknown zones stay unclassified |
 | Path cluster | complete known-alive checkpoint formations; rounds sharing an exact compressed zone signature | unknown alive state is excluded; this is exact-key clustering, not a guessed geometric route or called strategy |
 | Execute package | T rounds with a proven plant site; identical site plus pre-plant utility-effect bundle | unplanted executes and intent are not inferred |
 | Utility outcome | owned HE/fire effects; effects with uniquely associated same-owner, matching-weapon enemy damage in a versioned tick window | overlapping candidate windows are excluded; association is not proof of causality; flash/smoke effectiveness is unavailable |

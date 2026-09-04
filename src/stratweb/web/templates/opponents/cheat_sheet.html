@@ -46,6 +46,27 @@
     {{ signal_section('Где они уязвимы', 'Исторические сигналы риска', cheat_sheet.risks, 'Подтверждённых повторяющихся ошибок пока нет.') }}
   </div>
 
+  {% if cheat_sheet.ct_setup %}
+  <section class="cheat-setup" data-cheat-copy-section>
+    <header><p>Соперник играет CT</p><h2>Дефолтная расстановка защиты</h2><span>{{ cheat_sheet.ct_setup.covered_rounds }} из {{ cheat_sheet.ct_setup.sample_rounds }} раундов с позициями</span></header>
+    <div class="cheat-setup-grid">
+    {% for title, players in [
+      ('Опорник A', cheat_sheet.ct_setup.site_a_anchors),
+      ('Опорник B', cheat_sheet.ct_setup.site_b_anchors),
+      ('Мид / снайпер', cheat_sheet.ct_setup.mid_players),
+      ('Ротатор', cheat_sheet.ct_setup.rotators)
+    ] %}
+      <article data-cheat-copy-item data-cheat-copy-text="{{ title }}: {% for player in players %}{{ player.player_name }} — {{ (player.frequency * 100)|round|int }}%, {{ player.primary_zones|join(', ') }}{% else %}не определён{% endfor %}">
+        <span>{{ title }}</span>
+        {% for player in players %}<h3>{{ player.player_name }} <strong>{{ (player.frequency * 100)|round|int }}%</strong></h3><p>{{ player.primary_zones|join(' · ') }}</p>{% if player.awp_frequency is not none %}<small>AWP замечен в {{ (player.awp_frequency * 100)|round|int }}% раундов с доступным инвентарём</small>{% endif %}
+        {% set evidence = player.evidence_references[0] %}<a href="/ui/spatial/{{ evidence.match_id }}/rounds/{{ evidence.round_number }}?tick={{ evidence.tick_start }}&mode=smooth">Показать раунд</a>
+        {% else %}<p>Роль пока не определена</p>{% endfor %}
+      </article>
+    {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section class="cheat-responses" data-cheat-copy-section>
     <header><p>Готовые ответы</p><h2>Что сыграть против них</h2></header>
     {% if cheat_sheet.recommendations %}<div class="cheat-response-list">{% for item in cheat_sheet.recommendations %}

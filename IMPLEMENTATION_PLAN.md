@@ -1546,6 +1546,8 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
         ↓
 9.12 Player/Team Stratbooks
         ↓
+9.13 CT Setup & Anchors
+        ↓
 10 Cloud Scale
 ```
 
@@ -1559,6 +1561,17 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
 - [x] separate team/player library sections and stratbook wording;
 - [x] JSON, printable and PDF exports include subject metadata and personal evidence;
 - [x] personal Ollama rephrasing remains disabled until its whole input contract is scoped.
+
+## Stage 9.13 — CT Setup & Anchors (completed)
+
+- [x] classify explicit per-map zone IDs into A, B and mid semantic groups;
+- [x] aggregate only complete non-warmup CT rounds inside the versioned first-20-second window;
+- [x] assign A anchor, B anchor, mid/sniper and rotator from deterministic role frequencies;
+- [x] merge player identity across demos only by Steam ID and retain match-scoped IDs as evidence;
+- [x] pin compatible freeze-end economy lineage for optional AWP evidence;
+- [x] persist role observations as typed Tactical V2 insights with round/snapshot evidence;
+- [x] show the setup in Tactical V2 and the one-page map cheat sheet;
+- [x] preserve unknown zones and missing equipment as unavailable rather than inferred.
 
 ## Stage 8.8.1 — interface productization
 

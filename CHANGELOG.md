@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.27.0] - 2026-09-04
+
+### Added
+
+- Deterministic CT setup profiles for each map: A anchor, B anchor, mid/sniper and rotator.
+- Per-player role frequency, exact CT-round denominator, primary zones, source snapshots and
+  optional AWP frequency from a pinned compatible economy run.
+- Coach-facing CT setup cards in Tactical V2 and the one-page match cheat sheet.
+
+### Safety
+
+- Players are merged across matches only by Steam ID; nicknames are display values, not identity.
+- Unknown or unmapped zones are excluded instead of being assigned to a site.
+- Role names summarize observed first-20-second positions and never claim a proven team call.
+
 ## [0.26.0] - 2026-09-04
 
 ### Added

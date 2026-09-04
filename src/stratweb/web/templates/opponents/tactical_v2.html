@@ -38,7 +38,7 @@
   </div></details>
 </section>
 
-<nav class="report-index" aria-label="{{ t('tactical.index_label') }}"><a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#utility-roi">{{ t('tactical.index.utility') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a></nav>
+<nav class="report-index" aria-label="{{ t('tactical.index_label') }}"><a href="#overview">{{ t('tactical.index.overview') }}</a><a href="#ct-setup">{{ t('tactical.index.ct_setup') }}</a><a href="#utility-roi">{{ t('tactical.index.utility') }}</a><a href="#signals">{{ t('tactical.index.signals') }}</a><a href="#coverage">{{ t('tactical.index.coverage') }}</a></nav>
 
 <section id="overview" class="report-section">
   <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.overview.eyebrow') }}</p><h2>{{ t('tactical.overview.title') }}</h2></div></div>
@@ -55,6 +55,37 @@
     </article>
   {% endfor %}
   </div>{% else %}<div class="empty-state"><p>{{ t('tactical.overview.empty') }}</p></div>{% endif %}
+</section>
+
+<section id="ct-setup" class="report-section ct-setup-section">
+  <div class="section-heading"><div><p class="eyebrow">{{ t('tactical.ct_setup.eyebrow') }}</p><h2>{{ t('tactical.ct_setup.title') }}</h2></div></div>
+  <p class="section-copy">{{ t('tactical.ct_setup.help') }}</p>
+  {% if page_view.ct_setups %}<div class="ct-setup-maps">
+  {% for setup in page_view.ct_setups %}
+    <article class="ct-setup-map">
+      <header><h3>{{ setup.map_name|map_name }}</h3><span>{{ t('tactical.ct_setup.sample', covered=setup.covered_rounds, total=setup.sample_rounds) }}</span></header>
+      <div class="ct-role-grid">
+      {% for role_key, title_key, players in [
+        ('a', 'tactical.ct_setup.a_anchor', setup.site_a_anchors),
+        ('b', 'tactical.ct_setup.b_anchor', setup.site_b_anchors),
+        ('mid', 'tactical.ct_setup.mid', setup.mid_players),
+        ('rotate', 'tactical.ct_setup.rotator', setup.rotators)
+      ] %}
+        <section class="ct-role-card {{ role_key }}">
+          <p>{{ t(title_key) }}</p>
+          {% for player in players %}
+          <h4>{{ player.player_name }}</h4>
+          <strong>{{ (player.frequency * 100)|round|int }}%</strong>
+          <span>{{ player.primary_zones|join(' · ') }}</span>
+          {% if player.awp_frequency is not none %}<small>{{ t('tactical.ct_setup.awp', percent=(player.awp_frequency * 100)|round|int) }}</small>{% endif %}
+          {% set evidence = player.evidence_references[0] %}<a href="/ui/spatial/{{ evidence.match_id }}/rounds/{{ evidence.round_number }}?tick={{ evidence.tick_start }}&mode=smooth">{{ t('tactical.ct_setup.evidence') }}</a>
+          {% else %}<span class="ct-role-empty">{{ t('tactical.ct_setup.unknown') }}</span>{% endfor %}
+        </section>
+      {% endfor %}
+      </div>
+    </article>
+  {% endfor %}
+  </div>{% else %}<div class="empty-state"><strong>{{ t('tactical.ct_setup.empty') }}</strong><p>{{ t('tactical.ct_setup.empty_help') }}</p></div>{% endif %}
 </section>
 
 <section id="utility-roi" class="report-section utility-roi-section">

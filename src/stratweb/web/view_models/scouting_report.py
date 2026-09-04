@@ -28,6 +28,7 @@ from stratweb.patterns.models import PatternType, PlayerPatternValue
 from stratweb.readiness.models import FindingReadinessRecord, corpus_reliability
 from stratweb.reporting.coach_presentation import coach_pattern_text, is_useful_coach_signal
 from stratweb.reporting.links import prefer_smooth_playback
+from stratweb.tactical_v2.models import CTSetupProfile
 from stratweb.web.view_models.product import ViewModel
 
 REPORT_SCHEMA_VERSION = "1.0.0"
@@ -234,6 +235,7 @@ class MatchCheatSheetPageView(ViewModel):
     defence: tuple[CoachSignalView, ...]
     risks: tuple[CoachSignalView, ...]
     recommendations: tuple[ReportRecommendationView, ...]
+    ct_setup: CTSetupProfile | None = None
     evidence_references: int = Field(ge=0)
     source_report_href: str
 
@@ -599,6 +601,7 @@ def build_match_cheat_sheet_page(
     *,
     map_name: str | None = None,
     section_limit: int = 2,
+    ct_setups: tuple[CTSetupProfile, ...] = (),
 ) -> MatchCheatSheetPageView:
     """Build a compact map-specific plan without recalculating source statistics."""
 
@@ -709,6 +712,7 @@ def build_match_cheat_sheet_page(
         defence=defence,
         risks=risks,
         recommendations=recommendations,
+        ct_setup=next((item for item in ct_setups if item.map_name == selected_map), None),
         evidence_references=sum(item.finding.evidence_count for item in selected_signals),
         source_report_href=(
             f"/ui/opponents/{source.strategy.profile_id}/report"

@@ -263,11 +263,38 @@
 }
 
 .cheat-footer p { margin: 0; color: #bbc8c9; font-size: 11px; }
+.cheat-setup {
+  display: grid;
+  gap: 11px;
+  padding: 15px;
+  background: linear-gradient(135deg, #0e201e, #0a1719);
+  border: 1px solid #34514c;
+  border-radius: 15px;
+}
+.cheat-setup > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.cheat-setup > header p,
+.cheat-setup > header h2,
+.cheat-setup > header span { margin: 0; }
+.cheat-setup > header p { width: 100%; color: #62dcbc; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.cheat-setup > header h2 { font-size: 19px; }
+.cheat-setup > header span { color: #819294; font-size: 10px; }
+.cheat-setup-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cheat-setup-grid article { display: grid; gap: 5px; padding: 10px; background: #071212; border: 1px solid #263b39; border-radius: 10px; }
+.cheat-setup-grid article > span { color: #809698; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.cheat-setup-grid h3,
+.cheat-setup-grid p,
+.cheat-setup-grid small { margin: 0; }
+.cheat-setup-grid h3 { font-size: 14px; }
+.cheat-setup-grid h3 strong { color: #65dfbe; }
+.cheat-setup-grid p,
+.cheat-setup-grid small { color: #91a3a4; font-size: 10px; line-height: 1.35; }
+.cheat-setup-grid a { margin-top: auto; font-size: 9px; }
 .cheat-unavailable { max-width: 760px; margin: 90px auto; padding: 30px; background: #0b1516; border: 1px solid #304442; border-radius: 20px; }
 
 @media (max-width: 900px) {
   .cheat-observations { grid-template-columns: 1fr; }
   .cheat-response-list { grid-template-columns: 1fr; }
+  .cheat-setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {
@@ -282,6 +309,7 @@
   .cheat-actions button,
   .cheat-actions .button { width: 100%; min-height: 43px; }
   .cheat-response__columns { grid-template-columns: 1fr; }
+  .cheat-setup-grid { grid-template-columns: 1fr; }
   .cheat-footer { align-items: flex-start; flex-direction: column; }
 }
 

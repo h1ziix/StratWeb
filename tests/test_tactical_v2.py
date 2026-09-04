@@ -248,6 +248,7 @@ def test_tactical_v2_is_deterministic_and_covers_independent_families() -> None:
     assert TacticalInsightType.CLUTCH_BEHAVIOR in kinds
     assert TacticalInsightType.SAVE_BEHAVIOR in kinds
     assert TacticalInsightType.HEATMAP_CELL in kinds
+    assert TacticalInsightType.CT_SETUP_ROLE in kinds
     assert all(item.evidence_references for item in first.insights)
     assert all(item.small_sample_warning for item in first.insights)
 
@@ -800,6 +801,9 @@ def test_tactical_v2_persistence_api_and_match_cascade(tmp_path: Path) -> None:
         assert "Тактический обзор" in page.text
         assert "Как команда использует гранаты" in page.text
         assert "Что важно заметить" in page.text
+        assert "Дефолтная расстановка защиты" in page.text
+        assert "Опорник A" in page.text
+        assert "Мид / снайпер" in page.text
         assert "Пока используйте это как подсказку" in page.text
         assert "Почему система так решила" in page.text
         assert "За атаку" in page.text or "За защиту" in page.text
