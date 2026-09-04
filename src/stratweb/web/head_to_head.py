@@ -54,8 +54,7 @@ def head_to_head_router(database_path: Path) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(
-                f"/ui/opponents/{opponent_profile_id}/head-to-head"
-                f"?our_profile_id={our_profile_id}",
+                f"/ui/opponents/{opponent_profile_id}/head-to-head?our_profile_id={our_profile_id}",
                 status_code=303,
             )
         return JSONResponse(
@@ -89,9 +88,7 @@ def head_to_head_router(database_path: Path) -> APIRouter:
         "/api/opponents/{opponent_profile_id}/head-to-head/runs",
         tags=["head-to-head"],
     )
-    def head_to_head_runs(
-        opponent_profile_id: UUID, our_profile_id: UUID
-    ) -> dict[str, Any]:
+    def head_to_head_runs(opponent_profile_id: UUID, our_profile_id: UUID) -> dict[str, Any]:
         values = service.list_runs(opponent_profile_id, our_profile_id)
         return {
             "opponent_profile_id": str(opponent_profile_id),
@@ -118,9 +115,7 @@ def head_to_head_router(database_path: Path) -> APIRouter:
             for profile in opponents.list_profiles()
             if profile.profile_id != opponent_profile_id
         )
-        own_profile = (
-            opponents.get_profile(our_profile_id) if our_profile_id is not None else None
-        )
+        own_profile = opponents.get_profile(our_profile_id) if our_profile_id is not None else None
         comparison = None
         unavailable_reason = None
         if our_profile_id is not None:

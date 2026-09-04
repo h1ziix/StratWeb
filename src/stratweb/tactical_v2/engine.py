@@ -434,9 +434,7 @@ class TacticalV2Engine:
                     continue
                 for effect in effects:
                     associated = tuple(
-                        blind
-                        for blind in round_item.blinds
-                        if _blind_matches_effect(blind, effect)
+                        blind for blind in round_item.blinds if _blind_matches_effect(blind, effect)
                     )
                     team_blinds = tuple(
                         blind
@@ -510,10 +508,7 @@ class TacticalV2Engine:
         for match in matches:
             for round_item in _eligible_rounds(match):
                 for kill in round_item.kills:
-                    if (
-                        kill.victim_team_id != match.source.team_id
-                        or kill.victim_player_id is None
-                    ):
+                    if kill.victim_team_id != match.source.team_id or kill.victim_player_id is None:
                         continue
                     eligible += 1
                     sample = _predeath_sample(round_item, kill.victim_player_id, kill.tick)
@@ -1191,9 +1186,7 @@ def _weapon_matches_effect(weapon: str | None, effect_type: str) -> bool:
     return False
 
 
-def _blind_matches_effect(
-    blind: TacticalBlindSample, effect: TacticalUtilitySample
-) -> bool:
+def _blind_matches_effect(blind: TacticalBlindSample, effect: TacticalUtilitySample) -> bool:
     if blind.attacker_player_id != effect.owner_player_id or blind.tick != effect.start_tick:
         return False
     return (

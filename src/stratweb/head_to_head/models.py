@@ -181,7 +181,5 @@ class HeadToHeadSaveResult(HeadToHeadModel):
 
 
 __all__ = [
-    name
-    for name in globals()
-    if name.startswith("HEAD_TO_HEAD_") or name.startswith("HeadToHead")
+    name for name in globals() if name.startswith("HEAD_TO_HEAD_") or name.startswith("HeadToHead")
 ]

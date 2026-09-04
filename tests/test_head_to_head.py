@@ -170,9 +170,7 @@ def test_head_to_head_is_deterministic_and_pairs_opposite_sides() -> None:
     assert first.head_to_head_schema_version == HEAD_TO_HEAD_SCHEMA_VERSION
     assert first.head_to_head_rule_version == HEAD_TO_HEAD_RULE_VERSION
     assert first.summary.comparison_count == 2
-    trade = next(
-        item for item in first.comparisons if item.rule is HeadToHeadRule.OPENING_VS_TRADE
-    )
+    trade = next(item for item in first.comparisons if item.rule is HeadToHeadRule.OPENING_VS_TRADE)
     assert trade.opponent_side is Side.CT
     assert trade.our_side is Side.T
     assert abs(trade.risk_score - 0.56) < 1e-12
@@ -189,9 +187,7 @@ def test_head_to_head_is_deterministic_and_pairs_opposite_sides() -> None:
     assert spacing.risk_level is HeadToHeadRiskLevel.MEDIUM
     assert "head_to_head_is_historical_alignment_not_proven_causality" in first.warnings
 
-    unknown_opponent = data.opponent_insights[0].model_copy(
-        update={"side": Side.UNKNOWN}
-    )
+    unknown_opponent = data.opponent_insights[0].model_copy(update={"side": Side.UNKNOWN})
     unknown_data = data.model_copy(update={"opponent_insights": (unknown_opponent,)})
     assert HeadToHeadEngine().compute(unknown_data).comparisons == ()
 

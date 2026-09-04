@@ -306,9 +306,7 @@ class GameplayEventNormalizer:
                     duration_seconds=optional_non_negative_float(
                         value(row.data, "blind_duration", "duration")
                     ),
-                    entity_id=optional_non_negative_int(
-                        value(row.data, "entityid", "entity_id")
-                    ),
+                    entity_id=optional_non_negative_int(value(row.data, "entityid", "entity_id")),
                     warnings=tuple(sorted(set(warnings))),
                 )
             )

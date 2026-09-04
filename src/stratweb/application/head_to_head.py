@@ -43,9 +43,7 @@ class HeadToHeadService:
         state = self._engine.compute(data)
         return state, self._repository.save(state)
 
-    def get_current(
-        self, opponent_profile_id: UUID, our_profile_id: UUID
-    ) -> HeadToHeadRun:
+    def get_current(self, opponent_profile_id: UUID, our_profile_id: UUID) -> HeadToHeadRun:
         self._validate_profiles(opponent_profile_id, our_profile_id)
         data = self._input(opponent_profile_id, our_profile_id)
         result = self._repository.get_for_sources(

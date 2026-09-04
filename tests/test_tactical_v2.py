@@ -395,8 +395,7 @@ def test_utility_roi_tracks_team_flash_predeath_inventory_and_smoke_clock() -> N
     carried = next(
         item
         for item in state.insights
-        if item.insight_type is TacticalInsightType.UTILITY_LOSS
-        and item.key == "carried_on_death"
+        if item.insight_type is TacticalInsightType.UTILITY_LOSS and item.key == "carried_on_death"
     )
     assert (carried.numerator, carried.denominator) == (1, 1)
     assert carried.metrics["utility_items_total"] == 2.0
@@ -429,9 +428,7 @@ def test_utility_roi_tracks_team_flash_predeath_inventory_and_smoke_clock() -> N
         TacticalInsightType.SMOKE_TIMING,
     }
     duplicate_loss = next(
-        item
-        for item in state.insights
-        if item.insight_type is TacticalInsightType.UTILITY_LOSS
+        item for item in state.insights if item.insight_type is TacticalInsightType.UTILITY_LOSS
     ).model_copy(
         update={
             "insight_id": _id("dominant-utility-loss"),

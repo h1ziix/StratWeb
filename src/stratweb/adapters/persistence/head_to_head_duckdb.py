@@ -154,19 +154,25 @@ class DuckDBHeadToHeadRepository:
 
 def _preflight(connection: duckdb.DuckDBPyConnection, state: HeadToHeadRun) -> None:
     for profile_id in (state.opponent_profile_id, state.our_profile_id):
-        if connection.execute(
-            "SELECT 1 FROM opponent_profiles WHERE profile_id = ?", [profile_id]
-        ).fetchone() is None:
+        if (
+            connection.execute(
+                "SELECT 1 FROM opponent_profiles WHERE profile_id = ?", [profile_id]
+            ).fetchone()
+            is None
+        ):
             raise PersistenceError("Head-to-head profile does not exist.")
     source_rows = (
         (state.opponent_tactical_run_id, state.opponent_profile_id),
         (state.our_tactical_run_id, state.our_profile_id),
     )
     for tactical_run_id, profile_id in source_rows:
-        if connection.execute(
-            "SELECT 1 FROM tactical_v2_runs WHERE tactical_run_id = ? AND profile_id = ?",
-            [tactical_run_id, profile_id],
-        ).fetchone() is None:
+        if (
+            connection.execute(
+                "SELECT 1 FROM tactical_v2_runs WHERE tactical_run_id = ? AND profile_id = ?",
+                [tactical_run_id, profile_id],
+            ).fetchone()
+            is None
+        ):
             raise PersistenceError("Head-to-head Tactical V2 source does not exist.")
 
 

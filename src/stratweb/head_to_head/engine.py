@@ -98,8 +98,7 @@ class HeadToHeadEngine:
             HeadToHeadComparison(
                 comparison_id=uuid5(
                     run_id,
-                    f"comparison:{item.rule.value}:{item.map_name}:"
-                    f"{item.opponent_side.value}",
+                    f"comparison:{item.rule.value}:{item.map_name}:{item.opponent_side.value}",
                 ),
                 head_to_head_run_id=run_id,
                 rule=item.rule,
@@ -108,9 +107,7 @@ class HeadToHeadEngine:
                 our_side=item.our_side,
                 risk_score=item.score,
                 risk_level=_risk_level(item.score),
-                reliability=_reliability(
-                    min(item.opponent.match_count, item.ours.match_count)
-                ),
+                reliability=_reliability(min(item.opponent.match_count, item.ours.match_count)),
                 sample_match_count=min(item.opponent.match_count, item.ours.match_count),
                 title=item.title,
                 observation=item.observation,
@@ -238,9 +235,7 @@ def _index(
     return {
         (item.map_name, item.side): item
         for item in insights
-        if item.insight_type is insight_type
-        and item.key == key
-        and item.side in {Side.T, Side.CT}
+        if item.insight_type is insight_type and item.key == key and item.side in {Side.T, Side.CT}
     }
 
 
@@ -293,9 +288,7 @@ def _reliability(matches: int) -> HeadToHeadReliability:
     return HeadToHeadReliability.GAME_FACTS
 
 
-def _limitations(
-    opponent: TacticalInsight, ours: TacticalInsight
-) -> tuple[str, ...]:
+def _limitations(opponent: TacticalInsight, ours: TacticalInsight) -> tuple[str, ...]:
     values = {
         "comparison_combines_separate_historical_samples_not_the_same_rounds",
         "alignment_does_not_prove_the_opponent_will_repeat_or_cause_our_result",
@@ -335,8 +328,7 @@ def _spacing_interpretation(level: HeadToHeadRiskLevel) -> str:
         )
     if level is HeadToHeadRiskLevel.MEDIUM:
         return (
-            "Ранняя дистанция между нашими игроками может дать сопернику "
-            "удобный одиночный контакт."
+            "Ранняя дистанция между нашими игроками может дать сопернику удобный одиночный контакт."
         )
     return "Доказательств системной уязвимости ранней расстановки перед их первыми дуэлями мало."
 

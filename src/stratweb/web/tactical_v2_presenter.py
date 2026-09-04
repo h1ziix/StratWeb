@@ -79,8 +79,7 @@ def build_tactical_v2_page(
         cards=tuple(build_tactical_insight_card(item) for item in visible),
         highlights=tuple(build_tactical_insight_card(item) for item in highlights),
         utility_cards=tuple(
-            build_tactical_insight_card(item)
-            for item in _utility_representatives(matching)
+            build_tactical_insight_card(item) for item in _utility_representatives(matching)
         ),
         maps=tuple(sorted({item.map_name for item in insights})),
         type_counts={
@@ -218,9 +217,7 @@ def build_tactical_insight_card(item: TacticalInsight) -> TacticalInsightCard:
             description_values.update(
                 {
                     "items": round(_numeric_metric(item, "utility_items_total") or 0),
-                    "value": round(
-                        _numeric_metric(item, "estimated_utility_value_total") or 0
-                    ),
+                    "value": round(_numeric_metric(item, "estimated_utility_value_total") or 0),
                 }
             )
         else:

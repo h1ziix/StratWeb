@@ -81,9 +81,7 @@ def critical_mistakes_router(database_path: Path) -> APIRouter:
         )
         unavailable_types = (
             tuple(
-                kind
-                for kind, status in state.capabilities.items()
-                if status.value == "unavailable"
+                kind for kind, status in state.capabilities.items() if status.value == "unavailable"
             )
             if state is not None
             else ()

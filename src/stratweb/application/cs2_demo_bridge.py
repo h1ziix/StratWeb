@@ -74,9 +74,7 @@ class CS2DemoBridgeService:
 
     def _validated_destination_root(self) -> Path:
         if self._cs2_demo_directory is None:
-            raise CS2DemoBridgeError(
-                "Папка CS2 не настроена. Укажите STRATWEB_CS2_DEMO_DIR."
-            )
+            raise CS2DemoBridgeError("Папка CS2 не настроена. Укажите STRATWEB_CS2_DEMO_DIR.")
         root = self._cs2_demo_directory
         if root.name.casefold() != "stratweb" or root.parent.name.casefold() != "csgo":
             raise CS2DemoBridgeError(
