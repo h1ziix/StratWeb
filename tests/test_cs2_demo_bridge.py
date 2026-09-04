@@ -32,12 +32,35 @@ def test_bridge_prepares_verified_demo_and_exact_commands(
     assert (destination / f"stratweb_{match_id}.dem").read_bytes() == b"PBDEMS2bridge"
 
 
+def test_bridge_accepts_csgo_directory_and_creates_stratweb_child(
+    tmp_path: Path, canonical_dataset_factory: Callable[..., Any]
+) -> None:
+    database, match_id, destination = _fixture(tmp_path, canonical_dataset_factory)
+
+    result = CS2DemoBridgeService(database, destination.parent).prepare(match_id, 45230)
+
+    assert result.play_command == f'playdemo "StratWeb/stratweb_{match_id}.dem"'
+    assert (destination / f"stratweb_{match_id}.dem").read_bytes() == b"PBDEMS2bridge"
+
+
+def test_bridge_does_not_create_child_for_an_arbitrary_directory(
+    tmp_path: Path, canonical_dataset_factory: Callable[..., Any]
+) -> None:
+    database, match_id, _ = _fixture(tmp_path, canonical_dataset_factory)
+    arbitrary = tmp_path / "not-the-csgo-directory"
+
+    with pytest.raises(CS2DemoBridgeError, match="game/csgo"):
+        CS2DemoBridgeService(database, arbitrary).prepare(match_id, 1)
+
+    assert not arbitrary.exists()
+
+
 def test_product_endpoint_is_local_mutation_and_returns_copy_payload(
     tmp_path: Path, canonical_dataset_factory: Callable[..., Any]
 ) -> None:
     database, match_id, destination = _fixture(tmp_path, canonical_dataset_factory)
 
-    with TestClient(create_app(database, cs2_demo_directory=destination)) as client:
+    with TestClient(create_app(database, cs2_demo_directory=destination.parent)) as client:
         response = client.post(
             f"/api/matches/{match_id}/cs2-demo-command",
             params={"tick": 777},
@@ -46,6 +69,7 @@ def test_product_endpoint_is_local_mutation_and_returns_copy_payload(
     assert response.status_code == 200
     assert response.json()["tick"] == 777
     assert response.json()["seek_command"] == "demo_gototick 777; demo_pause"
+    assert (destination / f"stratweb_{match_id}.dem").is_file()
 
 
 def test_bridge_rejects_a_retained_demo_that_no_longer_matches_sha256(

@@ -76,10 +76,10 @@ class CS2DemoBridgeService:
         if self._cs2_demo_directory is None:
             raise CS2DemoBridgeError("Папка CS2 не настроена. Укажите STRATWEB_CS2_DEMO_DIR.")
         root = self._cs2_demo_directory
+        if root.name.casefold() == "csgo":
+            root = (root / "StratWeb").resolve()
         if root.name.casefold() != "stratweb" or root.parent.name.casefold() != "csgo":
-            raise CS2DemoBridgeError(
-                "Папка экспорта должна называться StratWeb и находиться внутри game/csgo."
-            )
+            raise CS2DemoBridgeError("Укажите папку game/csgo или папку StratWeb внутри неё.")
         try:
             root.mkdir(parents=True, exist_ok=True)
         except OSError as exc:

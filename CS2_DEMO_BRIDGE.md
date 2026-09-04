@@ -31,8 +31,9 @@ The source must be a retained, successfully imported upload. Its internal filena
 as a direct `.dem` child of the StratWeb upload directory. Before export, StratWeb recalculates
 SHA-256 and compares it with the immutable match source hash.
 
-The destination is a dedicated `game/csgo/StratWeb` directory configured through
-`STRATWEB_CS2_DEMO_DIR`. The exported name contains only the internal match UUID. A hard link is
+Set `STRATWEB_CS2_DEMO_DIR` to either `game/csgo` or the dedicated
+`game/csgo/StratWeb` directory. With `game/csgo`, StratWeb creates its own child directory
+automatically. The exported name contains only the internal match UUID. A hard link is
 used when possible; otherwise an atomic verified copy is created. Existing verified exports are
 reused.
 

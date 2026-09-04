@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.4] - 2026-09-04
+
+### Fixed
+
+- `STRATWEB_CS2_DEMO_DIR` now accepts the CS2 `game/csgo` directory and creates its dedicated
+  `StratWeb` child on the first local export. The previous explicit `game/csgo/StratWeb` value
+  remains supported, while arbitrary destinations are still rejected before creating files.
+
 ## [0.24.3] - 2026-09-04
 
 ### Fixed
