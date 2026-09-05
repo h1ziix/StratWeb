@@ -6,7 +6,7 @@ from collections import Counter
 from urllib.parse import urlencode
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from stratweb.application.opponent_models import OpponentSubjectType, OpponentWorkspace
 from stratweb.application.opponent_scope import (
@@ -24,6 +24,7 @@ from stratweb.counter_strategy.validation_models import (
 from stratweb.domain.enums import Side
 from stratweb.economy.models import BuyType
 from stratweb.findings.models import AnalysisFinding, EvidenceReference, FindingCategory
+from stratweb.maps.registry import DEFAULT_MAP_REGISTRY
 from stratweb.patterns.models import PatternType, PlayerPatternValue
 from stratweb.readiness.models import FindingReadinessRecord, corpus_reliability
 from stratweb.reporting.coach_presentation import coach_pattern_text, is_useful_coach_signal
@@ -139,6 +140,26 @@ class ReportFilterOptions(ViewModel):
     pattern_types: tuple[tuple[str, str], ...]
 
 
+class ReportMapChoiceView(ViewModel):
+    map_name: str
+    display_name: str
+    image_url: str | None = None
+    match_count: int = Field(ge=0)
+    round_count: int = Field(ge=0)
+    available: bool
+    unavailable_reason: str | None = None
+    selected: bool
+    href: str | None = None
+
+    @model_validator(mode="after")
+    def validate_availability(self) -> ReportMapChoiceView:
+        if self.available and (self.href is None or self.unavailable_reason is not None):
+            raise ValueError("available report map requires a link and no unavailable reason")
+        if not self.available and (self.href is not None or self.unavailable_reason is None):
+            raise ValueError("unavailable report map requires a reason and no link")
+        return self
+
+
 class ScoutingReportPageView(ViewModel):
     report_schema_version: str = REPORT_SCHEMA_VERSION
     report_view_rule_version: str = REPORT_VIEW_RULE_VERSION
@@ -175,6 +196,7 @@ class ScoutingReportPageView(ViewModel):
     warnings: tuple[str, ...]
     filters: ScoutingReportFilters
     filter_options: ReportFilterOptions
+    map_choices: tuple[ReportMapChoiceView, ...]
     filtered_findings: int = Field(ge=0)
     visible_findings: int = Field(ge=0)
     page: int = Field(ge=1)
@@ -381,6 +403,12 @@ def build_scouting_report_page(
     reliability_tier, reliability_label, reliability_message = corpus_reliability(
         validation.coverage.included_matches
     )
+    map_choices = _report_map_choices(
+        source,
+        workspace,
+        scoped_findings,
+        filters.map_name,
+    )
     return ScoutingReportPageView(
         profile_id=source.strategy.profile_id,
         display_name=workspace.profile.display_name,
@@ -451,6 +479,7 @@ def build_scouting_report_page(
                 if any(candidate.pattern_type is item for candidate in scoped_findings)
             ),
         ),
+        map_choices=map_choices,
         filtered_findings=len(filtered),
         visible_findings=len(visible),
         page=page,
@@ -504,12 +533,17 @@ def build_coach_report_page(
     workspace: OpponentWorkspace,
     *,
     section_limit: int = 3,
+    map_name: str | None = None,
 ) -> CoachReportPageView:
     """Build a concise UI projection without changing stored findings or statistics."""
 
     if section_limit < 1:
         raise ValueError("coach report section limit must be positive")
-    scoped_findings = subject_findings(source.findings, workspace)
+    scoped_findings = tuple(
+        item
+        for item in subject_findings(source.findings, workspace)
+        if map_name is None or item.scope.map_name == map_name
+    )
     subject_ids = {item.finding_id for item in scoped_findings}
     readiness = {item.finding_id: item for item in source.readiness.records}
     skipped = {
@@ -1070,6 +1104,72 @@ def _report_json_href(
     return f"/api/opponents/{profile_id}/report?{urlencode(query)}"
 
 
+def _report_map_choices(
+    source: ScoutingReportSource,
+    workspace: OpponentWorkspace,
+    findings: tuple[AnalysisFinding, ...],
+    selected_map: str | None,
+) -> tuple[ReportMapChoiceView, ...]:
+    pinned_inputs = source.analysis.input_matches
+    pinned_match_ids = {item.match_id for item in pinned_inputs}
+    match_counts: Counter[str] = Counter()
+    round_counts: Counter[str] = Counter()
+    for match in workspace.selected_matches:
+        if match.selection.match_id not in pinned_match_ids:
+            continue
+        match_counts[match.map_name] += 1
+        round_counts[match.map_name] += match.round_count
+    map_names = tuple(
+        sorted(
+            {
+                *(item.map_name for item in pinned_inputs),
+                *(item.scope.map_name for item in findings),
+            }
+        )
+    )
+    choices = []
+    for map_name in map_names:
+        map_inputs = tuple(item for item in pinned_inputs if item.map_name == map_name)
+        available = any(item.input_status.value == "included" for item in map_inputs)
+        has_exclusion_reason = any(item.exclusion_reason is not None for item in map_inputs)
+        definition = DEFAULT_MAP_REGISTRY.preferred_definition(map_name)
+        image_url: str | None = None
+        display_name = map_name.removeprefix("de_").replace("_", " ").title()
+        if definition is not None:
+            display_name = definition.display_name
+            asset = definition.overview_asset
+            if asset is not None:
+                image_url = (
+                    f"/assets/map-overviews/{definition.canonical_name}/"
+                    f"{definition.map_revision.revision_id}/upper.png?v={asset.sha256[:16]}"
+                )
+        choices.append(
+            ReportMapChoiceView(
+                map_name=map_name,
+                display_name=display_name,
+                image_url=image_url,
+                match_count=match_counts[map_name],
+                round_count=round_counts[map_name],
+                available=available,
+                unavailable_reason=(
+                    "Сначала завершите обработку матчей этой карты."
+                    if not available and has_exclusion_reason
+                    else ("Для этой карты пока нет готовых данных." if not available else None)
+                ),
+                selected=map_name == selected_map,
+                href=(
+                    (
+                        f"/ui/opponents/{source.strategy.profile_id}/report?"
+                        + urlencode({"run_id": source.strategy.strategy_run_id, "map": map_name})
+                    )
+                    if available
+                    else None
+                ),
+            )
+        )
+    return tuple(choices)
+
+
 def _filter_query(filters: ScoutingReportFilters, *, page: int) -> dict[str, str | int | float]:
     result: dict[str, str | int | float] = {
         "page": page,
@@ -1239,6 +1339,7 @@ __all__ = [
     "REPORT_VIEW_RULE_VERSION",
     "CoachReportPageView",
     "CoachSignalView",
+    "ReportMapChoiceView",
     "ScoutingReportDetailView",
     "ScoutingReportFilters",
     "ScoutingReportPageView",

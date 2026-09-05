@@ -17,7 +17,23 @@
 {% if workspace.selected_matches %}<details class="product-disclosure"><summary>Проверить обработку выбранных матчей</summary><div class="product-disclosure__content">{% for match in workspace.selected_matches %}<p><a href="/ui/matches/{{ match.selection.match_id }}/diagnostics">Матч {{ loop.index }} · {{ match.map_name|map_name }}</a></p>{% endfor %}</div></details>{% endif %}
 {% else %}
 {% if report_mode == 'coach' %}
+{% if not report.filters.map_name %}
+<section class="report-map-picker" aria-labelledby="report-map-picker-title">
+  <div class="report-map-picker__heading">
+    <div><p class="eyebrow">{{ 'Личный разбор игрока' if report.subject_type == 'player' else 'Стратбук против команды' }}</p><h1 id="report-map-picker-title">Выберите карту</h1></div>
+    <p>Каждая карта разбирается отдельно. Выберите нужную — внутри будут только её наблюдения, позиции, рекомендации и доказательства.</p>
+  </div>
+  {% if report.map_choices %}<div class="report-map-grid">
+    {% for map in report.map_choices %}{% if map.available %}<a class="report-map-card" href="{{ map.href }}" aria-label="Открыть разбор {{ map.display_name }}">{% else %}<article class="report-map-card is-unavailable" aria-label="Разбор {{ map.display_name }} ещё не готов">{% endif %}
+      <span class="report-map-card__visual{% if not map.image_url %} is-placeholder{% endif %}"{% if map.image_url %} style="--map-card-image: url('{{ map.image_url }}')"{% endif %}></span>
+      <span class="report-map-card__shade"></span>
+      <span class="report-map-card__content"><small>Карта {{ loop.index }}</small><strong>{{ map.display_name }}</strong><span>{{ map.match_count }} {{ 'матч' if map.match_count == 1 else 'матчей' }} · {{ map.round_count }} раундов</span>{% if map.available %}<b>Открыть разбор <i aria-hidden="true">→</i></b>{% else %}<b class="not-ready">Разбор ещё не готов</b><em>{{ map.unavailable_reason }}</em>{% endif %}</span>
+    {% if map.available %}</a>{% else %}</article>{% endif %}{% endfor %}
+  </div>{% else %}<div class="coach-empty"><p>В корпусе пока нет карт для разбора.</p></div>{% endif %}
+</section>
+{% else %}
 {% include "opponents/report_coach.html" %}
+{% endif %}
 {% else %}
 <section class="page-heading report-heading">
   <div><p class="eyebrow">{{ 'Личный доказательный стратбук' if report.subject_type == 'player' else 'Командный доказательный стратбук' }}</p><h1>{{ report.target_player_name or report.display_name }}</h1><p>{% if report.subject_type == 'player' %}Только подтверждённые действия этого игрока по Steam ID. Командные выводы скрыты.{% else %}Исторические наблюдения по выбранной команде.{% endif %} Без live-данных, причинных утверждений и статистики от LLM.</p></div>

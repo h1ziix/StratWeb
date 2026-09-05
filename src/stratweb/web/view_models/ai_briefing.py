@@ -27,7 +27,11 @@ class AiBriefingPageView(ViewModel):
     avoid: tuple[AiBriefingPointView, ...] = Field(max_length=3)
 
 
-def build_ai_briefing_page(artifact: AiBriefingArtifact) -> AiBriefingPageView:
+def build_ai_briefing_page(
+    artifact: AiBriefingArtifact,
+    *,
+    map_name: str | None = None,
+) -> AiBriefingPageView:
     sources = {item.source_id: item for item in artifact.source.sources}
 
     def project(point: AiBriefingPoint) -> AiBriefingPointView:
@@ -46,9 +50,21 @@ def build_ai_briefing_page(artifact: AiBriefingArtifact) -> AiBriefingPageView:
         briefing_id=artifact.briefing_id,
         model_name=artifact.model_name,
         created_at=artifact.created_at,
-        expect=tuple(project(item) for item in artifact.content.expect),
-        play=tuple(project(item) for item in artifact.content.play),
-        avoid=tuple(project(item) for item in artifact.content.avoid),
+        expect=tuple(
+            project(item)
+            for item in artifact.content.expect
+            if map_name is None or sources[item.source_id].map_name == map_name
+        ),
+        play=tuple(
+            project(item)
+            for item in artifact.content.play
+            if map_name is None or sources[item.source_id].map_name == map_name
+        ),
+        avoid=tuple(
+            project(item)
+            for item in artifact.content.avoid
+            if map_name is None or sources[item.source_id].map_name == map_name
+        ),
     )
 
 

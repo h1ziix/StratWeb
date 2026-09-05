@@ -19,17 +19,18 @@
 
 <section class="coach-hero">
   <div class="coach-hero__top">
-    <span class="coach-mode-pill">{{ 'ЛИЧНЫЙ СТРАТБУК' if coach_report.subject_type == 'player' else 'КОМАНДНЫЙ СТРАТБУК' }}</span>
+    <div class="coach-hero__identity"><span class="coach-mode-pill">{{ 'ЛИЧНЫЙ СТРАТБУК' if coach_report.subject_type == 'player' else 'КОМАНДНЫЙ СТРАТБУК' }}</span><span>{{ report.filters.map_name|map_name }}</span></div>
     <details class="coach-tools"><summary aria-label="{{ t('coach.more') }}">•••</summary><div>
-      <a href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}&mode=analyst">{{ t('coach.analyst_mode') }}</a>
-      {% if coach_report.subject_type == 'team' %}<a href="/ui/opponents/{{ report.profile_id }}/tactical-v2">{{ t('coach.tactical_details') }}</a>{% endif %}
-      <a href="/ui/opponents/{{ report.profile_id }}/cheat-sheet?run_id={{ report.strategy_run_id }}">Шпаргалка на карту</a>
-      <a href="{{ report.report_pdf_href }}">Скачать PDF</a>
-      <a href="{{ report.report_export_json_href }}">Скачать JSON</a>
+      <a href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}">Сменить карту</a>
+      <a href="/ui/opponents/{{ report.profile_id }}/report?run_id={{ report.strategy_run_id }}&map={{ report.filters.map_name }}&mode=analyst">{{ t('coach.analyst_mode') }}</a>
+      {% if coach_report.subject_type == 'team' %}<a href="/ui/opponents/{{ report.profile_id }}/tactical-v2?map={{ report.filters.map_name }}">{{ t('coach.tactical_details') }}</a>{% endif %}
+      <a href="/ui/opponents/{{ report.profile_id }}/cheat-sheet?run_id={{ report.strategy_run_id }}&map={{ report.filters.map_name }}">Шпаргалка на карту</a>
+      <a href="{{ report.report_pdf_href }}">Полный PDF · все карты</a>
+      <a href="{{ report.report_export_json_href }}">Полный JSON · все карты</a>
     </div></details>
   </div>
 
-  <p class="eyebrow">Стратбук перед матчем</p>
+  <p class="eyebrow">Стратбук перед матчем · {{ report.filters.map_name|map_name }}</p>
   <h1>{{ coach_report.subject_name }}</h1>
   <p class="coach-hero__lead">{% if coach_report.subject_type == 'player' %}Как играет именно этот человек, где он появляется и как подготовить контакт против него.{% else %}Как команда действует за обе стороны, где повторяется и как подготовить ответ.{% endif %}</p>
   <div class="coach-readiness {{ report.acceptance_css_class }}">
@@ -74,6 +75,7 @@
   {% if ai_briefing_enabled %}
   <form method="post" action="/ui/opponents/{{ report.profile_id }}/report/briefing/generate" data-submit-feedback>
     <input type="hidden" name="run_id" value="{{ report.strategy_run_id }}">
+    <input type="hidden" name="map" value="{{ report.filters.map_name }}">
     <button type="submit" data-loading-label="Ollama готовит текст…">{{ 'Обновить краткий пересказ' if ai_briefing else 'Сделать краткую версию плана' }}</button>
   </form>
   {% else %}<p class="ai-briefing__empty">Локальный AI-пересказ отключён в настройках StratWeb.</p>{% endif %}

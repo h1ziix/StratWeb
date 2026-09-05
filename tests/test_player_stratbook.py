@@ -121,3 +121,11 @@ def test_player_movement_chapter_is_steam_scoped_and_evidence_linked() -> None:
     assert signal.evidence[0].match_id == _id(2)
     assert signal.evidence[0].round_number == 3
     assert "mode=smooth" in signal.evidence[0].map_href
+
+    other_map = PlayerMovementStratbookService(_Matches(), _Features()).build(  # type: ignore[arg-type]
+        workspace,
+        map_name="de_mirage",
+    )
+    assert other_map is not None
+    assert other_map.signals == ()
+    assert other_map.source_feature_run_ids == ()

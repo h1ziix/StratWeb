@@ -1548,6 +1548,8 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
         ↓
 9.13 CT Setup & Anchors
         ↓
+9.13.1 Map-scoped Stratbook UX
+        ↓
 10 Cloud Scale
 ```
 
@@ -1572,6 +1574,16 @@ Acceptance evidence: [MATCH_CHEAT_SHEET.md](MATCH_CHEAT_SHEET.md).
 - [x] persist role observations as typed Tactical V2 insights with round/snapshot evidence;
 - [x] show the setup in Tactical V2 and the one-page map cheat sheet;
 - [x] preserve unknown zones and missing equipment as unavailable rather than inferred.
+
+## Stage 9.13.1 — Map-scoped Stratbook UX (completed)
+
+- [x] require an explicit map choice before the simple coach flow is shown;
+- [x] build cards from maps actually present in the opponent corpus;
+- [x] use version-pinned official overview assets already extracted from local CS2;
+- [x] scope coach findings, recommendations and player movement to the selected map;
+- [x] scope displayed AI briefing points to their pinned source map;
+- [x] preserve analyst mode as the explicit advanced cross-map audit view;
+- [x] reject maps absent from the pinned stratbook instead of returning a deceptive empty page.
 
 ## Stage 8.8.1 — interface productization
 

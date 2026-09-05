@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.27.1] - 2026-09-04
+
+### Changed
+
+- The coach stratbook now opens with a visual map picker instead of mixing maps in one flow.
+- Player movement, coach observations, recommendations and displayed AI wording are scoped to the
+  selected map.
+- Map cards use the pinned official overview images extracted from the user's local CS2 client;
+  StratWeb does not download or substitute unrelated artwork.
+- Unknown map query values are rejected instead of producing a misleading empty report.
+
 ## [0.27.0] - 2026-09-04
 
 ### Added

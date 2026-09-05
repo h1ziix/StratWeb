@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
@@ -249,8 +250,21 @@ def scouting_report_router(
                 status_code=404 if run_id is not None else 200,
             )
         report = build_scouting_report_page(source, workspace, filters)
-        coach_report = build_coach_report_page(source, workspace)
-        player_movement = movement_service.build(workspace)
+        selected_map = next(
+            (item for item in report.map_choices if item.map_name == map_name),
+            None,
+        )
+        if map_name is not None and (selected_map is None or not selected_map.available):
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    selected_map.unavailable_reason
+                    if selected_map is not None
+                    else "Выбранной карты нет в этом стратбуке."
+                ),
+            )
+        coach_report = build_coach_report_page(source, workspace, map_name=map_name)
+        player_movement = movement_service.build(workspace, map_name=map_name)
         briefing = briefing_repository.get_latest(profile_id, source.strategy.strategy_run_id)
         return HTMLResponse(
             render_template(
@@ -260,7 +274,9 @@ def scouting_report_router(
                 coach_report=coach_report,
                 report_mode=mode,
                 unavailable_reason=None,
-                ai_briefing=build_ai_briefing_page(briefing) if briefing else None,
+                ai_briefing=(
+                    build_ai_briefing_page(briefing, map_name=map_name) if briefing else None
+                ),
                 ai_briefing_enabled=ai_briefing_enabled,
                 ai_briefing_error=ai_error,
                 player_movement=player_movement,
@@ -276,20 +292,27 @@ def scouting_report_router(
         request: Request,
         profile_id: UUID,
         run_id: Annotated[UUID, Form()],
+        map_name: Annotated[str | None, Form(alias="map")] = None,
     ) -> Response:
         require_localhost(request, "AI briefing generation")
+        report_query = urlencode(
+            {
+                "run_id": run_id,
+                **({"map": map_name} if map_name is not None else {}),
+            }
+        )
+        report_href = f"/ui/opponents/{profile_id}/report?{report_query}"
         if not ai_briefing_enabled:
             raise HTTPException(status_code=404, detail="AI-пересказ отключён в настройках.")
         if briefing_generation is None:
             return RedirectResponse(
-                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=provider#ai-briefing",
+                f"{report_href}&ai_error=provider#ai-briefing",
                 status_code=303,
             )
         workspace = _workspace(opponents, profile_id)
         if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
             return RedirectResponse(
-                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=unavailable"
-                "#ai-briefing",
+                f"{report_href}&ai_error=unavailable#ai-briefing",
                 status_code=303,
             )
         source = reports.get_source(profile_id, strategy_run_id=run_id)
@@ -297,18 +320,17 @@ def scouting_report_router(
             briefing_generation.generate(source, workspace)
         except AiBriefingUnavailableError:
             return RedirectResponse(
-                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=unavailable"
-                "#ai-briefing",
+                f"{report_href}&ai_error=unavailable#ai-briefing",
                 status_code=303,
             )
         except AiBriefingProviderError as exc:
             logger.warning("Local AI briefing rejected for profile %s: %s", profile_id, exc)
             return RedirectResponse(
-                f"/ui/opponents/{profile_id}/report?run_id={run_id}&ai_error=provider#ai-briefing",
+                f"{report_href}&ai_error=provider#ai-briefing",
                 status_code=303,
             )
         return RedirectResponse(
-            f"/ui/opponents/{profile_id}/report?run_id={run_id}#ai-briefing",
+            f"{report_href}#ai-briefing",
             status_code=303,
         )
 

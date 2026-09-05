@@ -73,7 +73,12 @@ class PlayerMovementStratbookService:
         self._matches = matches
         self._features = features
 
-    def build(self, workspace: OpponentWorkspace) -> PlayerMovementChapter | None:
+    def build(
+        self,
+        workspace: OpponentWorkspace,
+        *,
+        map_name: str | None = None,
+    ) -> PlayerMovementChapter | None:
         profile = workspace.profile
         if (
             profile.subject_type is not OpponentSubjectType.PLAYER
@@ -91,6 +96,8 @@ class PlayerMovementStratbookService:
         warnings: list[str] = []
 
         for selected in workspace.selected_matches:
+            if map_name is not None and selected.map_name != map_name:
+                continue
             selection = selected.selection
             target = next(
                 (

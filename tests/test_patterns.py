@@ -834,8 +834,38 @@ def test_pattern_service_persistence_and_feature_cascade(
         opponent_service.get_workspace(profile.profile_id),
         ScoutingReportFilters(),
     )
+    excluded_map_input = accepted_source.analysis.input_matches[0].model_copy(
+        update={
+            "match_id": _id("excluded-map"),
+            "map_name": "de_ancient",
+            "input_status": PatternInputStatus.EXCLUDED,
+            "exclusion_reason": "compatible_feature_run_unavailable",
+        }
+    )
+    mixed_map_source = accepted_source.model_copy(
+        update={
+            "analysis": accepted_source.analysis.model_copy(
+                update={
+                    "input_matches": (
+                        *accepted_source.analysis.input_matches,
+                        excluded_map_input,
+                    )
+                }
+            )
+        }
+    )
+    mixed_map_report = build_scouting_report_page(
+        mixed_map_source,
+        opponent_service.get_workspace(profile.profile_id),
+        ScoutingReportFilters(),
+    )
     coach_report = build_coach_report_page(
         accepted_source, opponent_service.get_workspace(profile.profile_id)
+    )
+    unrelated_map_report = build_coach_report_page(
+        accepted_source,
+        opponent_service.get_workspace(profile.profile_id),
+        map_name="de_missing",
     )
     cheat_sheet = build_match_cheat_sheet_page(
         accepted_source,
@@ -843,6 +873,13 @@ def test_pattern_service_persistence_and_feature_cascade(
         map_name=ready_finding.scope.map_name,
     )
     assert accepted_report.acceptance_status == "passed"
+    assert len(accepted_report.map_choices) == 1
+    assert accepted_report.map_choices[0].map_name == "de_mirage"
+    assert accepted_report.map_choices[0].image_url is not None
+    unavailable_map = next(item for item in mixed_map_report.map_choices if not item.available)
+    assert unavailable_map.map_name == "de_ancient"
+    assert unavailable_map.href is None
+    assert unavailable_map.unavailable_reason == "Сначала завершите обработку матчей этой карты."
     assert len(accepted_report.recommendations) == 1
     assert coach_report.rule_version == "coach_report_projection_v3"
     assert len(coach_report.recommendations) == 1
@@ -860,6 +897,10 @@ def test_pattern_service_persistence_and_feature_cascade(
     assert coach_report.evidence[0].finding.finding_id == ready_finding.finding_id
     assert coach_report.evidence[0].plain_title
     assert coach_report.evidence[0].plain_explanation
+    assert unrelated_map_report.attack == ()
+    assert unrelated_map_report.defence == ()
+    assert unrelated_map_report.risks == ()
+    assert unrelated_map_report.recommendations == ()
     assert cheat_sheet.rule_version == "map_cheat_sheet_v1"
     assert cheat_sheet.map_name == ready_finding.scope.map_name
     assert cheat_sheet.included_matches == 20
@@ -1037,16 +1078,33 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert api_validation.json()["validation_fingerprint"] == validation.validation_fingerprint
         report_page = client.get(f"/ui/opponents/{profile_id}/report")
         assert report_page.status_code == 200
-        assert "Показать план на матч" in report_page.text
-        assert "Сначала — насколько этому доверять" in report_page.text
-        assert "Что они повторяют за атаку" in report_page.text
-        assert "Что они повторяют за защиту" in report_page.text
-        assert "Пока рано давать готовую тактику" in report_page.text
-        assert "data-coach-step" in report_page.text
-        assert "data-coach-next" in report_page.text
-        assert "data-coach-deck" in report_page.text and "hidden" in report_page.text
-        assert "Шпаргалка на карту" in report_page.text
-        assert "Минимальная оценка Уилсона" not in report_page.text
+        assert "Выберите карту" in report_page.text
+        assert "Каждая карта разбирается отдельно" in report_page.text
+        assert "report-map-card" in report_page.text
+        assert "/assets/map-overviews/de_mirage/" in report_page.text
+        assert "data-coach-step" not in report_page.text
+        map_report_page = client.get(
+            f"/ui/opponents/{profile_id}/report",
+            params={"map": "de_mirage"},
+        )
+        assert map_report_page.status_code == 200
+        assert "Mirage" in map_report_page.text
+        assert "Показать план на матч" in map_report_page.text
+        assert "Сначала — насколько этому доверять" in map_report_page.text
+        assert "Что они повторяют за атаку" in map_report_page.text
+        assert "Что они повторяют за защиту" in map_report_page.text
+        assert "Пока рано давать готовую тактику" in map_report_page.text
+        assert "data-coach-step" in map_report_page.text
+        assert "data-coach-next" in map_report_page.text
+        assert "data-coach-deck" in map_report_page.text and "hidden" in map_report_page.text
+        assert "Шпаргалка на карту" in map_report_page.text
+        assert "map=de_mirage" in map_report_page.text
+        assert "Минимальная оценка Уилсона" not in map_report_page.text
+        invalid_map_report = client.get(
+            f"/ui/opponents/{profile_id}/report",
+            params={"map": "de_missing"},
+        )
+        assert invalid_map_report.status_code == 404
         cheat_sheet_page = client.get(f"/ui/opponents/{profile_id}/cheat-sheet")
         assert cheat_sheet_page.status_code == 200
         assert "План перед матчем" in cheat_sheet_page.text
