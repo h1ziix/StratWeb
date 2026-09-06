@@ -944,7 +944,8 @@
 
   function editableTarget(target) {
     return target instanceof HTMLInputElement || target instanceof HTMLSelectElement
-      || target instanceof HTMLTextAreaElement || target.isContentEditable;
+      || target instanceof HTMLTextAreaElement || target.isContentEditable
+      || Boolean(target.closest?.("[role='dialog']"));
   }
   function applyView() {
     const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
@@ -1033,9 +1034,32 @@
     const query = filterQuery();
     query.delete("from_index");
     query.delete("limit");
+    query.delete("tick");
     query.set("mode", state.mode);
     window.location.href = `/ui/spatial/${config.match_id}/rounds/${elements.roundSelect.value}?${query}`;
   };
+  const roundOptions = [...elements.roundSelect.options];
+  const roundPosition = roundOptions.findIndex((option) => Number(option.value) === config.round_number);
+  const previousRound = document.getElementById("previousRound");
+  const nextRound = document.getElementById("nextRound");
+  previousRound.disabled = roundPosition <= 0;
+  nextRound.disabled = roundPosition < 0 || roundPosition >= roundOptions.length - 1;
+  function changeRound(direction) {
+    const option = roundOptions[roundPosition + direction];
+    if (!option) return;
+    pause();
+    elements.roundSelect.value = option.value;
+    elements.roundSelect.onchange();
+  }
+  previousRound.onclick = () => changeRound(-1);
+  nextRound.onclick = () => changeRound(1);
+  function seekSeconds(direction) {
+    const index = window.StratWebDemoTickClock.indexAfterSeconds(
+      config.ticks, tickClock.tickAt(performance.now()), direction * 5,
+      config.playback_clock.tick_duration_ms,
+    );
+    if (index !== null) void exactAction(index);
+  }
   elements.eventJump.onchange = () => {
     const index = config.ticks.indexOf(Number(elements.eventJump.value));
     if (index >= 0) void exactAction(index);
@@ -1109,10 +1133,18 @@
   });
   window.addEventListener("keydown", (event) => {
     if (editableTarget(event.target)) return;
+    if (event.key === " " && event.target.closest?.("button, a, summary")) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.code === "BracketLeft" || event.code === "BracketRight") {
+      event.preventDefault();
+      if (!event.repeat) changeRound(event.code === "BracketLeft" ? -1 : 1);
+      return;
+    }
     if ([" ", "ArrowLeft", "ArrowRight", "Home", "End", "1", "2", "3", "4", "Escape"].includes(event.key)) event.preventDefault();
+    if (event.repeat && event.key === " ") return;
     if (event.key === " ") state.playing ? pause() : void play();
-    else if (event.key === "ArrowLeft") void exactAction(event.shiftKey ? eventIndex(-1) : state.index - 1);
-    else if (event.key === "ArrowRight") void exactAction(event.shiftKey ? eventIndex(1) : state.index + 1);
+    else if (event.key === "ArrowLeft") event.shiftKey ? void exactAction(eventIndex(-1)) : seekSeconds(-1);
+    else if (event.key === "ArrowRight") event.shiftKey ? void exactAction(eventIndex(1)) : seekSeconds(1);
     else if (event.key === "Home") void exactAction(0);
     else if (event.key === "End") void exactAction(config.total_samples - 1);
     else if (["1", "2", "3", "4"].includes(event.key)) {

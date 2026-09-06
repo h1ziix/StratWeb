@@ -348,6 +348,9 @@ def test_opponent_ui_create_confirm_and_remove_flow(
     assert "Alpha" in workspace.text
     assert "team_fizik" in workspace.text
     assert "Открыть стратбук" in workspace.text
+    assert 'aria-label="Разделы соперника"' in workspace.text
+    assert 'aria-current="page" class="is-active">Матчи и состав' in workspace.text
+    assert f"/ui/opponents/{profile_id}/tactical-v2#ct-setup" in workspace.text
     assert "Другие действия" in workspace.text
     assert "Открыть отчёт" not in workspace.text
     assert api_workspace.json()["selected_matches"][0]["selection"]["selection_source"] == (
@@ -355,6 +358,41 @@ def test_opponent_ui_create_confirm_and_remove_flow(
     )
     assert removed.status_code == 200
     assert removed.json()["removed"] is True
+
+
+def test_bulk_confirmation_is_explicit_idempotent_and_uses_frozen_matches(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    database = tmp_path / "bulk-confirm.duckdb"
+    matches = DuckDBMatchRepository(database)
+    datasets = tuple(
+        _expanded_team_dataset(
+            canonical_dataset_factory(f"bulk-{i}"), alias_suffix=str(i), include_substitute=False
+        )
+        for i in range(3)
+    )
+    for dataset in datasets:
+        matches.save_match(dataset)
+    service = _service(database)
+    profile = service.create_profile("Bulk")
+    assert service.confirm_matched(profile.profile_id) == 0
+    service.assign_match(
+        profile.profile_id, datasets[0].match.match_id, datasets[0].teams[0].team_id
+    )
+    with TestClient(create_app(database)) as client:
+        workspace = client.get(f"/ui/opponents/{profile.profile_id}")
+        assert "Подтвердить все совпавшие матчи (2)" in workspace.text
+        assert len(service.get_workspace(profile.profile_id).selected_matches) == 1
+        endpoint = f"/api/opponents/{profile.profile_id}/matches/confirm-matched"
+        assert (
+            client.post(endpoint, headers={"Origin": "https://foreign.invalid"}).status_code == 403
+        )
+        result = client.post(endpoint)
+        assert result.status_code == 200
+        assert result.json()["confirmed_matches"] == 2
+        assert client.post(endpoint).json()["confirmed_matches"] == 0
+    assert len(service.get_workspace(profile.profile_id).selected_matches) == 3
 
 
 def test_opponent_rename_reassign_and_delete_flow(

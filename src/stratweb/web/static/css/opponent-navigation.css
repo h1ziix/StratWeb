@@ -1,0 +1,20 @@
+.opponent-tabs, .map-chips { display: flex; gap: .5rem; overflow-x: auto; padding: .7rem; margin-bottom: 1.4rem; border: 1px solid #284045; border-radius: 16px; background: #0b1519; scrollbar-width: thin; }
+.opponent-tabs a, .map-chips a { flex: 0 0 auto; padding: .75rem 1rem; border-radius: 10px; text-decoration: none; color: #b3c3c8; transition: background .15s ease; }
+.opponent-tabs a:hover, .map-chips a:hover { background: #203237; color: #fff; }
+.opponent-tabs [aria-current], .map-chips [aria-current] { background: #173d37; color: #8af0d7; box-shadow: inset 0 -2px #80e8cf; }
+.opponent-tabs a:focus-visible, .map-chips a:focus-visible { outline: 2px solid #8af0d7; outline-offset: 2px; }
+.round-step-controls { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0; }
+.round-step-controls button { font-size: .8rem; }
+.tactical-depth { border: 1px solid #284045; border-radius: 20px; padding: 1.5rem; margin: 1.5rem 0; background: #0c181c; }
+.tactical-depth-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.tactical-depth article { padding: 1.1rem; background: #14232b; border-radius: 12px; }
+.tactical-depth article strong { color: #8af0d7; }
+@media print {
+  .opponent-tabs, .map-chips, .tactical-depth form, .tactical-depth details,
+  .tactical-depth a { display: none; }
+  .tactical-depth { padding: 10px; margin: 10px 0; }
+  .tactical-depth-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tactical-depth article { padding: 8px; break-inside: avoid; }
+  .tactical-depth article p, .tactical-depth article small { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .opponent-tabs a, .map-chips a { transition: none; } }

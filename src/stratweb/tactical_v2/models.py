@@ -13,7 +13,7 @@ from stratweb.application.canonical_models import Sha256
 from stratweb.domain.enums import Side
 
 TACTICAL_V2_SCHEMA_VERSION = "1.2.0"
-TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.2.0"
+TACTICAL_V2_RULE_VERSION = "tactical_intelligence_v2.3.0"
 TACTICAL_V2_ROUTE_RULE = "checkpoint_zone_formation_exact_v1"
 TACTICAL_V2_UTILITY_RULE = "owner_weapon_time_association_v1"
 TACTICAL_V2_TEAM_FLASH_RULE = "entity_tick_attacker_team_blind_v1"
@@ -41,6 +41,9 @@ class TacticalAvailability(StrEnum):
 
 
 class TacticalInsightType(StrEnum):
+    ATTACK_PACE = "attack_pace"
+    SITE_HIT = "site_hit"
+    AWP_OPENING = "awp_opening"
     CT_SETUP_ROLE = "ct_setup_role"
     PATH_CLUSTER = "path_cluster"
     EXECUTE_PACKAGE = "execute_package"
@@ -177,6 +180,7 @@ class TacticalKillSample(TacticalModel):
     is_teamkill: bool | None = None
     is_suicide: bool | None = None
     game_time: FiniteFloat | None = None
+    weapon: str | None = None
 
 
 class TacticalDamageSample(TacticalModel):
@@ -188,6 +192,14 @@ class TacticalDamageSample(TacticalModel):
     victim_team_id: UUID | None = None
     weapon: str | None = None
     damage_health: int | None = Field(default=None, ge=0)
+    game_time: FiniteFloat | None = None
+
+
+class TacticalShotSample(TacticalModel):
+    event_id: UUID
+    tick: int = Field(ge=0)
+    player_id: UUID | None = None
+    weapon: str | None = None
     game_time: FiniteFloat | None = None
 
 
@@ -272,6 +284,7 @@ class TacticalRoundInput(TacticalModel):
     samples: tuple[TacticalPlayerSample, ...]
     kills: tuple[TacticalKillSample, ...]
     damages: tuple[TacticalDamageSample, ...]
+    shots: tuple[TacticalShotSample, ...] = ()
     blinds: tuple[TacticalBlindSample, ...] = ()
     trades: tuple[TacticalTradeSample, ...]
     utility: tuple[TacticalUtilitySample, ...]

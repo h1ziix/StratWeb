@@ -2,6 +2,7 @@
 {% block title %}Мы против них · StratWeb{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/head-to-head.css') }}">{% endblock %}
 {% block content %}
+{% from 'opponents/subnav.html' import opponent_tabs %}{{ opponent_tabs(opponent, 'h2h') }}
 <nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ opponent.profile_id }}">{{ opponent.display_name }}</a> / Мы против них</nav>
 
 <section class="h2h-hero">

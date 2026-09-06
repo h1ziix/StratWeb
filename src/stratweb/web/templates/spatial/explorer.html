@@ -9,6 +9,8 @@
       <span class="viewer-kicker">Просмотр матча</span>
       <h1>{{ overview.display_name or overview.map_name }}</h1>
       <span>Раунд {{ round_number }}</span>
+      <div class="round-step-controls"><button id="previousRound" class="secondary" type="button" aria-keyshortcuts="[">← Предыдущий раунд</button><button id="nextRound" class="secondary" type="button" aria-keyshortcuts="]">Следующий раунд →</button></div>
+      <small>Пробел — пауза · ← / → — 5 секунд · [ / ] — раунды</small>
     </div>
     <div class="sidebar-group compact-filters">
       <label>Раунд<select id="roundSelect">{% for number in round_numbers %}<option value="{{ number }}" {% if number == round_number %}selected{% endif %}>Раунд {{ number }}</option>{% endfor %}</select></label>

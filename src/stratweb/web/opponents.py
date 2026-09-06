@@ -69,6 +69,7 @@ def opponent_router(database_path: Path) -> APIRouter:
             render_template(
                 "opponents/workspace.html",
                 workspace=workspace,
+                bulk_count=len(service.matched_candidates(workspace)),
                 match_context=None,
             )
         )
@@ -122,6 +123,21 @@ def opponent_router(database_path: Path) -> APIRouter:
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(f"/ui/opponents/{profile_id}", status_code=303)
         return JSONResponse(status_code=200, content=selection.model_dump(mode="json"))
+
+    @router.post(
+        "/api/opponents/{profile_id}/matches/confirm-matched",
+        tags=["opponents"],
+        response_model=None,
+    )
+    def confirm_matched(request: Request, profile_id: UUID) -> Response:
+        _require_localhost(request)
+        try:
+            count = service.confirm_matched(profile_id)
+        except OpponentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/ui/opponents/{profile_id}", status_code=303)
+        return JSONResponse(content={"confirmed_matches": count})
 
     @router.post(
         "/api/opponents/{profile_id}/rename",

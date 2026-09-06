@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request, Response
@@ -72,6 +73,8 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         profile_id: UUID,
         heatmap_cell_size_units: Annotated[float, Query(gt=0)] = 512.0,
         force: bool = False,
+        return_to: Literal["tactical-v2", "report", "cheat-sheet"] = "tactical-v2",
+        map_name: Annotated[str | None, Query(alias="map", max_length=100)] = None,
     ) -> Response:
         require_localhost(request, "Tactical V2 computation")
         _require_team_profile(opponents, profile_id)
@@ -84,7 +87,10 @@ def tactical_v2_router(database_path: Path) -> APIRouter:
         except TacticalV2ConfigurationError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if "text/html" in request.headers.get("accept", ""):
-            return RedirectResponse(f"/ui/opponents/{profile_id}/tactical-v2", status_code=303)
+            suffix = "?" + urlencode({"map": map_name}) if map_name else ""
+            return RedirectResponse(
+                f"/ui/opponents/{profile_id}/{return_to}{suffix}", status_code=303
+            )
         return JSONResponse(content=result.model_dump(mode="json"))
 
     @router.get("/api/opponents/{profile_id}/tactical-v2/summary", tags=["tactical-v2"])

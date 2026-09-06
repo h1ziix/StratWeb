@@ -3,6 +3,7 @@
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/scouting-report.css') }}">{% if report_mode == 'coach' %}<link rel="stylesheet" href="{{ static_asset('css/coach-report.css') }}">{% endif %}{% endblock %}
 {% block content_class %}report-shell{% endblock %}
 {% block content %}
+{% from 'opponents/subnav.html' import opponent_tabs %}{{ opponent_tabs(workspace.profile, 'report', report.filters.map_name if report else None) }}
 <nav class="breadcrumbs {% if report_mode == 'coach' %}coach-breadcrumbs{% endif %}"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ workspace.profile.profile_id }}">{{ workspace.profile.display_name }}</a> / Стратбук</nav>
 {% if not report %}
 <section class="page-heading report-heading"><div><p class="eyebrow">{{ 'Личный стратбук' if workspace.profile.subject_type == 'player' else 'Командный стратбук' }}</p><h1>{{ 'Этот сохранённый план не найден' if pinned_missing else 'Подготовим план против ' ~ (workspace.profile.target_player_name or workspace.profile.display_name) }}</h1><p>{% if pinned_missing %}Возможно, этот расчёт был удалён или заменён. Можно открыть текущий план соперника.{% elif workspace.profile.subject_type == 'player' %}Покажем только действия выбранного игрока. Командные паттерны в личный стратбук не попадут.{% else %}Соберём привычки команды, проверим доказательства и покажем, что можно попробовать против неё.{% endif %}</p></div></section>

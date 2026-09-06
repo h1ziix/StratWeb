@@ -291,6 +291,12 @@ def _reliability_key(item: TacticalInsight) -> str:
 
 
 def _title(item: TacticalInsight) -> tuple[str, dict[str, object]]:
+    if item.insight_type in {
+        TacticalInsightType.ATTACK_PACE,
+        TacticalInsightType.SITE_HIT,
+        TacticalInsightType.AWP_OPENING,
+    }:
+        return "tactical.card.title.depth", {"label": item.label}
     if item.insight_type is TacticalInsightType.PATH_CLUSTER:
         return "tactical.card.title.path_cluster", {}
     if item.insight_type is TacticalInsightType.EXECUTE_PACKAGE:

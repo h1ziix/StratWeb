@@ -10,6 +10,10 @@ from __future__ import annotations
 from typing import Final
 
 RU: Final[dict[str, str]] = {
+    "tactical.attack_pace": "Темп атаки",
+    "tactical.site_hit": "Направления выхода",
+    "tactical.awp_opening": "Ранние позиции AWP",
+    "tactical.card.title.depth": "{label}",
     "nav.matches": "Матчи",
     "nav.opponents": "Соперники",
     "nav.overview": "Обзор",
@@ -332,6 +336,10 @@ RU: Final[dict[str, str]] = {
 
 EN: Final[dict[str, str]] = {
     **{key: value for key, value in RU.items()},
+    "tactical.attack_pace": "Attack pace",
+    "tactical.site_hit": "Site approaches",
+    "tactical.awp_opening": "Early AWP positions",
+    "tactical.card.title.depth": "{label}",
     "nav.matches": "Matches",
     "nav.opponents": "Opponents",
     "nav.overview": "Overview",

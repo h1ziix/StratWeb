@@ -197,6 +197,44 @@ class OpponentWorkspaceService:
         self._require_profile(profile_id)
         return self._opponents.remove_selection(profile_id, match_id)
 
+    @staticmethod
+    def matched_candidates(workspace: OpponentWorkspace) -> tuple[tuple[UUID, UUID], ...]:
+        result = []
+        for match in workspace.candidates:
+            if workspace.profile.subject_type is OpponentSubjectType.PLAYER:
+                target = workspace.profile.target_steam_id
+                candidates = tuple(
+                    team for team in match.teams if target and target in team.steam_ids
+                )
+            else:
+                candidates = tuple(
+                    team for team in match.teams if team.strength is OverlapStrength.STRONG
+                )
+                # A second plausible side is never silently resolved by a score tie-break.
+                if any(team.strength is OverlapStrength.POSSIBLE for team in match.teams):
+                    continue
+            if len(candidates) == 1:
+                result.append((match.match_id, candidates[0].team_id))
+        return tuple(result)
+
+    def confirm_matched(self, profile_id: UUID) -> int:
+        workspace = self.get_workspace(profile_id)
+        # Freeze candidates before writing: newly added matches must not expand this batch.
+        candidates = self.matched_candidates(workspace)
+        now = datetime.now(UTC)
+        selections = tuple(
+            OpponentMatchSelection(
+                profile_id=profile_id,
+                match_id=match_id,
+                team_id=team_id,
+                selection_source=OpponentSelectionSource.USER_CONFIRMED,
+                created_at=now,
+            )
+            for match_id, team_id in candidates
+        )
+        self._opponents.save_selections(selections)
+        return len(selections)
+
     def rename_profile(self, profile_id: UUID, display_name: str) -> OpponentProfile:
         profile = self._require_profile(profile_id)
         normalized = _normalized_profile_name(display_name)

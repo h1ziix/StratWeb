@@ -182,6 +182,26 @@ if (buffer.visible([event("exact", 12)], 2000)[0].marker_id !== "exact") {
     _run_node(source, STATIC_JS / "event-buffer.js")
 
 
+@pytest.mark.skipif(NODE is None, reason="Node runtime unavailable")
+def test_five_second_seek_uses_demo_clock_and_clamps_at_round_edges() -> None:
+    source = r"""
+const fs = require("fs");
+const assert = require("assert");
+global.window = {};
+eval(fs.readFileSync(process.argv[1], "utf8"));
+const { indexAfterSeconds } = window.StratWebDemoTickClock;
+const ticks = [100, 164, 228, 292, 356, 420, 484, 548];
+assert.equal(indexAfterSeconds(ticks, 100, 5, 15.625), 5);
+assert.equal(indexAfterSeconds(ticks, 420, -5, 15.625), 0);
+assert.equal(indexAfterSeconds(ticks, 484, 5, 15.625), 7);
+assert.equal(indexAfterSeconds(ticks, 100, -5, 15.625), 0);
+assert.equal(indexAfterSeconds(ticks, 100, 5, 31.25), 3);
+assert.equal(indexAfterSeconds(ticks, 100, 5, 0), null);
+assert.equal(indexAfterSeconds([], 100, 5, 15.625), null);
+"""
+    _run_node(source, STATIC_JS / "playback-clock.js")
+
+
 def test_viewer_renderer_uses_persistent_diffed_nodes() -> None:
     renderer = (STATIC_JS / "map-renderer.js").read_text(encoding="utf-8")
     player = (STATIC_JS / "spatial-player.js").read_text(encoding="utf-8")

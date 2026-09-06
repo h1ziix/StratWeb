@@ -39,6 +39,8 @@
   <a class="button coach-start" href="#coach-deck" data-coach-start>{{ t('coach.start') }} <span aria-hidden="true">→</span></a>
 </section>
 
+{% if coach_report.subject_type == 'team' %}{% set depth_map = report.filters.map_name %}{% set depth_return = 'report' %}{% include 'opponents/tactical_depth.html' %}{% endif %}
+
 {% if coach_report.subject_type == 'player' %}
 <section class="coach-step player-movement-chapter" data-player-movement>
   <p class="eyebrow">Личная глава · Раннее движение</p>

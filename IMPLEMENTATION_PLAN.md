@@ -6,6 +6,8 @@
 
 ## Принципы выполнения
 
+Текущее обновление: Stage 9.14 — Master Polish & Tactical Depth, см. [STAGE_9_14.md](STAGE_9_14.md).
+
 - Каждая вертикаль заканчивается тестируемым artifact-ом.
 - Реальный parser API проверяется на зафиксированной версии до написания mapping.
 - Новое поле появляется сначала в canonical contract/schema, затем в adapter-е.

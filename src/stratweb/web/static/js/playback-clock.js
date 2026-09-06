@@ -113,5 +113,19 @@
     }
   }
 
-  window.StratWebDemoTickClock = { DemoTickClock, bracketForTick, validateTicks };
+  function indexAfterSeconds(ticks, currentTick, seconds, tickDurationMs) {
+    if (!ticks.length || !(tickDurationMs > 0)) return null;
+    const target = currentTick + seconds * 1000 / tickDurationMs;
+    let low = 0;
+    let high = ticks.length - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (ticks[middle] < target) low = middle + 1;
+      else high = middle;
+    }
+    // Select the closest authoritative frame rather than jumping over a large gap.
+    if (low > 0 && Math.abs(ticks[low - 1] - target) < Math.abs(ticks[low] - target)) low -= 1;
+    return low;
+  }
+  window.StratWebDemoTickClock = { DemoTickClock, bracketForTick, validateTicks, indexAfterSeconds };
 })();

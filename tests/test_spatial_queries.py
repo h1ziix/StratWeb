@@ -327,6 +327,8 @@ def test_spatial_explorer_ui_api_and_temporal_links(
     assert page.status_code == 200
     assert "card.innerHTML" not in page.text
     assert "/static/js/spatial-player.js?v=" in page.text
+    assert 'id="previousRound"' in page.text
+    assert 'id="nextRound"' in page.text
     assert "initialChunk" in page.text
     assert '"label_roster"' in page.text
     assert str(dataset.players[0].player_id) in page.text

@@ -47,7 +47,7 @@ from stratweb.application.report_preparation import (
     PrepareScoutingReportService,
     ReportPreparationUnavailableError,
 )
-from stratweb.application.scouting_reports import ScoutingReportService
+from stratweb.application.scouting_reports import ScoutingReportService, ScoutingReportSource
 from stratweb.application.tactical_v2 import TacticalV2QueryService
 from stratweb.domain.enums import Side
 from stratweb.economy.models import BuyType
@@ -70,7 +70,7 @@ from stratweb.reporting.presentation import (
     status_label,
     warning_label,
 )
-from stratweb.tactical_v2.models import CTSetupProfile
+from stratweb.tactical_v2.models import CTSetupProfile, TacticalInsight, TacticalInsightType
 from stratweb.tactical_v2.setups import ct_setup_profiles_from_insights
 from stratweb.web.context import require_localhost
 from stratweb.web.rendering import render_template
@@ -264,6 +264,7 @@ def scouting_report_router(
                 ),
             )
         coach_report = build_coach_report_page(source, workspace, map_name=map_name)
+        depth_insights = _depth_for_report(tactical_query, source, workspace, map_name)
         player_movement = movement_service.build(workspace, map_name=map_name)
         briefing = briefing_repository.get_latest(profile_id, source.strategy.strategy_run_id)
         return HTMLResponse(
@@ -280,6 +281,7 @@ def scouting_report_router(
                 ai_briefing_enabled=ai_briefing_enabled,
                 ai_briefing_error=ai_error,
                 player_movement=player_movement,
+                depth_insights=depth_insights,
                 match_context=None,
             )
         )
@@ -400,6 +402,9 @@ def scouting_report_router(
                 "opponents/cheat_sheet.html",
                 workspace=workspace,
                 cheat_sheet=cheat_sheet,
+                depth_insights=_depth_for_report(
+                    tactical_query, source, workspace, cheat_sheet.map_name
+                ),
                 unavailable_reason=None,
                 match_context=None,
             )
@@ -546,6 +551,47 @@ def scouting_report_router(
         )
 
     return router
+
+
+def _depth_for_report(
+    query: TacticalV2QueryService,
+    source: ScoutingReportSource,
+    workspace: OpponentWorkspace,
+    map_name: str | None,
+) -> tuple[TacticalInsight, ...]:
+    if map_name is None or workspace.profile.subject_type is not OpponentSubjectType.TEAM:
+        return ()
+    try:
+        summary = query.get_summary(workspace.profile.profile_id)
+    except TacticalV2NotFoundError:
+        return ()
+    expected = {
+        (item.match_id, item.team_id, item.feature_run_id)
+        for item in source.analysis.input_matches
+        if item.map_name == map_name and item.input_status.value == "included"
+    }
+    actual = {
+        (pin.match_id, pin.team_id, pin.feature_run_id)
+        for pin in summary.source_pins
+        if pin.map_name == map_name
+    }
+    if not expected or expected != actual:
+        return ()
+    return tuple(
+        item
+        for item in query.list_insights(
+            workspace.profile.profile_id,
+            tactical_run_id=summary.tactical_run_id,
+            map_name=map_name,
+            limit=5000,
+        )
+        if item.insight_type
+        in {
+            TacticalInsightType.ATTACK_PACE,
+            TacticalInsightType.SITE_HIT,
+            TacticalInsightType.AWP_OPENING,
+        }
+    )
 
 
 def _workspace(service: OpponentWorkspaceService, profile_id: UUID) -> OpponentWorkspace:

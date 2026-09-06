@@ -47,6 +47,7 @@ from stratweb.tactical_v2.models import (
     TacticalPlayerSample,
     TacticalRoundInput,
     TacticalSaveSignal,
+    TacticalShotSample,
     TacticalSourcePin,
     TacticalTradeSample,
     TacticalUtilitySample,
@@ -217,6 +218,17 @@ class DuckDBTacticalV2SourceRepository:
         samples = self._samples(connection, source)
         kills = self._kills(connection, source)
         damages = self._damages(connection, source)
+        shots: dict[int, list[TacticalShotSample]] = defaultdict(list)
+        for shot_row in _rows(
+            connection.execute(
+                "SELECT round_number, event_id, tick, player_id, weapon, game_time FROM shots "
+                "WHERE match_id = ? AND round_number IS NOT NULL "
+                "ORDER BY round_number, tick, event_id",
+                [source.match_id],
+            )
+        ):
+            number = int(shot_row.pop("round_number"))
+            shots[number].append(TacticalShotSample.model_validate(shot_row))
         blinds = self._blinds(connection, source)
         trades = self._trades(connection, source)
         utility = self._utility(connection, source)
@@ -267,6 +279,7 @@ class DuckDBTacticalV2SourceRepository:
                     samples=tuple(samples.get(number, ())),
                     kills=tuple(kills.get(number, ())),
                     damages=tuple(damages.get(number, ())),
+                    shots=tuple(shots.get(number, ())),
                     blinds=tuple(blinds.get(number, ())),
                     trades=tuple(trades.get(number, ())),
                     utility=tuple(utility.get(number, ())),
@@ -360,7 +373,7 @@ class DuckDBTacticalV2SourceRepository:
             connection.execute(
                 """
                 SELECT round_number, event_id, tick, attacker_player_id, victim_player_id,
-                       attacker_team_id, victim_team_id, is_teamkill, is_suicide, game_time
+                       attacker_team_id, victim_team_id, is_teamkill, is_suicide, game_time, weapon
                 FROM kills WHERE match_id = ? AND round_number IS NOT NULL
                 ORDER BY round_number, tick, event_id
                 """,

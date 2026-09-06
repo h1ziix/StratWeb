@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.0] - 2026-09-06
+
+### Added
+
+- Shared opponent navigation, map chips, and atomic confirmation of unambiguous matched teams.
+- Previous/next round controls, bracket hotkeys, and five-second demo-time seeking.
+- Evidence-backed attack pace, Mirage approach corridors, and early AWP-shot hotspots.
+- Map-scoped tactical cards in the coach stratbook and printable/copyable cheat sheet.
+
+### Correctness
+
+- Tactical rules advance to `tactical_intelligence_v2.3.0`; older runs remain stored.
+- Seconds require consistent source event clocks. Legacy missing clocks remain unavailable.
+- A rush needs early site presence or plant evidence; one moving player never proves a split.
+- AWP shots use actual weapon events and nearby positions, not freeze-end inventory.
+- Existing tables already store all inputs and versioned insight payloads; no schema migration
+  or rewriting of migrations 001–034 is needed.
+
 ## [0.27.1] - 2026-09-04
 
 ### Changed

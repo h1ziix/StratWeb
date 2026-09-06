@@ -44,6 +44,7 @@ from stratweb.tactical_v2.models import (
     TacticalV2Run,
     TacticalV2Summary,
 )
+from stratweb.tactical_v2.pace import DEPTH_RULE_VERSION, compute_depth_facts
 from stratweb.tactical_v2.setups import compute_ct_setups, ct_setup_role_metrics
 
 
@@ -88,6 +89,7 @@ class TacticalV2Engine:
             canonical_json(selected.model_dump(mode="json")).encode()
         ).hexdigest()
         families = (
+            self._depth(matches),
             self._ct_setups(matches, selected),
             self._paths(matches, selected),
             self._executes(matches, selected),
@@ -196,6 +198,74 @@ class TacticalV2Engine:
             insights=insights,
             warnings=tuple(sorted(warnings)),
         )
+
+    def _depth(
+        self, matches: tuple[TacticalMatchInput, ...]
+    ) -> tuple[tuple[_Draft, ...], dict[TacticalInsightType, TacticalCapability]]:
+        facts = compute_depth_facts(matches)
+        populations: Counter[tuple[TacticalInsightType, str, Side, str]] = Counter(
+            (fact.kind, fact.map_name, fact.side, fact.population) for fact in facts
+        )
+        drafts: list[_Draft] = []
+        for key in sorted(
+            {(fact.kind, fact.map_name, fact.side, fact.population, fact.key) for fact in facts}
+        ):
+            kind, map_name, side, population, category = key
+            values = tuple(
+                fact
+                for fact in facts
+                if (fact.kind, fact.map_name, fact.side, fact.population, fact.key) == key
+            )
+            drafts.append(
+                _Draft(
+                    insight_type=kind,
+                    map_name=map_name,
+                    side=side,
+                    key=category,
+                    label=values[0].label,
+                    numerator=len(values),
+                    denominator=populations[(kind, map_name, side, population)],
+                    metrics={"rule_version": DEPTH_RULE_VERSION, "population": population},
+                    evidence=tuple(value.evidence for value in values),
+                    limitations=(
+                        "Доля рассчитана по наблюдаемым случаям с согласованным игровым временем.",
+                        "Контакт не доказывает намерение команды; "
+                        "поздний контакт не обязательно означает выход на плент.",
+                        "Проходы описывают позиции за 12 секунд до установки; "
+                        "неизвестные маршруты не считаются отсутствующими.",
+                        "AWP: первый выстрел или подтверждённый контакт из AWP до 0:12. "
+                        "Выстрел не доказывает видимость цели.",
+                    ),
+                    availability=TacticalAvailability.PARTIAL,
+                )
+            )
+        capabilities = {}
+        for kind in (
+            TacticalInsightType.ATTACK_PACE,
+            TacticalInsightType.SITE_HIT,
+            TacticalInsightType.AWP_OPENING,
+        ):
+            eligible = sum(
+                1
+                for match in matches
+                for item in _eligible_rounds(match)
+                if kind is TacticalInsightType.AWP_OPENING or item.side is Side.T
+            )
+            covered = len(
+                {
+                    (fact.evidence.match_id, fact.evidence.round_number)
+                    for fact in facts
+                    if fact.kind is kind
+                }
+            )
+            capabilities[kind] = _capability(
+                eligible,
+                covered,
+                sum(draft.insight_type is kind for draft in drafts),
+                "Нужны доступные контакты, игровое время и позиции; "
+                "отсутствие наблюдения не означает отсутствие действия.",
+            )
+        return tuple(drafts), capabilities
 
     def _ct_setups(
         self, matches: tuple[TacticalMatchInput, ...], config: TacticalV2Config

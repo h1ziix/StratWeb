@@ -6,6 +6,7 @@
 {% endblock %}
 {% block content_class %}report-shell tactical-shell{% endblock %}
 {% block content %}
+{% from 'opponents/subnav.html' import opponent_tabs %}{{ opponent_tabs(profile, 'setup', page_view.filters.map_name if page_view else None) }}
 <nav class="breadcrumbs"><a href="/ui/opponents">{{ t('nav.opponents') }}</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / {{ t('tactical.breadcrumb') }}</nav>
 <section class="page-heading tactical-heading">
   <div><p class="eyebrow">{{ t('tactical.eyebrow') }}</p><h1>{{ profile.display_name }}</h1><p>{{ t('tactical.intro') }}</p></div>

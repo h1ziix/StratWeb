@@ -1112,6 +1112,10 @@ def test_pattern_service_persistence_and_feature_cascade(
         assert "Что ждать за атаку" in cheat_sheet_page.text
         assert "Что сыграть против них" in cheat_sheet_page.text
         assert "cheat-sheet.js" in cheat_sheet_page.text
+        assert 'class="map-chips"' in cheat_sheet_page.text
+        assert '<select name="map">' not in cheat_sheet_page.text
+        assert 'aria-label="Разделы соперника"' in cheat_sheet_page.text
+        assert "Темп атаки, направления и ранняя AWP" in cheat_sheet_page.text
         assert "strategy_fingerprint" not in cheat_sheet_page.text
         missing_map_cheat_sheet = client.get(
             f"/ui/opponents/{profile_id}/cheat-sheet",

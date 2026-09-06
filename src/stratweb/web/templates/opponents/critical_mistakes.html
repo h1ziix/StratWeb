@@ -2,6 +2,7 @@
 {% block title %}Критические ошибки · {{ profile.display_name }} · StratWeb{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/critical-mistakes.css') }}">{% endblock %}
 {% block content %}
+{% from 'opponents/subnav.html' import opponent_tabs %}{{ opponent_tabs(profile, 'mistakes') }}
 <nav class="breadcrumbs"><a href="/ui/opponents">Соперники</a> / <a href="/ui/opponents/{{ profile.profile_id }}">{{ profile.display_name }}</a> / Критические ошибки</nav>
 <section class="critical-hero">
   <div><p class="eyebrow">Быстрый разбор раундов</p><h1>Критические ошибки</h1><p>Только ситуации, которые подтверждены событиями демки. Откройте нужный тип — и сразу получите раунды для разбора.</p></div>

@@ -1,0 +1,18 @@
+<section class="tactical-depth" aria-label="Темп и направления игры" data-cheat-copy-section>
+  <p class="eyebrow">{{ depth_map|map_name }} · Подготовка к матчу</p>
+  <h2>Темп атаки, направления и ранняя AWP</h2>
+  <p>Доли относятся к наблюдаемым случаям на этой карте. Ранний контакт и выстрел не доказывают замысел команды.</p>
+  {% if depth_insights %}<div class="tactical-depth-grid">
+  {% for kind, title in [('attack_pace', 'Темп атаки'), ('site_hit', 'Направления перед установкой'), ('awp_opening', 'Ранние позиции AWP')] %}
+    {% set items = depth_insights|selectattr('insight_type', 'equalto', kind)|sort(attribute='frequency', reverse=True)|list %}
+    {% set visible = items if kind == 'attack_pace' else items[:3] %}
+    <div><h3>{{ title }}</h3>{% for item in visible %}<article data-cheat-copy-item data-cheat-copy-text="{{ item.label }} — {{ (item.frequency * 100)|round|int }}% наблюдаемых случаев">
+      <p>{{ item.label }}</p><strong>{{ (item.frequency * 100)|round|int }}%</strong>
+      <p>{{ item.numerator }} из {{ item.denominator }} наблюдаемых случаев · {{ 'Атака' if item.side.value == 'T' else 'Защита' }}</p>
+      {% if item.small_sample_warning %}<small>Малая выборка — используйте как гипотезу.</small>{% endif %}
+      <p><a href="/ui/opponents/{{ workspace.profile.profile_id }}/tactical-v2/insights/{{ item.insight_id }}/evidence?run_id={{ item.tactical_run_id }}">Показать раунды</a></p>
+      <details><summary>Как это определено</summary>{% for limitation in item.limitations %}<p>{{ limitation }}</p>{% endfor %}</details>
+    </article>{% else %}<p>Наблюдений пока недостаточно.</p>{% endfor %}</div>
+  {% endfor %}</div>{% else %}<p>Подтверждённые наблюдения пока не готовы. Расчёт проверит время событий, позиции и оружие в выбранных матчах. Если после расчёта карточки не появились, данных для этих выводов недостаточно. В старых импортах может отсутствовать игровое время — им нужна повторная обработка исходной демки.</p>{% endif %}
+  <form method="post" action="/api/opponents/{{ workspace.profile.profile_id }}/tactical-v2/compute?return_to={{ depth_return }}&amp;map={{ depth_map|urlencode }}" data-submit-feedback><button type="submit" class="secondary" data-loading-label="Проверяем события…">Обновить тактические наблюдения</button></form>
+</section>

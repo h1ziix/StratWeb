@@ -1,0 +1,9 @@
+{% macro opponent_tabs(profile, active, selected_map=None) -%}
+{% set suffix = ('?map=' ~ (selected_map|urlencode)) if selected_map else '' %}
+<nav class="opponent-tabs" aria-label="Разделы соперника">
+{% for key, label, path in [('workspace', 'Матчи и состав', ''), ('cheat', '🗺 Шпаргалка', '/cheat-sheet'), ('report', '📋 Стратбук', '/report'), ('setup', '🎯 Расстановка CT', '/tactical-v2'), ('mistakes', '⚠️ Ошибки', '/critical-mistakes'), ('h2h', '⚔️ Мы против них', '/head-to-head')] %}
+{% if profile.subject_type != 'player' or key in ['workspace', 'cheat', 'report'] %}
+<a href="/ui/opponents/{{ profile.profile_id }}{{ path }}{{ suffix if key in ['cheat', 'report', 'setup'] else '' }}{{ '#ct-setup' if key == 'setup' else '' }}"{% if active == key %} aria-current="page" class="is-active"{% endif %}>{{ label }}</a>
+{% endif %}{% endfor %}
+</nav>
+{%- endmacro %}

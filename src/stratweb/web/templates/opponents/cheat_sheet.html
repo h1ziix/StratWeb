@@ -3,6 +3,7 @@
 {% block head %}<link rel="stylesheet" href="{{ static_asset('css/cheat-sheet.css') }}">{% endblock %}
 {% block content_class %}cheat-sheet-shell{% endblock %}
 {% block content %}
+{% from 'opponents/subnav.html' import opponent_tabs %}{{ opponent_tabs(workspace.profile, 'cheat', cheat_sheet.map_name if cheat_sheet else None) }}
 {% if not cheat_sheet %}
 <section class="cheat-unavailable"><p class="eyebrow">План на матч</p><h1>Шпаргалка пока недоступна</h1><p>{{ unavailable_reason }}</p><a class="button secondary" href="/ui/opponents/{{ workspace.profile.profile_id }}">Вернуться к сопернику</a></section>
 {% else %}
@@ -17,11 +18,7 @@
   </header>
 
   <nav class="cheat-actions" aria-label="Действия со шпаргалкой">
-    <form method="get" action="/ui/opponents/{{ cheat_sheet.profile_id }}/cheat-sheet">
-      <input type="hidden" name="run_id" value="{{ cheat_sheet.strategy_run_id }}">
-      <label>Карта<select name="map">{% for map_name in cheat_sheet.available_maps %}<option value="{{ map_name }}" {% if map_name == cheat_sheet.map_name %}selected{% endif %}>{{ map_name|map_name }}</option>{% endfor %}</select></label>
-      <button class="secondary" type="submit">Открыть</button>
-    </form>
+    <div class="map-chips" aria-label="Выбрать карту">{% for map_name in cheat_sheet.available_maps %}<a href="/ui/opponents/{{ cheat_sheet.profile_id }}/cheat-sheet?run_id={{ cheat_sheet.strategy_run_id }}&amp;map={{ map_name|urlencode }}"{% if map_name == cheat_sheet.map_name %} aria-current="page"{% endif %}>{{ map_name|map_name }}</a>{% endfor %}</div>
     <div><button id="copyCheatSheet" type="button">Скопировать план</button><button id="printCheatSheet" class="secondary" type="button">Распечатать</button><a class="button secondary" href="{{ cheat_sheet.source_report_href }}">Полный отчёт</a></div>
     <span id="cheatSheetStatus" role="status" aria-live="polite"></span>
   </nav>
@@ -66,6 +63,8 @@
     </div>
   </section>
   {% endif %}
+
+  {% if workspace.profile.subject_type == 'team' %}{% set depth_map = cheat_sheet.map_name %}{% set depth_return = 'cheat-sheet' %}{% include 'opponents/tactical_depth.html' %}{% endif %}
 
   <section class="cheat-responses" data-cheat-copy-section>
     <header><p>Готовые ответы</p><h2>Что сыграть против них</h2></header>

@@ -166,12 +166,17 @@ class DuckDBOpponentRepository:
             raise PersistenceError(f"Could not delete opponent profile {profile_id}.") from exc
 
     def save_selection(self, selection: OpponentMatchSelection) -> None:
+        self.save_selections((selection,))
+
+    def save_selections(self, selections: tuple[OpponentMatchSelection, ...]) -> None:
+        if not selections:
+            return
         self.initialize()
         try:
             with duckdb.connect(str(self._database_path), read_only=False) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
-                    connection.execute(
+                    connection.executemany(
                         """
                         INSERT INTO opponent_match_selections (
                             profile_id, match_id, team_id, selection_source, created_at
@@ -182,16 +187,22 @@ class DuckDBOpponentRepository:
                             created_at = excluded.created_at
                         """,
                         [
-                            selection.profile_id,
-                            selection.match_id,
-                            selection.team_id,
-                            selection.selection_source.value,
-                            _utc_naive(selection.created_at),
+                            [
+                                selection.profile_id,
+                                selection.match_id,
+                                selection.team_id,
+                                selection.selection_source.value,
+                                _utc_naive(selection.created_at),
+                            ]
+                            for selection in selections
                         ],
                     )
-                    connection.execute(
+                    connection.executemany(
                         "UPDATE opponent_profiles SET updated_at = ? WHERE profile_id = ?",
-                        [_utc_naive(selection.created_at), selection.profile_id],
+                        [
+                            [_utc_naive(selection.created_at), selection.profile_id]
+                            for selection in selections
+                        ],
                     )
                     connection.execute("COMMIT")
                 except Exception:
