@@ -33,6 +33,13 @@ _validate_catalogs()
 
 _WARNING_LABELS: Final[dict[str, str]] = {
     "match is ready": "Матч готов",
+    (
+        "no match team is confirmed. roster overlap remains unscored until the first "
+        "manual selection."
+    ): (
+        "Сначала подтвердите команду хотя бы в одном матче. После этого StratWeb сможет "
+        "сравнивать составы остальных демок."
+    ),
     "waiting for the local import worker": "Ожидание локальной обработки",
     "assigning version-pinned map zones": "Определение зон карты",
     "materializing deterministic per-round facts": "Расчёт фактов по раундам",
@@ -290,6 +297,16 @@ def warning_label(value: object, *, locale: str = DEFAULT_LOCALE) -> str:
             if locale == "ru"
             else f"Player summaries: {match.group(1)}"
         )
+    if match := re.fullmatch(
+        r"(\d+) player occurrence\(s\) have no steam id and were not merged by nickname\.",
+        normalized,
+    ):
+        if locale == "ru":
+            return (
+                f"Игроков без Steam ID: {match.group(1)}. "
+                "Одинаковые ники не объединялись автоматически."
+            )
+        return raw
     if match := re.fullmatch(r"(\d+) authoritative samples", normalized):
         return (
             f"Подтверждённых снимков: {match.group(1)}"

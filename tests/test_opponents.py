@@ -339,10 +339,14 @@ def test_opponent_ui_create_confirm_and_remove_flow(
 
     assert library.status_code == 200
     assert "Соперники" in library.text
+    assert 'class="app-content opponent-library-page"' in library.text
+    assert 'id="new-opponent"' in library.text
     assert created.status_code == 201
     assert team_label.status_code == 200
     assert assigned.status_code == 200
     assert workspace.status_code == 200
+    assert 'class="app-content opponent-workspace-page"' in workspace.text
+    assert 'class="page-heading product-hero workspace-hero"' in workspace.text
     assert "UI Opponent" in workspace.text
     assert "faceit.dem" not in workspace.text
     assert "Alpha" in workspace.text

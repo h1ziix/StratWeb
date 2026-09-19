@@ -1,22 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Матчи · StratWeb{% endblock %}
+{% block content_class %}product-library-page{% endblock %}
 {% block content %}
-<section class="page-heading">
-  <div><p class="eyebrow">Только завершённые демо</p><h1>Библиотека матчей</h1>
-  <p>Здесь хранятся импортированные матчи для офлайн-разбора. StratWeb не читает данные активной игры.</p></div>
+<section class="page-heading product-hero product-hero--library">
+  <div class="product-hero__copy"><p class="eyebrow">Офлайн-разбор завершённых матчей</p><h1>Библиотека матчей</h1>
+  <p>Выберите готовый матч или добавьте несколько демок соперника. Активная игра никогда не читается.</p></div>
+  <div class="product-hero__summary" aria-label="Сводка библиотеки">
+    <span><strong>{{ matches|length }}</strong> матчей на экране</span>
+    <span><strong>{{ opponent_profiles|length }}</strong> профилей соперников</span>
+    <a class="button" href="#import-demos">Добавить демки</a>
+  </div>
 </section>
 
-<form class="library-tools" method="get" action="/ui" role="search">
-  <label>Поиск<input name="search" value="{{ search }}" placeholder="Карта или команда"></label>
-  <label>Сортировка<select name="sort">
-    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Сначала новые</option>
-    <option value="map" {% if sort == 'map' %}selected{% endif %}>По карте</option>
-    <option value="rounds" {% if sort == 'rounds' %}selected{% endif %}>По раундам</option>
-  </select></label>
-  <button type="submit">Применить</button>
-</form>
+<section class="product-toolbar" aria-label="Поиск и сортировка матчей">
+  <form class="library-tools" method="get" action="/ui" role="search">
+    <label><span>Найти матч</span><input name="search" value="{{ search }}" placeholder="Карта, команда или файл"></label>
+    <label><span>Порядок</span><select name="sort">
+      <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Сначала новые</option>
+      <option value="map" {% if sort == 'map' %}selected{% endif %}>По карте</option>
+      <option value="rounds" {% if sort == 'rounds' %}selected{% endif %}>По раундам</option>
+    </select></label>
+    <button class="secondary" type="submit">Показать</button>
+  </form>
+</section>
 
-<details class="import-panel bulk-import-panel" open><summary>Загрузить демки соперника</summary>
+<details class="import-panel bulk-import-panel product-disclosure shell-disclosure" id="import-demos"><summary><span><strong>Загрузить демки соперника</strong><small>Несколько .dem, папка или ZIP — одним тренировочным пулом</small></span></summary>
+  <div class="product-disclosure__content">
   <form action="/api/import-batches" method="post" enctype="multipart/form-data" data-bulk-import-form>
     <div class="bulk-import-fields">
       <label>Название пула / соперника<input name="pool_name" maxlength="100" placeholder="Например: Пракк против Falcons" required></label>
@@ -40,11 +49,12 @@
       <button type="submit">Загрузить и обработать</button>
     </form>
   </details>
+  </div>
 </details>
 
 {% if recent_batches %}
 <section class="recent-batches" aria-label="Последние тренировочные пулы">
-  <div class="section-heading"><h2>Тренировочные пулы</h2><span>Несколько матчей одного соперника</span></div>
+  <div class="section-heading"><div><p class="eyebrow">Пакетный импорт</p><h2>Тренировочные пулы</h2></div><span>Несколько матчей одного соперника</span></div>
   <div class="opponent-grid">
   {% for pool in recent_batches %}
     <article class="opponent-card">
@@ -59,7 +69,7 @@
 
 {% if recent_jobs %}
 <section class="recent-jobs" aria-label="Последние загрузки">
-  <div class="section-heading"><h2>Последние загрузки</h2><span>Состояние обработки</span></div>
+  <div class="section-heading"><div><p class="eyebrow">Очередь</p><h2>Последние загрузки</h2></div><span>Состояние обработки</span></div>
   <div class="recent-job-list">
   {% for job in recent_jobs %}
     <article class="recent-job">
@@ -74,6 +84,7 @@
 {% endif %}
 
 {% if matches %}
+<div class="section-heading library-match-heading"><div><p class="eyebrow">Готово к просмотру</p><h2>Сохранённые матчи</h2></div><span>Откройте матч, чтобы перейти к раундам и 2D-карте</span></div>
 <section class="match-grid" aria-label="Сохранённые матчи">
 {% for item in matches %}
   <article class="match-card">

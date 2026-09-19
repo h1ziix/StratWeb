@@ -105,6 +105,13 @@ def test_russian_presentation_hides_technical_placeholders() -> None:
     assert team_display_name("TeamBravo · CT") == "Команда 2 · CT"
     assert map_display_name("de_dust2") == "Dust II"
     assert warning_label("Match is ready") == "Матч готов"
+    assert warning_label(
+        "No match team is confirmed. Roster overlap remains unscored until the first "
+        "manual selection."
+    ).startswith("Сначала подтвердите команду")
+    assert "Игроков без Steam ID: 2" in warning_label(
+        "2 player occurrence(s) have no Steam ID and were not merged by nickname."
+    )
     assert warning_label("10 player summaries") == "Игроков в статистике: 10"
     assert warning_label("9037 authoritative samples") == "Подтверждённых снимков: 9037"
 

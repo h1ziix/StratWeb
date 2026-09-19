@@ -66,16 +66,31 @@
     });
   }
 
+  function openTargetDisclosure(documentLike, locationLike) {
+    const hash = locationLike.hash || "";
+    if (!hash.startsWith("#") || hash.length === 1) return null;
+    let target = null;
+    try {
+      target = documentLike.getElementById(decodeURIComponent(hash.slice(1)));
+    } catch (_error) {
+      return null;
+    }
+    if (target?.tagName === "DETAILS") target.open = true;
+    return target;
+  }
+
   window.StratWebShell = {
     applyActiveNavigation,
     bindCompactMatchNavigation,
     navigationScore,
+    openTargetDisclosure,
     resolveActiveLink,
   };
   if (typeof document !== "undefined") {
     const apply = () => {
       applyActiveNavigation(document, window.location);
       bindCompactMatchNavigation(document);
+      openTargetDisclosure(document, window.location);
     };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", apply, { once: true });

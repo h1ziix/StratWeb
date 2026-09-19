@@ -50,6 +50,13 @@ if (active("/ui/matches/m1/economy") !== economy) {
 if (active("/api/economy/m1") !== null) {
   throw new Error("unrelated API route received an active navigation item");
 }
+const disclosure = { tagName: "DETAILS", open: false };
+const targetDocument = { getElementById: (id) => id === "upload" ? disclosure : null };
+window.StratWebShell.openTargetDisclosure(targetDocument, { hash: "#upload" });
+if (!disclosure.open) throw new Error("target disclosure stayed closed");
+if (window.StratWebShell.openTargetDisclosure(targetDocument, { hash: "#missing" }) !== null) {
+  throw new Error("missing hash target was invented");
+}
 """
     _run_node(source, STATIC_JS / "shell-nav.js")
 

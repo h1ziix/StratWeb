@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.29.1] - 2026-09-20
+
+### Changed
+
+- Match library, opponent library and opponent workspace now share the compact matte product
+  shell introduced by the Coachbook dashboard.
+- Upload, profile creation and profile settings stay available without dominating the primary
+  review flow.
+- Match and opponent cards use one action hierarchy, denser information layout and consistent
+  desktop/mobile responsive rules.
+- Global navigation, match overview and demo-readiness pages now use the same shell chrome.
+
+### Safety
+
+- This update changes only Jinja templates, CSS, presentation tests and documentation.
+- Analytics, persisted data, API contracts and DuckDB migrations remain unchanged.
+
 ## [0.28.0] - 2026-09-06
 
 ### Added

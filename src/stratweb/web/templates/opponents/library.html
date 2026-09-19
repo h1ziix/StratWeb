@@ -1,15 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Соперники · StratWeb{% endblock %}
+{% block content_class %}opponent-library-page{% endblock %}
 {% block content %}
-<section class="page-heading opponent-library-hero">
-  <div><p class="eyebrow">Стратбуки по завершённым матчам</p><h1>Кого разбираем?</h1>
-  <p>Команда и отдельный игрок — разные цели. StratWeb больше не смешивает их тактики.</p></div>
+<section class="page-heading opponent-library-hero product-hero">
+  <div class="product-hero__copy"><p class="eyebrow">Стратбуки по завершённым матчам</p><h1>Кого разбираем?</h1>
+  <p>Выберите команду или отдельного игрока. Их матчи, выводы и рекомендации не смешиваются.</p></div>
+  <div class="product-hero__summary" aria-label="Сводка соперников">
+    <span><strong>{{ team_profiles|length }}</strong> команд</span>
+    <span><strong>{{ player_profiles|length }}</strong> игроков</span>
+    <a class="button" href="#new-opponent">Новый стратбук</a>
+  </div>
 </section>
-<form class="opponent-create subject-create" method="post" action="/api/opponents">
-  <label>Режим анализа<select name="subject_type"><option value="team">Команда целиком</option><option value="player">Один игрок</option></select></label>
-  <label>Название<input name="display_name" maxlength="100" placeholder="Например: team_fizik или h1ziix" required></label>
-  <button type="submit">Создать стратбук</button>
-</form>
+<details class="product-disclosure shell-disclosure opponent-create-panel" id="new-opponent">
+  <summary><span><strong>Создать новый стратбук</strong><small>Сначала выберите, анализируется команда или один игрок</small></span></summary>
+  <div class="product-disclosure__content">
+    <form class="opponent-create subject-create" method="post" action="/api/opponents">
+      <label>Режим анализа<select name="subject_type"><option value="team">Команда целиком</option><option value="player">Один игрок</option></select></label>
+      <label>Название<input name="display_name" maxlength="100" placeholder="Например: team_fizik или h1ziix" required></label>
+      <button type="submit">Создать стратбук</button>
+    </form>
+  </div>
+</details>
 {% if profiles %}
 <section class="opponent-mode-section"><div class="section-heading"><div><p class="eyebrow">Командный режим</p><h2>Команды</h2></div><span>{{ team_profiles|length }}</span></div>
 <div class="opponent-grid" aria-label="Список команд">
@@ -20,7 +31,7 @@
     <div class="metric-row"><span><strong>{{ item.match_count }}</strong> матчей</span><span><strong>{{ item.identified_player_count }}</strong> игроков со Steam ID</span></div>
     <p class="muted">{% if item.map_names %}{% for map in item.map_names %}{{ map|map_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Подтверждённых карт пока нет{% endif %}</p>
     {% if item.unresolved_occurrence_count %}<p class="warning">Игроков без подтверждённого Steam ID: {{ item.unresolved_occurrence_count }}</p>{% endif %}
-    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть</a>
+    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть команду <span aria-hidden="true">→</span></a>
   </article>
 {% else %}<div class="empty-state"><p>Командных стратбуков пока нет.</p></div>{% endfor %}
 </div></section>
@@ -32,7 +43,7 @@
     <h2>{{ item.profile.target_player_name or item.profile.display_name }}</h2>
     <div class="metric-row"><span><strong>{{ item.match_count }}</strong> матчей</span><span><strong>{{ item.profile.target_steam_id and '✓' or '—' }}</strong> цель</span></div>
     <p class="muted">{% if item.profile.target_steam_id %}Игрок подтверждён по Steam ID{% else %}Выберите игрока после добавления матча{% endif %}</p>
-    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть</a>
+    <a class="button" href="/ui/opponents/{{ item.profile.profile_id }}">Открыть игрока <span aria-hidden="true">→</span></a>
   </article>
 {% else %}<div class="empty-state"><p>Личных стратбуков пока нет.</p></div>{% endfor %}
 </div></section>

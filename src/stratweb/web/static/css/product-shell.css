@@ -1,0 +1,485 @@
+/* Stage 9.15.2 — one product shell for the library, opponents and match pages. */
+
+:root {
+  --shell-canvas: #080c0d;
+  --shell-panel: #111718;
+  --shell-panel-raised: #161c1d;
+  --shell-line: #303a3c;
+  --shell-line-soft: #222b2d;
+  --shell-mint: #83dfca;
+  --shell-muted: #879395;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 0 0, #62d6c01a 0, transparent 29rem),
+    radial-gradient(ellipse at 100% 0, #a4663714 0, transparent 31rem),
+    var(--shell-canvas);
+}
+
+.app-bar {
+  min-height: 58px;
+  padding-inline: max(20px, calc((100% - 1500px) / 2));
+  background: #090d0eed;
+  border-color: #293234;
+  box-shadow: 0 10px 32px #0005;
+}
+
+.brand {
+  position: relative;
+  padding-left: 17px;
+  font-size: 14px;
+}
+
+.brand::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 16px;
+  content: "";
+  background: var(--shell-mint);
+  clip-path: polygon(45% 0, 100% 15%, 70% 44%, 100% 78%, 48% 100%, 0 80%, 28% 51%, 0 19%);
+  filter: drop-shadow(0 0 7px #83dfca70);
+  transform: translateY(-50%);
+}
+
+.primary-nav a {
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.primary-nav a[aria-current="page"] {
+  background: #171e1f;
+  border-color: #354244;
+}
+
+.app-bar__tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+
+.locale-switcher select {
+  min-height: 34px;
+  background: #101718;
+  border-color: #303b3d;
+}
+
+.offline-badge {
+  color: #75d8c1;
+  background: #10241f;
+  border-color: #376a5e;
+  box-shadow: inset 0 1px #ffffff08;
+}
+
+.app-content {
+  max-width: 1500px;
+  padding-top: 24px;
+}
+
+.product-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 310px);
+  align-items: stretch;
+  min-height: 210px;
+  padding: clamp(27px, 4vw, 48px);
+  background: #101617;
+  border-color: #344143;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px #0007, inset 0 1px #ffffff08;
+}
+
+.product-hero::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  content: "";
+  background: var(--shell-mint);
+  box-shadow: 0 0 22px #83dfca55;
+}
+
+.product-hero::after {
+  right: -2rem;
+  bottom: -8rem;
+  width: 28rem;
+  height: 22rem;
+  background: radial-gradient(circle, #65ccb516, transparent 66%);
+}
+
+.product-hero__copy {
+  align-self: center;
+  max-width: 780px;
+}
+
+.product-hero__copy h1 {
+  max-width: none;
+  margin: 5px 0 11px;
+  font-size: clamp(2.45rem, 5vw, 4.7rem);
+  letter-spacing: -.055em;
+}
+
+.product-hero__copy > p:last-child {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 15px;
+}
+
+.product-hero__summary {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  gap: 0;
+  padding-left: clamp(20px, 3vw, 35px);
+  border-left: 1px solid #333d3f;
+}
+
+.product-hero__summary > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 13px;
+  padding: 11px 0;
+  color: var(--shell-muted);
+  border-bottom: 1px solid #293234;
+  font-size: 11px;
+}
+
+.product-hero__summary > span strong {
+  color: #f2f6f6;
+  font-size: 21px;
+  font-weight: 760;
+}
+
+.product-hero__summary > .button {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.product-toolbar {
+  padding: 10px;
+  margin-bottom: 12px;
+  background: #0d1314;
+  border: 1px solid var(--shell-line-soft);
+  border-radius: 12px;
+}
+
+.product-toolbar .library-tools {
+  grid-template-columns: minmax(250px, 1fr) minmax(160px, 220px) auto;
+  margin: 0;
+}
+
+.product-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-toolbar label > span {
+  flex: none;
+  padding-left: 3px;
+  color: #7d898b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.product-toolbar input,
+.product-toolbar select {
+  min-height: 38px;
+  background: #12191a;
+  border-color: #303a3c;
+}
+
+.product-toolbar button { min-height: 38px; }
+
+.shell-disclosure {
+  padding: 0;
+  margin: 0 0 18px;
+  overflow: hidden;
+  background: #0f1516;
+  border: 1px solid #2e383a;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.shell-disclosure > summary {
+  min-height: 62px;
+  padding: 13px 16px;
+}
+
+.shell-disclosure > summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.shell-disclosure > summary strong { color: #e7eded; font-size: 13px; }
+.shell-disclosure > summary small { color: #798587; font-size: 11px; font-weight: 500; }
+.shell-disclosure[open] > summary { background: #141b1c; }
+
+.shell-disclosure > .product-disclosure__content {
+  padding: 20px;
+  background: #0c1213;
+}
+
+.bulk-import-panel form { margin: 0; }
+.bulk-drop-zone {
+  min-height: 150px;
+  background: #111819;
+  border-color: #3b494b;
+  border-style: solid;
+}
+
+.section-heading {
+  margin-top: 37px;
+  margin-bottom: 12px;
+}
+
+.section-heading .eyebrow { margin: 0 0 4px; font-size: 9px; }
+.section-heading h2 { margin: 0; font-size: 20px; }
+.section-heading > span { color: #7d898b; font-size: 11px; }
+
+.product-library-page .match-grid {
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 11px;
+}
+
+.product-library-page .match-card {
+  gap: 10px;
+  padding: 12px;
+  background: #111718;
+  border-color: #303a3c;
+  border-radius: 11px;
+  box-shadow: inset 0 1px #ffffff08;
+}
+
+.product-library-page .match-card:hover {
+  border-color: #5d746f;
+  box-shadow: 0 18px 45px #0006, inset 0 1px #ffffff0b;
+  transform: translateY(-2px);
+}
+
+.product-library-page .match-map-thumbnail {
+  height: 150px;
+  margin: 0 0 2px;
+  overflow: hidden;
+  background: #0b1011;
+  border: 1px solid #2b3436;
+  border-radius: 8px;
+}
+
+.product-library-page .match-map-thumbnail::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(180deg, transparent 42%, #080c0dcc 100%);
+  pointer-events: none;
+}
+
+.product-library-page .match-map-thumbnail span { z-index: 1; }
+.product-library-page .match-card h2 { font-size: 17px; }
+.product-library-page .scoreline strong { font-size: 29px; }
+.product-library-page .card-actions { justify-content: space-between; }
+.product-library-page .card-actions .button { min-height: 36px; padding: 7px 11px; font-size: 11px; }
+.product-library-page .match-card__technical { margin-top: 1px; }
+.product-library-page .match-card__technical > summary { color: #758183; font-size: 10px; }
+
+.recent-job {
+  min-height: 58px;
+  padding: 9px 12px;
+  background: #111718;
+  border-color: #2e383a;
+  border-radius: 9px;
+}
+
+.recent-job .button { min-height: 34px; font-size: 11px; }
+
+.opponent-create-panel { margin-bottom: 28px; }
+.opponent-create-panel .opponent-create { margin: 0; }
+
+.opponent-mode-section { margin-top: 32px; }
+.opponent-mode-section .opponent-grid { gap: 11px; }
+
+.opponent-library-page .opponent-card {
+  position: relative;
+  gap: 10px;
+  min-height: 245px;
+  padding: 18px;
+  background: #111718;
+  border-color: #303a3c;
+  border-radius: 11px;
+}
+
+.opponent-library-page .opponent-card::before {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  left: 18px;
+  height: 2px;
+  content: "";
+  background: #59bca6;
+  opacity: .8;
+}
+
+.opponent-library-page .opponent-card.player-card::before { background: #7295bf; }
+.opponent-library-page .opponent-card h2 { font-size: 25px; }
+.opponent-library-page .opponent-card .eyebrow { margin: 0; font-size: 9px; }
+.opponent-library-page .opponent-card .metric-row { padding: 12px 0; border-block: 1px solid #283133; }
+.opponent-library-page .opponent-card .metric-row strong { font-size: 18px; }
+.opponent-library-page .opponent-card > .button { align-self: end; margin-top: auto; }
+
+.opponent-tabs {
+  gap: 2px;
+  padding: 4px;
+  margin-bottom: 14px;
+  background: #0d1314;
+  border-color: #293335;
+  border-radius: 9px;
+  scrollbar-width: none;
+}
+
+.opponent-tabs::-webkit-scrollbar { display: none; }
+.opponent-tabs a {
+  padding: 8px 11px;
+  color: #899496;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.opponent-tabs [aria-current] {
+  color: #eaf1f0;
+  background: #222a2b;
+  box-shadow: inset 0 -2px var(--shell-mint);
+}
+
+.opponent-workspace-page .breadcrumbs { margin: 2px 0 12px; color: #6f7a7c; font-size: 11px; }
+.opponent-workspace-page .workspace-hero { margin-bottom: 12px; }
+.workspace-hero__summary .workspace-actions-menu { margin-top: 10px; }
+.workspace-hero__summary .workspace-actions-menu > summary {
+  color: #819092;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+}
+.workspace-hero__summary .workspace-actions-menu > div { right: 0; left: auto; }
+
+.workspace-settings {
+  max-width: none;
+  padding: 0;
+  margin: 0 0 15px;
+  overflow: hidden;
+  background: #0f1516;
+  border-color: #293335;
+  border-radius: 10px;
+}
+
+.workspace-settings > summary { padding: 13px 15px; font-size: 11px; }
+.workspace-settings .opponent-create { padding: 0 15px 15px; }
+
+.workspace-panel {
+  padding: 18px;
+  margin-top: 12px;
+  background: #0e1415;
+  border: 1px solid #293335;
+  border-radius: 12px;
+}
+
+.workspace-panel > .section-heading { margin: 0 0 14px; }
+
+.selected-match {
+  grid-template-columns: minmax(120px, .6fr) minmax(240px, 1.5fr) minmax(70px, .35fr) auto;
+  min-height: 72px;
+  padding: 11px 13px;
+  background: #141a1b;
+  border-color: #303a3c;
+  border-radius: 8px;
+}
+
+.selected-match-actions button { min-height: 33px; font-size: 10px; }
+
+.workspace-panel .table-wrap {
+  background: #111718;
+  border-color: #303a3c;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.candidate-match {
+  padding: 13px;
+  background: #111718;
+  border-color: #303a3c;
+  border-radius: 9px;
+}
+
+.candidate-team { background: #151c1d; border-radius: 8px; }
+.candidate-team button { min-height: 35px; font-size: 11px; }
+
+/* Match hub and diagnostics keep their own composition, but use the same chrome. */
+.match-hub-page,
+.readiness-page { max-width: 1450px; }
+
+.match-hub-page .match-hub-hero,
+.readiness-page .readiness-hero {
+  border-color: #344143;
+  box-shadow: 0 24px 70px #0007, inset 0 1px #ffffff08;
+}
+
+@media (max-width: 900px) {
+  .product-hero { grid-template-columns: 1fr; }
+  .product-hero__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    padding: 18px 0 0;
+    margin-top: 22px;
+    border-top: 1px solid #333d3f;
+    border-left: 0;
+  }
+  .product-hero__summary > .button { grid-column: 1 / -1; }
+  .selected-match { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .selected-match-actions { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 800px) {
+  .app-bar { min-height: 54px; }
+  .app-bar__tools { margin-left: auto; }
+  .locale-switcher > span { display: none; }
+  .product-toolbar .library-tools { grid-template-columns: 1fr 160px auto; }
+  .product-toolbar label { display: grid; gap: 4px; }
+  .bulk-import-fields,
+  .opponent-create.subject-create { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .app-bar { gap: 10px; padding-inline: 10px; }
+  .app-bar__tools { gap: 6px; }
+  .locale-switcher select { min-width: 76px; }
+  .product-hero { min-height: 0; padding: 25px 21px; border-radius: 14px; }
+  .product-hero__copy h1 { font-size: clamp(2.25rem, 13vw, 3.45rem); }
+  .product-hero__copy > p:last-child { font-size: 13px; }
+  .product-hero__summary { grid-template-columns: 1fr; }
+  .product-hero__summary > .button { grid-column: auto; }
+  .product-toolbar .library-tools { grid-template-columns: 1fr; }
+  .product-toolbar button { width: 100%; }
+  .shell-disclosure > .product-disclosure__content { padding: 13px; }
+  .bulk-drop-zone { min-height: 180px; }
+  .product-library-page .match-grid,
+  .opponent-library-page .opponent-grid { grid-template-columns: 1fr; }
+  .workspace-panel { padding: 13px; }
+  .selected-match { grid-template-columns: 1fr 1fr; }
+  .selected-match > div:nth-child(2),
+  .selected-match-actions { grid-column: 1 / -1; }
+  .candidate-teams { grid-template-columns: 1fr; }
+  .opponent-tabs { margin-inline: -2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand::before { filter: none; }
+}

@@ -46,6 +46,13 @@ def test_match_library_empty_and_persisted_match_navigation(
         diagnostics = client.get(f"/ui/matches/{dataset.match.match_id}/diagnostics")
 
     assert library.status_code == 200
+    assert 'class="app-content product-library-page"' in library.text
+    assert "/static/css/product-shell.css?v=" in library.text
+    assert 'id="import-demos"' in library.text
+    assert (
+        '<details class="import-panel bulk-import-panel product-disclosure shell-disclosure" '
+        'id="import-demos" open>' not in library.text
+    )
     assert "faceit.dem" in library.text
     assert str(dataset.match.match_id).split("-")[0] in library.text
     assert f"/ui/matches/{dataset.match.match_id}" in library.text
@@ -60,6 +67,7 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert 'class="match-nav-more"' in overview.text
     assert '<details class="match-hub-service product-disclosure" open>' not in overview.text
     assert diagnostics.status_code == 200
+    assert "/static/css/product-shell.css?v=" in diagnostics.text
     assert "Качество демки" in diagnostics.text
     assert "Разбор готов" in diagnostics.text
     assert "Разбор без технического шума" in diagnostics.text

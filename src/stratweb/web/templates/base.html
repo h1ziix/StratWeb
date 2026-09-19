@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{{ static_asset('css/opponent-navigation.css') }}">
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ static_asset('css/polish.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('css/product-shell.css') }}">
 </head>
 <body>
   <a class="skip-link" href="#content">{{ t('app.skip_to_content') }}</a>
@@ -22,15 +23,17 @@
       <a href="/ui" data-nav-exact="/ui">{{ t('nav.matches') }}</a>
       <a href="/ui/opponents" data-nav-prefix="/ui/opponents">{{ t('nav.opponents') }}</a>
     </nav>
-    {% if locale_switcher %}
-    <label class="locale-switcher">
-      <span>{{ t('locale.label') }}</span>
-      <select data-locale-switch aria-label="{{ t('locale.label') }}">
-        {% for code in supported_locales %}<option value="{{ code }}" {% if code == ui_locale %}selected{% endif %}>{{ t('locale.' ~ code) }}</option>{% endfor %}
-      </select>
-    </label>
-    {% endif %}
-    <span class="offline-badge">{{ t('app.offline_evidence') }}</span>
+    <div class="app-bar__tools">
+      {% if locale_switcher %}
+      <label class="locale-switcher">
+        <span>{{ t('locale.label') }}</span>
+        <select data-locale-switch aria-label="{{ t('locale.label') }}">
+          {% for code in supported_locales %}<option value="{{ code }}" {% if code == ui_locale %}selected{% endif %}>{{ t('locale.' ~ code) }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endif %}
+      <span class="offline-badge">{{ t('app.offline_evidence') }}</span>
+    </div>
   </header>
   {% if match_context %}
   <section class="match-shell" aria-label="{{ t('app.match_context') }}">
