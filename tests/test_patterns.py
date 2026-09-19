@@ -1089,15 +1089,15 @@ def test_pattern_service_persistence_and_feature_cascade(
         )
         assert map_report_page.status_code == 200
         assert "Mirage" in map_report_page.text
-        assert "Показать план на матч" in map_report_page.text
-        assert "Сначала — насколько этому доверять" in map_report_page.text
-        assert "Что они повторяют за атаку" in map_report_page.text
-        assert "Что они повторяют за защиту" in map_report_page.text
-        assert "Пока рано давать готовую тактику" in map_report_page.text
-        assert "data-coach-step" in map_report_page.text
-        assert "data-coach-next" in map_report_page.text
-        assert "data-coach-deck" in map_report_page.text and "hidden" in map_report_page.text
-        assert "Шпаргалка на карту" in map_report_page.text
+        assert "СТРАТЕГИЧЕСКАЯ ОС" in map_report_page.text
+        assert "Что важно знать" in map_report_page.text
+        assert "Как они атакуют" in map_report_page.text
+        assert "Как они защищаются" in map_report_page.text
+        assert "Как сыграть против них" in map_report_page.text
+        assert "data-coach-step" not in map_report_page.text
+        assert "strategy-panel--intelligence" in map_report_page.text
+        assert "strategy-panel--evidence" in map_report_page.text
+        assert "Шпаргалка" in map_report_page.text
         assert "map=de_mirage" in map_report_page.text
         assert "Минимальная оценка Уилсона" not in map_report_page.text
         invalid_map_report = client.get(
