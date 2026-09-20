@@ -12,6 +12,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import stratweb.web.routers.product as product_routes
 from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBTeamNameRepository
 from stratweb.application.import_jobs import LocalImportJobManager
 from stratweb.application.product import _physical_round_score, _physical_winner_label
@@ -75,6 +76,52 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert "dataset_fingerprint" in diagnostics.text
     assert "Исходные данные JSON" in diagnostics.text
     assert '<details class="developer-details" open>' not in diagnostics.text
+
+
+def test_match_library_paginates_and_preserves_filters(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "paginated-library.duckdb"
+    repository = DuckDBMatchRepository(database)
+    datasets = {}
+    for name in ("alpha", "bravo", "charlie"):
+        dataset = canonical_dataset_factory(f"pagination-{name}")
+        datasets[name] = dataset
+        repository.save_match(
+            dataset,
+            source_original_name=f"{name}.dem",
+        )
+    DuckDBTeamNameRepository(database).save(
+        datasets["bravo"].match.match_id,
+        datasets["bravo"].teams[0].team_id,
+        "Falcons",
+        source=TeamNameSource.MANUAL,
+    )
+    monkeypatch.setattr(product_routes, "_MATCH_LIBRARY_PAGE_SIZE", 2, raising=False)
+
+    with TestClient(create_app(database)) as client:
+        first = client.get("/ui", params={"search": ".dem", "sort": "newest", "page": 1})
+        second = client.get("/ui", params={"search": ".dem", "sort": "newest", "page": 2})
+        team_search = client.get("/ui", params={"search": "falcons"})
+        invalid = client.get("/ui", params={"page": 0})
+        beyond_last = client.get("/ui", params={"search": ".dem", "page": 99})
+
+    assert first.status_code == 200
+    assert first.text.count('class="match-card"') == 2
+    assert "Страница 1 из 2" in first.text
+    assert 'href="/ui?search=.dem&amp;sort=newest&amp;page=2"' in first.text
+    assert second.status_code == 200
+    assert second.text.count('class="match-card"') == 1
+    assert "Страница 2 из 2" in second.text
+    assert 'href="/ui?search=.dem&amp;sort=newest&amp;page=1"' in second.text
+    assert team_search.status_code == 200
+    assert team_search.text.count('class="match-card"') == 1
+    assert "bravo.dem" in team_search.text
+    assert invalid.status_code == 422
+    assert beyond_last.status_code == 200
+    assert "Страница 2 из 2" in beyond_last.text
 
 
 def test_manual_faceit_team_label_is_persisted_and_rendered(

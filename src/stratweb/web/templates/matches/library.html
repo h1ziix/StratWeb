@@ -6,7 +6,7 @@
   <div class="product-hero__copy"><p class="eyebrow">Офлайн-разбор завершённых матчей</p><h1>Библиотека матчей</h1>
   <p>Выберите готовый матч или добавьте несколько демок соперника. Активная игра никогда не читается.</p></div>
   <div class="product-hero__summary" aria-label="Сводка библиотеки">
-    <span><strong>{{ matches|length }}</strong> матчей на экране</span>
+    <span><strong>{{ page_view.total_count }}</strong> матчей найдено</span>
     <span><strong>{{ opponent_profiles|length }}</strong> профилей соперников</span>
     <a class="button" href="#import-demos">Добавить демки</a>
   </div>
@@ -112,6 +112,13 @@
   </article>
 {% endfor %}
 </section>
+{% if page_view.page_count > 1 %}
+<nav class="library-pagination" aria-label="Страницы библиотеки матчей">
+  {% if previous_href %}<a class="button secondary" href="{{ previous_href }}">← Назад</a>{% else %}<span></span>{% endif %}
+  <span>Страница {{ page_view.page }} из {{ page_view.page_count }}</span>
+  {% if next_href %}<a class="button secondary" href="{{ next_href }}">Вперёд →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
 {% else %}
 <section class="empty-state"><h2>Матчи не найдены</h2>
   <p>{% if search %}Измените поиск или загрузите другую завершённую демку.{% else %}Загрузите завершённый файл .dem, чтобы добавить первый матч.{% endif %}</p>

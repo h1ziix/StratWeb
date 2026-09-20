@@ -165,6 +165,9 @@ class MatchQueryService:
     def list_matches(self, filters: MatchQueryFilters | None = None) -> tuple[StoredMatch, ...]:
         return self._repository.list_matches(filters or MatchQueryFilters())
 
+    def count_matches(self, filters: MatchQueryFilters | None = None) -> int:
+        return self._repository.count_matches(filters or MatchQueryFilters())
+
     def get_match(self, match_id: UUID) -> StoredMatch:
         match = self._repository.get_match(match_id)
         if match is None:

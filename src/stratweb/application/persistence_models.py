@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -54,6 +55,8 @@ class MatchQueryFilters(PersistenceModel):
     map_name: str | None = None
     source_demo_sha256: Sha256 | None = None
     parser_name: str | None = None
+    search: str = Field(default="", max_length=200)
+    sort: Literal["newest", "map", "rounds"] = "newest"
     limit: int = Field(default=100, ge=1, le=10_000)
     offset: int = Field(default=0, ge=0)
 

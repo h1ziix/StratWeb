@@ -23,6 +23,7 @@ from stratweb.ports import (
 from stratweb.web.view_models import (
     HealthItemView,
     MatchLibraryItemView,
+    MatchLibraryPageView,
     MatchOverviewView,
     PlayerSummaryView,
     RoundStripItemView,
@@ -48,38 +49,30 @@ class ProductQueryService:
         self._team_names = team_names
 
     def list_matches(
-        self, *, search: str = "", sort: str = "newest"
-    ) -> tuple[MatchLibraryItemView, ...]:
+        self,
+        *,
+        search: str = "",
+        sort: str = "newest",
+        page: int = 1,
+        page_size: int = 24,
+    ) -> MatchLibraryPageView:
+        base_filters = MatchQueryFilters(search=search, sort=sort, limit=page_size)
         try:
-            stored = self._matches.list_matches(MatchQueryFilters(limit=10_000))
+            total_count = self._matches.count_matches(base_filters)
         except DatabaseInitializationError:
             self._matches.initialize()
-            stored = self._matches.list_matches(MatchQueryFilters(limit=10_000))
-        normalized = search.casefold().strip()
-        views = tuple(self._library_item(item) for item in stored)
-        if normalized:
-            views = tuple(
-                item
-                for item in views
-                if normalized
-                in " ".join(
-                    (
-                        item.map_name,
-                        item.source_name,
-                        item.short_id,
-                        *(team.name for team in item.teams),
-                    )
-                ).casefold()
-            )
-        if sort == "map":
-            return tuple(
-                sorted(views, key=lambda item: (item.map_name, -item.imported_at.timestamp()))
-            )
-        if sort == "rounds":
-            return tuple(
-                sorted(views, key=lambda item: (-item.round_count, -item.imported_at.timestamp()))
-            )
-        return tuple(sorted(views, key=lambda item: item.imported_at, reverse=True))
+            total_count = self._matches.count_matches(base_filters)
+        page_count = max(1, (total_count + page_size - 1) // page_size)
+        selected_page = min(page, page_count)
+        filters = base_filters.model_copy(update={"offset": (selected_page - 1) * page_size})
+        stored = self._matches.list_matches(filters)
+        return MatchLibraryPageView(
+            items=tuple(self._library_item(item) for item in stored),
+            total_count=total_count,
+            page=selected_page,
+            page_size=page_size,
+            page_count=page_count,
+        )
 
     def overview(self, match_id: UUID) -> MatchOverviewView:
         stored = self._matches.get_match(match_id)

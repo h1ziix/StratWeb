@@ -152,6 +152,46 @@ def _database_identity(path: Path) -> tuple[int, int, int] | None:
     return stat.st_dev, stat.st_ino, stat.st_mtime_ns
 
 
+def _match_query_parts(filters: MatchQueryFilters) -> tuple[str, list[object]]:
+    where: list[str] = []
+    parameters: list[object] = []
+    if filters.map_name is not None:
+        where.append("m.map_name = ?")
+        parameters.append(filters.map_name)
+    if filters.source_demo_sha256 is not None:
+        where.append("m.source_demo_sha256 = ?")
+        parameters.append(filters.source_demo_sha256)
+    if filters.parser_name is not None:
+        where.append("m.parser_name = ?")
+        parameters.append(filters.parser_name)
+    # Keep query normalization identical to DuckDB's lower() normalization below.
+    search = filters.search.lower().strip()
+    if search:
+        where.append(
+            "(contains(lower(coalesce(m.map_name, '')), ?) "
+            "OR contains(lower(coalesce(m.source_original_name, '')), ?) "
+            "OR contains(lower(coalesce(m.server_name, '')), ?) "
+            "OR contains(lower(cast(m.match_id AS VARCHAR)), ?) "
+            "OR EXISTS (SELECT 1 FROM teams t "
+            "LEFT JOIN team_display_labels l "
+            "ON l.match_id=t.match_id AND l.team_id=t.team_id "
+            "WHERE t.match_id=m.match_id AND ("
+            "contains(lower(coalesce(l.display_name, '')), ?) "
+            "OR contains(lower(coalesce(t.display_name, '')), ?) "
+            "OR contains(lower(t.internal_name), ?))))"
+        )
+        parameters.extend([search] * 7)
+    return (" WHERE " + " AND ".join(where) if where else ""), parameters
+
+
+def _match_order(sort: str) -> str:
+    if sort == "map":
+        return "lower(coalesce(m.map_name, '')), m.imported_at DESC, m.match_id"
+    if sort == "rounds":
+        return "m.round_count DESC, m.imported_at DESC, m.match_id"
+    return "m.imported_at DESC, m.match_id"
+
+
 class DuckDBMatchRepository:
     """Owns DuckDB connections; every canonical dataset is one transaction."""
 
@@ -343,28 +383,28 @@ class DuckDBMatchRepository:
         return _stored_match(rows[0]) if rows else None
 
     def list_matches(self, filters: MatchQueryFilters) -> tuple[StoredMatch, ...]:
-        where: list[str] = []
-        parameters: list[object] = []
-        if filters.map_name is not None:
-            where.append("map_name = ?")
-            parameters.append(filters.map_name)
-        if filters.source_demo_sha256 is not None:
-            where.append("source_demo_sha256 = ?")
-            parameters.append(filters.source_demo_sha256)
-        if filters.parser_name is not None:
-            where.append("parser_name = ?")
-            parameters.append(filters.parser_name)
-        clause = " WHERE " + " AND ".join(where) if where else ""
+        clause, parameters = _match_query_parts(filters)
         parameters.extend((filters.limit, filters.offset))
         with self._read_connection() as connection:
             rows = _fetch_dicts(
                 connection,
-                "SELECT * FROM matches"
+                "SELECT m.* FROM matches m"
                 + clause
-                + " ORDER BY imported_at DESC, match_id LIMIT ? OFFSET ?",
+                + " ORDER BY "
+                + _match_order(filters.sort)
+                + " LIMIT ? OFFSET ?",
                 parameters,
             )
         return tuple(_stored_match(row) for row in rows)
+
+    def count_matches(self, filters: MatchQueryFilters) -> int:
+        clause, parameters = _match_query_parts(filters)
+        with self._read_connection() as connection:
+            row = connection.execute(
+                "SELECT count(*) FROM matches m" + clause,
+                parameters,
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
 
     def delete_match(self, match_id: UUID) -> bool:
         self.initialize()

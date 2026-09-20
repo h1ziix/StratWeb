@@ -44,6 +44,14 @@ class MatchLibraryItemView(ViewModel):
     warning_count: int = Field(ge=0)
 
 
+class MatchLibraryPageView(ViewModel):
+    items: tuple[MatchLibraryItemView, ...]
+    total_count: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+    page_count: int = Field(ge=1)
+
+
 class RoundStripItemView(ViewModel):
     round_number: int = Field(ge=1)
     winner: str

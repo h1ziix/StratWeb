@@ -8,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 from shutil import disk_usage
 from typing import Annotated, Any
+from urllib.parse import urlencode
 from uuid import UUID, uuid4
 from zipfile import BadZipFile, ZipFile
 
@@ -59,6 +60,8 @@ from stratweb.web.view_models import (
     build_match_hub,
     build_match_readiness,
 )
+
+_MATCH_LIBRARY_PAGE_SIZE = 24
 
 
 def product_router(
@@ -116,8 +119,15 @@ def product_router(
     def match_library(
         search: Annotated[str, Query(max_length=200)] = "",
         sort: Annotated[str, Query(pattern="^(newest|map|rounds)$")] = "newest",
+        page: Annotated[int, Query(ge=1)] = 1,
     ) -> HTMLResponse:
-        matches = service.list_matches(search=search, sort=sort)
+        page_view = service.list_matches(
+            search=search,
+            sort=sort,
+            page=page,
+            page_size=_MATCH_LIBRARY_PAGE_SIZE,
+        )
+        matches = page_view.items
         thumbnails = {
             item.match_id: _map_overview(
                 item.match_id,
@@ -132,6 +142,17 @@ def product_router(
             render_template(
                 "matches/library.html",
                 matches=matches,
+                page_view=page_view,
+                previous_href=(
+                    _match_library_href(search, sort, page_view.page - 1)
+                    if page_view.page > 1
+                    else None
+                ),
+                next_href=(
+                    _match_library_href(search, sort, page_view.page + 1)
+                    if page_view.page < page_view.page_count
+                    else None
+                ),
                 search=search,
                 sort=sort,
                 map_thumbnails=thumbnails,
@@ -551,6 +572,10 @@ def _overview(service: ProductQueryService, match_id: UUID) -> MatchOverviewView
         return service.overview(match_id)
     except MatchNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def _match_library_href(search: str, sort: str, page: int) -> str:
+    return "/ui?" + urlencode({"search": search, "sort": sort, "page": page})
 
 
 def _match_context(match: MatchLibraryItemView) -> dict[str, Any]:

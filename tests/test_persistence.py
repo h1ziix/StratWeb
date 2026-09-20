@@ -370,6 +370,39 @@ def test_query_service_exposes_counts_players_rounds_events_and_issues(
     assert query.get_validation_issues(dataset.match.match_id)[0].code == "fixture_warning"
 
 
+def test_match_repository_pages_searches_sorts_and_counts_in_database(
+    tmp_path: Path,
+    canonical_dataset_factory: Any,
+) -> None:
+    repository = DuckDBMatchRepository(tmp_path / "paged-matches.duckdb")
+    first = canonical_dataset_factory("paged-alpha")
+    second = canonical_dataset_factory("paged-bravo")
+    third = canonical_dataset_factory("paged-charlie")
+    repository.save_match(first, source_original_name="alpha.dem")
+    repository.save_match(second, source_original_name="Straße.dem")
+    repository.save_match(third, source_original_name="charlie.dem")
+    with duckdb.connect(str(repository.database_path), read_only=False) as connection:
+        connection.execute(
+            "UPDATE matches SET map_name='de_nuke' WHERE match_id=?", [first.match.match_id]
+        )
+        connection.execute(
+            "UPDATE matches SET map_name='de_ancient' WHERE match_id=?",
+            [second.match.match_id],
+        )
+        connection.execute(
+            "UPDATE matches SET map_name='de_mirage' WHERE match_id=?", [third.match.match_id]
+        )
+
+    filters = MatchQueryFilters(search=".dem", sort="map", limit=2, offset=1)
+
+    page = repository.list_matches(filters)
+
+    assert repository.count_matches(filters) == 3
+    assert tuple(item.source_original_name for item in page) == ("charlie.dem", "alpha.dem")
+    unicode_search = repository.list_matches(MatchQueryFilters(search="STRAẞE", limit=10))
+    assert tuple(item.match_id for item in unicode_search) == (second.match.match_id,)
+
+
 def test_blind_events_and_source_clock_round_trip_through_duckdb(
     tmp_path: Path,
     canonical_dataset_factory: Any,

@@ -30,6 +30,7 @@ from stratweb.web.view_models.match_readiness import (
 from stratweb.web.view_models.product import (
     HealthItemView,
     MatchLibraryItemView,
+    MatchLibraryPageView,
     MatchOverviewView,
     PlayerSummaryView,
     RoundStripItemView,
@@ -78,6 +79,7 @@ __all__ = [
     "MatchReadinessView",
     "FeatureCapabilityView",
     "MatchLibraryItemView",
+    "MatchLibraryPageView",
     "MatchHubRoundView",
     "MatchHubSectionView",
     "MatchHubView",
