@@ -17,9 +17,16 @@ uv lock --check
 ```
 
 The gate validates frozen dependencies, formatting, lint, strict typing, non-integration
-tests, application import, the Golden Corpus manifest contract, wheel creation and Docker
-Compose syntax. Golden Corpus data readiness is a separate strict gate because private demos
-and analyst labels are intentionally unavailable in ordinary source CI.
+tests, JavaScript syntax, application import, isolated HTTP smoke for `/health` and `/ui`,
+the Golden Corpus manifest contract, wheel creation and Docker Compose syntax. Golden Corpus
+data readiness is a separate strict gate because private demos and analyst labels are intentionally
+unavailable in ordinary source CI. A successful manifest validation does not mean real-data
+acceptance has passed.
+
+For Product Truth releases also verify that the library consumes the explicit readiness view
+contract (`status`, `severity`, `reasons`, `missing_layers`, `next_action`) and never derives a
+positive badge from `warning_count`. A small-sample recommendation must retain its reliability
+limitation. A blocked finding and a blocked Golden Corpus must not be presented as accepted.
 
 ## Release identity
 

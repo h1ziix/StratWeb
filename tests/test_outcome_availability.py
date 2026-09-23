@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from uuid import UUID
 
@@ -26,6 +27,7 @@ from stratweb.application.round_resolution import RoundResolver
 from stratweb.application.validation import result_availability_issues
 from stratweb.contracts import ParsedDemo, ParserIdentity
 from stratweb.domain.enums import Side
+from stratweb.exceptions import CanonicalImportError
 
 _MATCH_ID = UUID("00000000-0000-0000-0000-000000000451")
 _DEMO_ID = UUID("00000000-0000-0000-0000-000000000452")
@@ -211,7 +213,9 @@ def test_availability_metadata_participates_in_fingerprint(
 
 
 def test_legacy_v1_json_is_upgraded_conservatively() -> None:
-    dataset = load_canonical_dataset(Path("canonical-match.json"))
+    fixture = Path(__file__).parent / "fixtures" / "legacy-canonical-v1.json"
+
+    dataset = load_canonical_dataset(fixture)
 
     assert dataset.schema_version == "1.2.0"
     assert all(round_item.winner_side is None for round_item in dataset.rounds)
@@ -219,3 +223,18 @@ def test_legacy_v1_json_is_upgraded_conservatively() -> None:
     assert any(
         "upgraded from 1.0.0" in warning for warning in dataset.normalization_metadata.warnings
     )
+
+
+def test_legacy_v1_fixture_checksum_is_pinned() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "legacy-canonical-v1.json"
+    expected = fixture.with_suffix(".sha256").read_text(encoding="ascii").strip()
+
+    assert hashlib.sha256(fixture.read_bytes()).hexdigest() == expected
+
+
+def test_corrupted_legacy_v1_json_is_rejected(tmp_path: Path) -> None:
+    corrupted = tmp_path / "legacy-canonical-v1.json"
+    corrupted.write_text('{"schema_version": "1.0.0",', encoding="utf-8")
+
+    with pytest.raises(CanonicalImportError, match="not valid JSON"):
+        load_canonical_dataset(corrupted)

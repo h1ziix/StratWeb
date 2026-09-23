@@ -6,13 +6,20 @@
 
 ## Принципы выполнения
 
-Текущее обновление: Stage 9.14 — Master Polish & Tactical Depth, см. [STAGE_9_14.md](STAGE_9_14.md).
+Текущее обновление: 0.30.0 — Product Truth, см.
+[RELEASE_0_30.md](RELEASE_0_30.md). Каноническая readiness policy находится в
+[STAGE_9_7_2.md](STAGE_9_7_2.md); старые пороги в исторических разделах deprecated.
+Последний завершённый продуктовый этап —
+[Stage 9.15.2](STAGE_9_15_2.md).
 
 - Каждая вертикаль заканчивается тестируемым artifact-ом.
 - Реальный parser API проверяется на зафиксированной версии до написания mapping.
 - Новое поле появляется сначала в canonical contract/schema, затем в adapter-е.
 - Ошибка одной демки не должна ломать batch или повреждать существующую БД.
 - Ни один аналитический вывод не выпускается без evidence.
+- `ready` не выставляется без обязательных аналитических слоёв; `limited` показывает причины и
+  следующий шаг, а `blocked` запрещает рекомендацию.
+- Техническая валидность Golden Corpus manifest не означает product acceptance.
 - Не добавлять frontend, LLM, heatmaps и сложное tactic recognition до прохождения
   базового parsing/normalization corpus.
 

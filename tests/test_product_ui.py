@@ -15,11 +15,77 @@ from fastapi.testclient import TestClient
 import stratweb.web.routers.product as product_routes
 from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBTeamNameRepository
 from stratweb.application.import_jobs import LocalImportJobManager
-from stratweb.application.product import _physical_round_score, _physical_winner_label
+from stratweb.application.product import (
+    _library_readiness,
+    _physical_round_score,
+    _physical_winner_label,
+)
 from stratweb.application.team_names import TeamNameSource
 from stratweb.domain.enums import Side
 from stratweb.main import create_app
 from stratweb.web.routers import product_router
+from stratweb.web.view_models.product import ProductReadinessStatus
+
+
+def test_library_readiness_is_ready_only_with_all_required_layers() -> None:
+    result = _library_readiness(
+        canonical_status="available",
+        analytics_status="available",
+        temporal_status="available",
+        spatial_status="available",
+        warning_count=0,
+    )
+
+    assert result == {
+        "readiness_status": ProductReadinessStatus.READY,
+        "readiness_severity": "available",
+        "readiness_label": "Данные и аналитика готовы",
+        "readiness_reasons": (),
+        "missing_layers": (),
+        "next_action": "Откройте разбор матча.",
+    }
+
+
+@pytest.mark.parametrize(
+    ("missing_layer", "reason"),
+    (
+        ("analytics", "Аналитика ещё не рассчитана"),
+        ("temporal", "Хронология раундов ещё не рассчитана"),
+        ("spatial", "Позиционные данные ещё не рассчитаны"),
+    ),
+)
+def test_library_readiness_is_limited_when_required_layer_is_missing(
+    missing_layer: str,
+    reason: str,
+) -> None:
+    statuses = {"analytics": "available", "temporal": "available", "spatial": "available"}
+    statuses[missing_layer] = "unavailable"
+
+    result = _library_readiness(
+        canonical_status="available",
+        analytics_status=statuses["analytics"],
+        temporal_status=statuses["temporal"],
+        spatial_status=statuses["spatial"],
+        warning_count=0,
+    )
+
+    assert result["readiness_status"] is ProductReadinessStatus.LIMITED
+    assert result["readiness_severity"] == "partial"
+    assert result["missing_layers"] == (missing_layer,)
+    assert result["readiness_reasons"] == (reason,)
+
+
+def test_library_readiness_is_limited_when_import_has_warnings() -> None:
+    result = _library_readiness(
+        canonical_status="available",
+        analytics_status="available",
+        temporal_status="available",
+        spatial_status="available",
+        warning_count=1,
+    )
+
+    assert result["readiness_status"] is ProductReadinessStatus.LIMITED
+    assert result["readiness_reasons"] == ("Импорт или аналитические слои содержат предупреждения",)
 
 
 def test_match_library_empty_and_persisted_match_navigation(
@@ -57,6 +123,8 @@ def test_match_library_empty_and_persisted_match_navigation(
     assert "faceit.dem" in library.text
     assert str(dataset.match.match_id).split("-")[0] in library.text
     assert f"/ui/matches/{dataset.match.match_id}" in library.text
+    assert "Данные готовы" not in library.text
+    assert "Аналитика ещё не рассчитана" in library.text
     assert search.status_code == 200 and "faceit.dem" in search.text
     assert css.status_code == 200 and "--accent" in css.text
     assert overview.status_code == 200

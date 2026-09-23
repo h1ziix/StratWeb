@@ -1,16 +1,19 @@
 # Stage 8.6.1 — Finding Readiness Gate
 
+> **Deprecated policy description.** Канонические пороги и трактовка статусов находятся в
+> [STAGE_9_7_2.md](STAGE_9_7_2.md) и реализованы правилом `finding_readiness_v2`.
+
 Stage 8.6.1 is a deterministic, read-only quality gate between evidence-backed
 findings (Stage 8.6) and future counter-strategy rules (Stage 8.7). It does not
 create tactical interpretations or recommendations.
 
 ## Default policy
 
-- at least 20 included matches in the opponent corpus;
+- 15 matches is the high-reliability threshold; smaller corpora receive an explicit tier;
 - a finding must cover at least 2 different matches;
 - a source pattern marked `partial` blocks recommendation generation;
 - unknown buy type blocks recommendation generation;
-- the source finding's own small-sample warning blocks recommendation generation;
+- the source finding's own small-sample warning is an explicit limitation;
 - a missing evidence tick is a visible limitation by default and can be promoted to
   a blocker with `require_all_evidence_ticks`.
 
@@ -21,7 +24,8 @@ unknown; the gate never infers a buy type or tick.
 ## Result states
 
 - `ready`: no blocker or limitation; eligible for Stage 8.7;
-- `limited`: no blocker, but at least one explicit limitation; not eligible;
+- `limited`: no blocker, but at least one explicit limitation; eligible only as a labelled
+  hypothesis, never as a fully ready or evidence-proven habit;
 - `blocked`: at least one blocking reason; not eligible.
 
 Every record is tied to one immutable `analysis_run_id`. The audit ID is a UUIDv5
@@ -51,3 +55,6 @@ Both surfaces accept explicit thresholds. API computation is read-only.
 `stage_8_7_ready=false` does not mean the parsed match is invalid. It means that
 the current evidence is not strong or complete enough for StratWeb to turn those
 observations into pre-match advice under the selected policy.
+
+This gate is not Golden Corpus acceptance. The repository corpus is technically valid but its
+real-data acceptance remains blocked until confirmed matches and analyst labels exist.

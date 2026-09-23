@@ -100,8 +100,9 @@
     <p class="muted">{{ item.round_count }} раундов</p>
     <div class="card-actions">
       <a class="button" href="/ui/matches/{{ item.match_id }}">Открыть матч</a>
-      {% if item.warning_count %}<span class="status partial">Есть ограничения</span>{% else %}<span class="status available">Данные готовы</span>{% endif %}
+      <span class="status {{ item.readiness_severity }}">{{ item.readiness_label }}</span>
     </div>
+    {% if item.readiness_reasons %}<div class="match-readiness-summary"><ul>{% for reason in item.readiness_reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p class="muted">{{ item.next_action }}</p></div>{% endif %}
     <details class="match-card__technical">
       <summary>Технические сведения</summary>
       <dl><dt>Исходный файл</dt><dd><code>{{ item.source_name }}</code></dd><dt>ID матча</dt><dd><code>{{ item.match_id }}</code></dd></dl>

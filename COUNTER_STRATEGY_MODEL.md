@@ -1,20 +1,23 @@
 # Stage 8.7 — Deterministic Counter-Strategy Rules V1
 
+> Пороговая policy этого исторического документа заменена
+> [STAGE_9_7_2.md](STAGE_9_7_2.md). Код использует `finding_readiness_v2`.
+
 Stage 8.7 converts only readiness-approved Stage 8.6 findings into reproducible
 pre-match hypotheses. It is not an LLM layer and does not read a live match.
 
 ## Hard gate
 
 The engine consumes one immutable Analysis run and one Stage 8.6.1 audit over that
-exact run. A finding is eligible only when its readiness status is `ready`. A
-`limited` or `blocked` finding is written to `skipped_findings` and can never produce
-a recommendation.
+exact run. A `ready` finding has no limitations. A `limited` finding may produce only an
+explicitly labelled hypothesis carrying its limitations. A `blocked` finding is written to
+`skipped_findings` and can never produce a recommendation.
 
 Default readiness policy:
 
-- 20 included opponent matches;
+- 15 matches for high statistical reliability, with explicit lower reliability tiers;
 - at least two evidence matches for an individual finding;
-- no upstream small-sample warning;
+- upstream small-sample warnings remain visible limitations;
 - source pattern is not partial;
 - buy type is known.
 
@@ -84,7 +87,6 @@ Stage 8.8.
 
 ## Current acceptance limitation
 
-The current real profile contains one match, so the correct V1 result is zero
-published recommendations and explicit `finding_not_ready` records. Positive rule
-paths are covered by deterministic synthetic tests. Real recommendation acceptance
-requires a verified corpus of approximately 20 matches for one opponent.
+Real recommendation acceptance still requires a separately accepted Golden Corpus. The repository
+manifest is technically valid but remains `blocked`: it has no confirmed opponent matches or
+analyst labels. Synthetic tests do not replace that product acceptance.

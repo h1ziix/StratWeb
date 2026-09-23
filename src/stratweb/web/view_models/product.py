@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ViewModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ProductReadinessStatus(StrEnum):
+    READY = "ready"
+    LIMITED = "limited"
+    BLOCKED = "blocked"
 
 
 class HealthItemView(ViewModel):
@@ -42,6 +49,12 @@ class MatchLibraryItemView(ViewModel):
     temporal_status: str
     spatial_status: str
     warning_count: int = Field(ge=0)
+    readiness_status: ProductReadinessStatus
+    readiness_severity: str
+    readiness_label: str
+    readiness_reasons: tuple[str, ...]
+    missing_layers: tuple[str, ...]
+    next_action: str
 
 
 class MatchLibraryPageView(ViewModel):

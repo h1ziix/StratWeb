@@ -65,6 +65,7 @@ try {
     )
     Invoke-Checked "Lint" $pythonPath @("-m", "ruff", "check", "src", "tests", "scripts")
     Invoke-Checked "Strict typing" $pythonPath @("-m", "mypy", "src")
+    Invoke-Checked "JavaScript syntax" $pythonPath @("scripts/check_javascript.py")
     if (-not $SkipTests) {
         Invoke-Checked "Non-integration tests" $pythonPath @(
             "-m", "pytest", "-m", "not integration"
@@ -74,6 +75,7 @@ try {
         "-c",
         "import importlib.metadata as metadata; import stratweb; from stratweb.main import create_app; assert metadata.version('stratweb') == stratweb.__version__; assert create_app().title == 'StratWeb'"
     )
+    Invoke-Checked "HTTP smoke" $pythonPath @("scripts/smoke_http.py")
     $packageVersion = (& $pythonPath -c "import stratweb; print(stratweb.__version__)").Trim()
     if ($LASTEXITCODE -ne 0 -or -not $packageVersion) {
         throw "Could not resolve the installed StratWeb version."

@@ -1,10 +1,10 @@
 # StratWeb
 
-Обновление 0.29.1 — Unified Product Shell: библиотека матчей, список соперников,
-рабочее пространство соперника, карточка матча и диагностика теперь используют один
-компактный визуальный язык Coachbook. Большие формы загрузки и настройки убраны во
-вторичный слой, а основным действием стал переход к разбору. Бэкенд и расчёты не
-изменялись. Подробности: [STAGE_9_15_2.md](STAGE_9_15_2.md).
+Обновление 0.30.0 — Product Truth: библиотека отличает импорт, структурную валидность,
+доступность Analytics/Temporal/Spatial, достаточность evidence, допустимость рекомендации и
+real-data corpus acceptance. Неполный матч больше не получает badge «Данные готовы» только из-за
+нулевого `warning_count`. Каноническая policy: [STAGE_9_7_2.md](STAGE_9_7_2.md), подробности
+релиза: [RELEASE_0_30.md](RELEASE_0_30.md).
 
 StratWeb — локальное backend-приложение для доказательного предматчевого анализа
 завершённых Counter-Strike 2 demo-файлов (`.dem`). Оно должно находить повторяемые
@@ -605,8 +605,9 @@ stratweb findings evidence PROFILE_ID FINDING_ID --db .\data\stratweb.duckdb --p
 ```
 
 Stage 8.6.1 проверяет, какие findings вообще допустимо передавать будущим правилам
-рекомендаций. По умолчанию нужны 20 матчей в корпусе, минимум два матча в evidence,
-неpartial источник и известный buy type:
+рекомендаций. Порог высокой надёжности — 15 матчей; меньший corpus получает явный reliability
+tier. Для finding по умолчанию нужны минимум два матча в evidence, неpartial источник и
+известный buy type:
 
 ```powershell
 stratweb readiness audit PROFILE_ID --db .\data\stratweb.duckdb --summary-only --pretty
@@ -615,8 +616,8 @@ stratweb readiness audit PROFILE_ID --db .\data\stratweb.duckdb --summary-only -
 Результат `ready|limited|blocked` и каждая причина вычисляются детерминированно;
 Stage 8.6.1 не создаёт рекомендаций. Контракт: [FINDING_READINESS.md](FINDING_READINESS.md).
 
-Stage 8.7 публикует рекомендации только для `ready` findings и сохраняет каждый
-непройденный finding с точной причиной:
+Stage 8.7 публикует `ready` findings и явно ограниченные гипотезы из `limited`; `blocked`
+findings всегда сохраняются как непройденные с точной причиной:
 
 ```powershell
 stratweb strategies compute PROFILE_ID --db .\data\stratweb.duckdb --pretty

@@ -29,6 +29,7 @@ from stratweb.web.view_models import (
     RoundStripItemView,
     TeamScoreView,
 )
+from stratweb.web.view_models.product import ProductReadinessStatus
 
 
 class ProductQueryService:
@@ -225,6 +226,16 @@ class ProductQueryService:
         warning_count += len(analytics.warnings) if analytics else 0
         warning_count += len(temporal.warnings) if temporal else 0
         warning_count += len(spatial.warnings) if spatial else 0
+        analytics_status = "available" if analytics else "unavailable"
+        temporal_status = "available" if temporal else "unavailable"
+        spatial_status = spatial.capabilities.positions.status.value if spatial else "unavailable"
+        readiness = _library_readiness(
+            canonical_status="partial" if stored.validation_has_fatal_errors else "available",
+            analytics_status=analytics_status,
+            temporal_status=temporal_status,
+            spatial_status=spatial_status,
+            warning_count=warning_count,
+        )
         return MatchLibraryItemView(
             match_id=match_id,
             short_id=str(match_id).split("-")[0],
@@ -257,13 +268,69 @@ class ProductQueryService:
             ),
             score_available=bool(scores) and all(team.team_id in scores for team in teams),
             canonical_status="partial" if stored.validation_has_fatal_errors else "available",
-            analytics_status="available" if analytics else "unavailable",
-            temporal_status="available" if temporal else "unavailable",
-            spatial_status=spatial.capabilities.positions.status.value
-            if spatial
-            else "unavailable",
+            analytics_status=analytics_status,
+            temporal_status=temporal_status,
+            spatial_status=spatial_status,
             warning_count=warning_count,
+            **readiness,
         )
+
+
+def _library_readiness(
+    *,
+    canonical_status: str,
+    analytics_status: str,
+    temporal_status: str,
+    spatial_status: str,
+    warning_count: int,
+) -> dict[str, object]:
+    """Return the explicit product-truth contract used by the match library."""
+
+    layer_statuses = {
+        "analytics": analytics_status,
+        "temporal": temporal_status,
+        "spatial": spatial_status,
+    }
+    missing_layers = tuple(
+        layer for layer, status in layer_statuses.items() if status == "unavailable"
+    )
+    reasons: list[str] = []
+    if canonical_status != "available":
+        reasons.append("Структурная проверка импортированных данных не пройдена")
+    labels = {
+        "analytics": "Аналитика ещё не рассчитана",
+        "temporal": "Хронология раундов ещё не рассчитана",
+        "spatial": "Позиционные данные ещё не рассчитаны",
+    }
+    reasons.extend(labels[layer] for layer in missing_layers)
+    if spatial_status in {"partial", "unreliable"}:
+        reasons.append("Позиционные данные доступны не полностью")
+    if warning_count and not reasons:
+        reasons.append("Импорт или аналитические слои содержат предупреждения")
+
+    if canonical_status != "available":
+        status = ProductReadinessStatus.BLOCKED
+        severity = "unavailable"
+        label = "Нужна проверка"
+        next_action = "Откройте диагностику матча и устраните ошибки структуры данных."
+    elif reasons:
+        status = ProductReadinessStatus.LIMITED
+        severity = "partial"
+        label = "Данные неполные"
+        next_action = "Дождитесь расчёта отсутствующих слоёв или откройте диагностику матча."
+    else:
+        status = ProductReadinessStatus.READY
+        severity = "available"
+        label = "Данные и аналитика готовы"
+        next_action = "Откройте разбор матча."
+    return {
+        "readiness_status": status,
+        "readiness_severity": severity,
+        "readiness_label": label,
+        "readiness_reasons": tuple(reasons),
+        "missing_layers": missing_layers,
+        "next_action": next_action,
+    }
 
 
 def _team_player_names(

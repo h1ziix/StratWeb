@@ -2,7 +2,7 @@
 
 ## Supported deployment
 
-StratWeb 0.4.x is a local-first offline analyzer. The supported HTTP deployment binds to
+StratWeb 0.29.x is a local-first offline analyzer. The supported HTTP deployment binds to
 `127.0.0.1`. Docker Compose also publishes port 8000 on host loopback only.
 
 The application has no user authentication or tenant authorization. Do not expose it

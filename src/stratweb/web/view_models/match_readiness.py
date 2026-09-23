@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-
 from pydantic import Field
 
 from stratweb.maps.models import MapSelectionStatus
 from stratweb.spatial.query_models import MapOverview
-from stratweb.web.view_models.product import MatchOverviewView, ViewModel
+from stratweb.web.view_models.product import (
+    MatchOverviewView,
+    ProductReadinessStatus,
+    ViewModel,
+)
 from stratweb.zones.assignment_models import ZoneAssignmentRunSummary
 
 MATCH_READINESS_VIEW_VERSION = "1.0.0"
 
 
-class MatchReadinessState(StrEnum):
-    READY = "ready"
-    LIMITED = "limited"
-    BLOCKED = "blocked"
+MatchReadinessState = ProductReadinessStatus
 
 
 class ReadinessCapabilityView(ViewModel):

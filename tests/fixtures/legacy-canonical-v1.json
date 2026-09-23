@@ -1,0 +1,272 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_fingerprint": "4fcaf5d5eb835c954f7d8cd2de8d8f606901e57ab9a1a411ac966babaa945089",
+  "match": {
+    "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+    "demo_file_id": "2b7f2c9a-2806-5415-983d-2876d8189b09",
+    "map_name": "de_mirage",
+    "server_name": "Synthetic Fixture",
+    "round_count": 1,
+    "complete_round_count": 1,
+    "incomplete_round_count": 0,
+    "round_count_candidates": {
+      "max_total_rounds_played": 1
+    },
+    "selected_round_count": 1,
+    "selected_round_count_source": "max_total_rounds_played",
+    "round_count_disagreement": false
+  },
+  "teams": [
+    {
+      "team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "internal_name": "TeamAlpha",
+      "display_name": null,
+      "starting_player_ids": [
+        "f44e7746-4778-5c57-be36-757a0c413d59"
+      ],
+      "identity_confidence": 1.0,
+      "warnings": []
+    },
+    {
+      "team_id": "7e07c4b6-1e17-54d2-806b-aa8ba47a9ff4",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "internal_name": "TeamBravo",
+      "display_name": null,
+      "starting_player_ids": [
+        "50de0d10-92e1-5eae-9ca9-01d71b739dcd"
+      ],
+      "identity_confidence": 1.0,
+      "warnings": []
+    }
+  ],
+  "players": [
+    {
+      "player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "steam_id": "76561198000000001",
+      "current_name": "Alpha",
+      "known_names": [
+        "Alpha"
+      ],
+      "is_bot": false,
+      "warnings": []
+    },
+    {
+      "player_id": "50de0d10-92e1-5eae-9ca9-01d71b739dcd",
+      "steam_id": "76561198000000002",
+      "current_name": "Bravo",
+      "known_names": [
+        "Bravo"
+      ],
+      "is_bot": false,
+      "warnings": []
+    }
+  ],
+  "player_team_memberships": [
+    {
+      "player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "side": "T",
+      "valid_from_tick": 100,
+      "valid_to_tick": null,
+      "source": "fixture",
+      "confidence": 1.0
+    },
+    {
+      "player_id": "50de0d10-92e1-5eae-9ca9-01d71b739dcd",
+      "team_id": "7e07c4b6-1e17-54d2-806b-aa8ba47a9ff4",
+      "side": "CT",
+      "valid_from_tick": 100,
+      "valid_to_tick": null,
+      "source": "fixture",
+      "confidence": 1.0
+    }
+  ],
+  "rounds": [
+    {
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_number": 1,
+      "start_tick": 100,
+      "freeze_end_tick": 110,
+      "end_tick": 190,
+      "official_end_tick": 200,
+      "start_source": "round_start",
+      "end_source": "round_end",
+      "t_team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "ct_team_id": "7e07c4b6-1e17-54d2-806b-aa8ba47a9ff4",
+      "winner_side": "T",
+      "end_reason": "9",
+      "score_t_before": 0,
+      "score_ct_before": 0,
+      "score_t_after": 1,
+      "score_ct_after": 0,
+      "is_warmup": false,
+      "is_overtime": false,
+      "is_complete": true,
+      "exclusion_reason": null,
+      "warnings": []
+    }
+  ],
+  "kills": [
+    {
+      "event_id": "421c0afd-6332-5c07-adea-2b29a357232f",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "round_number": 1,
+      "tick": 120,
+      "relative_tick": 20,
+      "phase": "live",
+      "source_event": "player_death",
+      "game_time": null,
+      "warnings": [],
+      "attacker_player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "victim_player_id": "50de0d10-92e1-5eae-9ca9-01d71b739dcd",
+      "assister_player_id": null,
+      "attacker_team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "victim_team_id": "7e07c4b6-1e17-54d2-806b-aa8ba47a9ff4",
+      "attacker_side": "T",
+      "victim_side": "CT",
+      "weapon": "ak47",
+      "headshot": true,
+      "penetrated": null,
+      "through_smoke": null,
+      "no_scope": null,
+      "attacker_blind": null,
+      "distance": null,
+      "is_teamkill": null,
+      "is_suicide": null
+    }
+  ],
+  "damages": [
+    {
+      "event_id": "881162f9-c4fb-529d-af54-7c9857b6f218",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "round_number": 1,
+      "tick": 115,
+      "relative_tick": 15,
+      "phase": "live",
+      "source_event": "player_hurt",
+      "game_time": null,
+      "warnings": [],
+      "attacker_player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "victim_player_id": "50de0d10-92e1-5eae-9ca9-01d71b739dcd",
+      "attacker_team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "victim_team_id": "7e07c4b6-1e17-54d2-806b-aa8ba47a9ff4",
+      "attacker_side": "T",
+      "victim_side": "CT",
+      "weapon": "ak47",
+      "damage_health": 100,
+      "damage_armor": null,
+      "victim_health_after": 0,
+      "hitgroup": null
+    }
+  ],
+  "shots": [
+    {
+      "event_id": "eae69cac-9553-5da1-a824-57cc799efc6d",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "round_number": 1,
+      "tick": 112,
+      "relative_tick": 12,
+      "phase": "live",
+      "source_event": "weapon_fire",
+      "game_time": null,
+      "warnings": [],
+      "player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "side": "T",
+      "weapon": "ak47",
+      "silenced": null
+    }
+  ],
+  "grenades": [
+    {
+      "event_id": "fcf0348e-071f-5ea4-9af2-36112d003898",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "round_number": 1,
+      "tick": 130,
+      "relative_tick": 30,
+      "phase": "live",
+      "source_event": "flashbang_detonate",
+      "game_time": null,
+      "warnings": [],
+      "player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "side": "T",
+      "grenade_type": "flashbang",
+      "lifecycle_event": "detonate",
+      "entity_id": 7,
+      "x": 1.5,
+      "y": 2.5,
+      "z": 3.5,
+      "round_start_time": null
+    }
+  ],
+  "blinds": [],
+  "bomb_events": [
+    {
+      "event_id": "b2291c17-1744-58a0-9849-d4dd140e8b44",
+      "match_id": "6ea96242-6bc6-5547-8957-f9e1a91e8ee3",
+      "round_id": "67526c42-2296-5af8-8e55-b507e7d7c340",
+      "round_number": 1,
+      "tick": 140,
+      "relative_tick": 40,
+      "phase": "live",
+      "source_event": "bomb_planted",
+      "game_time": null,
+      "warnings": [],
+      "player_id": "f44e7746-4778-5c57-be36-757a0c413d59",
+      "team_id": "9c9d666b-bebc-5536-adc1-7540a441c8b5",
+      "side": "T",
+      "event_type": "planted",
+      "site_raw": 999,
+      "site_normalized": null
+    }
+  ],
+  "validation_report": {
+    "is_valid": true,
+    "has_fatal_errors": false,
+    "fatal_error_count": 0,
+    "issue_counts": {
+      "info": 0,
+      "warning": 1,
+      "error": 0
+    },
+    "unassigned_event_count": 0,
+    "unknown_player_count": 0,
+    "incomplete_round_count": 0,
+    "issues": [
+      {
+        "code": "fixture_warning",
+        "severity": "warning",
+        "is_fatal": false,
+        "entity_type": "dataset",
+        "entity_id": null,
+        "message": "Synthetic fixture warning.",
+        "evidence": {},
+        "rule_version": "1.0.0"
+      }
+    ]
+  },
+  "normalization_metadata": {
+    "parser_name": "demoparser2",
+    "parser_version": "0.41.4",
+    "canonical_schema_version": "1.0.0",
+    "normalization_rule_version": "1.3.0",
+    "normalization_config_hash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc",
+    "source_demo_sha256": "24ea7fc3f71b6412a07d72ac08e83bcfe4aa18021b1e273467c8edfe508238af",
+    "source_event_counts": {
+      "player_death": 1
+    },
+    "selected_event_aliases": {
+      "CanonicalKill": "player_death"
+    },
+    "warnings": [
+      "synthetic normalization warning"
+    ]
+  }
+}

@@ -28,10 +28,23 @@ Set-Location "C:\Projects\StratWeb"
 
 ## Где лежат данные
 
-Runtime-данные (DuckDB-база и изображения карт) хранятся **вне OneDrive** в
-`C:\Users\rausa\StratWeb-data`, потому что конфликты синхронизации могут повредить
-файлы DuckDB. Пути заданы в `.env` проекта и в параметрах `start_server.ps1`
-(`-DatabasePath`, `-MapOverviewDir`).
+По умолчанию runtime-данные хранятся вне проекта в
+`%LOCALAPPDATA%\StratWeb`: база — `stratweb.duckdb`, изображения карт — в
+`map_overviews`. Скрипт создаёт эти каталоги автоматически; отсутствие изображений карт не мешает
+запуску базового интерфейса.
+
+Порядок выбора путей: параметры PowerShell, затем переменные окружения, затем portable defaults.
+Например:
+
+```powershell
+.\scripts\start_server.ps1 `
+  -DatabasePath "D:\StratWeb-data\stratweb.duckdb" `
+  -MapOverviewDir "D:\StratWeb-data\map_overviews"
+```
+
+Либо задайте `STRATWEB_DUCKDB_PATH` и `STRATWEB_MAP_OVERVIEW_DIR` перед запуском. Не храните
+рабочую DuckDB-базу в синхронизируемой папке OneDrive: конфликты синхронизации могут повредить
+файл.
 
 ## Режим разработки
 
@@ -56,7 +69,7 @@ docker compose up --build
 ```
 
 Контейнер слушает `0.0.0.0` только внутри своей сети, а Compose публикует порт на
-`127.0.0.1:8000`. Это намеренное ограничение: в версии 0.4.x нет пользовательской
+`127.0.0.1:8000`. Это намеренное ограничение: в версии 0.29.2 нет пользовательской
 аутентификации. Не меняйте host bind на `0.0.0.0`, не открывайте порт на роутере и не
 пропускайте приложение через публичный tunnel. Подробности: [SECURITY.md](SECURITY.md).
 

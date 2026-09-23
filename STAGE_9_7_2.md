@@ -1,5 +1,25 @@
 # Stage 9.7.2 — Градации надёжности выборки
 
+Этот документ — каноническая product-readiness policy StratWeb. Старые пороги в
+`FINDING_READINESS.md`, `COUNTER_STRATEGY_MODEL.md`, README и плане реализации считаются
+deprecated, если противоречат этой странице и `finding_readiness_v2`.
+
+## Уровни продуктовой правды
+
+| Уровень | Что подтверждает | Условие |
+|---|---|---|
+| Data imported | демка сохранена | матч существует в canonical storage |
+| Structurally valid | структура пригодна для чтения | нет fatal validation errors |
+| Analytics available | рассчитаны обязательные слои | Analytics, Temporal и Spatial не `unavailable` |
+| Evidence sufficient | finding можно интерпретировать | readiness не `blocked`; все ограничения явны |
+| Recommendation eligible | правило может создать гипотезу | finding имеет `ready` или `limited`; blocker отсутствует |
+| Real-data corpus accepted | корпус принят аналитиком | Golden Corpus status `ready`, включая реальные подтверждённые матчи и labels |
+
+`ready` означает отсутствие blocker и limitation. `limited` означает, что результат можно
+использовать только с показанными ограничениями; он не должен называться полностью готовым или
+доказанной привычкой. `blocked` запрещает рекомендацию. Технически валидный manifest не равен
+принятому real-data corpus.
+
 ## Проблема
 
 Прежняя проверка блокировала все рекомендации, пока в корпусе не было 20 матчей. Для
@@ -27,6 +47,9 @@
 Каждая опубликованная рекомендация сохраняет исходную статистику и evidence, получает
 машиночитаемую limitation `corpus_reliability:<tier>` и показывает уровень надёжности в UI.
 Размер корпуса ниже 15 отображается в validation как warning, а не blocker.
+
+Golden Corpus использует отдельный строгий acceptance gate. Текущий repository manifest
+структурно валиден, но остаётся `blocked`: подтверждённых матчей и analyst labels нет.
 
 ## Версии правил
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.30.0] - 2026-09-23
+
+### Changed
+
+- Added one explicit Product Truth contract for match-library readiness: status, severity,
+  reasons, missing analytical layers and the next user action.
+- The library no longer derives «Данные готовы» from `warning_count`; Analytics, Temporal and
+  Spatial availability are mandatory for a fully ready badge.
+- Aligned legacy readiness documentation with canonical `finding_readiness_v2` and the sample
+  reliability tiers in `STAGE_9_7_2.md`.
+
+### Validation
+
+- Added backend and rendered-HTML regressions for complete, missing-layer and warning states.
+- Golden Corpus remains technically valid but product acceptance is still blocked.
+
+## [0.29.2] - 2026-09-23
+
+### Fixed
+
+- Legacy canonical schema `1.0.0` upgrade coverage now uses a committed, deterministic fixture
+  resolved relative to the test module instead of the caller's working directory.
+- The Windows launcher no longer contains machine-specific paths. Explicit parameters override
+  environment variables, which override `%LOCALAPPDATA%\StratWeb` defaults.
+- Runtime directories are created automatically, and missing optional map assets no longer block
+  startup.
+
+### Release integrity
+
+- The release gate validates JavaScript syntax and performs isolated HTTP smoke checks for
+  `/health` and `/ui` in addition to the existing Python, corpus, wheel and container checks.
+- Package, runtime, lockfile and release documentation identify version `0.29.2` consistently.
+- Golden Corpus contract validation remains separate from real-data acceptance; the latter is
+  still blocked pending confirmed matches and analyst labels.
+
 ## [0.29.1] - 2026-09-20
 
 ### Changed
