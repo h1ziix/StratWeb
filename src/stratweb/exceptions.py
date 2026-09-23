@@ -49,6 +49,10 @@ class ImportJobNotRetryableError(PersistenceError):
     error_code = "import_job_not_retryable"
 
 
+class ImportJobTransitionConflictError(PersistenceError):
+    error_code = "import_job_transition_conflict"
+
+
 class ImportQueueFullError(PersistenceError):
     error_code = "import_queue_full"
 

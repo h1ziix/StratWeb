@@ -9,6 +9,11 @@
     spatial: "Читаем позиции", zones: "Определяем зоны", features: "Готовим факты",
     complete: "Готово", failed: "Ошибка", cancelled: "Отменено", cancel_requested: "Отменяем",
   };
+  const batchLabels = {
+    queued: "В очереди", running: "Обрабатывается", succeeded: "Обработка завершена",
+    partial: "Завершено частично", failed: "Обработка завершилась с ошибками",
+    cancelled: "Обработка отменена",
+  };
 
   function statusClass(stage) {
     if (stage === "complete") return "available";
@@ -75,13 +80,14 @@
     document.getElementById("batchProgress").textContent = view.progress_percent;
     document.getElementById("batchProgressBar").style.width = `${view.progress_percent}%`;
     document.getElementById("batchTotal").textContent = view.total_count;
-    document.getElementById("batchComplete").textContent = view.complete_count;
-    document.getElementById("batchDuplicate").textContent = view.duplicate_count;
-    document.getElementById("batchFailed").textContent = view.failed_count + view.rejected_count;
+    document.getElementById("batchComplete").textContent = view.succeeded_count;
+    document.getElementById("batchSkipped").textContent = view.skipped_count;
+    document.getElementById("batchFailed").textContent = view.failed_count;
+    document.getElementById("batchCancelled").textContent = view.cancelled_count;
     document.getElementById("batchFileList").replaceChildren(...view.items.map(renderItem));
     const status = document.getElementById("batchStatus");
-    status.textContent = view.terminal ? "Обработка завершена" : "Обрабатывается";
-    status.className = `status ${view.terminal && !view.failed_count && !view.rejected_count ? "available" : "partial"}`;
+    status.textContent = batchLabels[view.status] || view.status;
+    status.className = `status ${view.status === "succeeded" ? "available" : (view.status === "failed" || view.status === "cancelled" ? "unavailable" : "partial")}`;
     document.getElementById("batchContact").textContent = view.terminal ? "Все файлы проверены" : "Состояние обновляется автоматически";
   }
 

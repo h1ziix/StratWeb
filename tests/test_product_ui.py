@@ -13,7 +13,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import stratweb.web.routers.product as product_routes
-from stratweb.adapters.persistence import DuckDBMatchRepository, DuckDBTeamNameRepository
+from stratweb.adapters.persistence import (
+    DuckDBImportBatchRepository,
+    DuckDBMatchRepository,
+    DuckDBTeamNameRepository,
+)
 from stratweb.application.import_jobs import LocalImportJobManager
 from stratweb.application.product import (
     _library_readiness,
@@ -317,6 +321,21 @@ def test_bulk_upload_groups_multiple_files_and_zip_in_one_opponent_pool(
     database = tmp_path / "bulk.duckdb"
     DuckDBMatchRepository(database).initialize()
     monkeypatch.setattr(LocalImportJobManager, "_schedule", lambda *_args: None)
+    atomic_registrations: list[int] = []
+    original_create_with_items = DuckDBImportBatchRepository.create_with_items
+
+    def create_with_items(
+        repository: DuckDBImportBatchRepository, batch: Any, items: tuple[Any, ...]
+    ) -> None:
+        atomic_registrations.append(len(items))
+        original_create_with_items(repository, batch, items)
+
+    def reject_autocommit(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("batch registration must use one transaction")
+
+    monkeypatch.setattr(DuckDBImportBatchRepository, "create", reject_autocommit)
+    monkeypatch.setattr(DuckDBImportBatchRepository, "add_item", reject_autocommit)
+    monkeypatch.setattr(DuckDBImportBatchRepository, "create_with_items", create_with_items)
     archive = BytesIO()
     with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
         bundle.writestr("practice/day-one/third.dem", b"PBDEMS2third")
@@ -348,9 +367,11 @@ def test_bulk_upload_groups_multiple_files_and_zip_in_one_opponent_pool(
     assert payload["queued_count"] == 3
     assert payload["rejected_count"] == 0
     assert payload["batch"]["display_name"] == "Practice vs Falcons"
+    assert atomic_registrations == [3]
     assert batch_page.status_code == 200
     assert "Тренировочный пул" in batch_page.text
     assert "Practice vs Falcons" in batch_page.text
+    assert ">В очереди</span>" in batch_page.text
     assert "third.dem" in batch_page.text
     assert sorted(entry["item"]["original_name"] for entry in payload["items"]) == [
         "first.dem",
@@ -401,6 +422,17 @@ def test_bulk_upload_isolates_invalid_demo_and_blocks_zip_paths(
         "broken.dem",
     }
     assert not (tmp_path.parent / "outside.dem").exists()
+
+
+def test_batch_ui_uses_honest_summary_without_double_counting_rejections() -> None:
+    root = Path(__file__).resolve().parents[1]
+    script = (root / "src/stratweb/web/static/js/import-batch.js").read_text(encoding="utf-8")
+    template = (root / "src/stratweb/web/templates/matches/batch.html").read_text(encoding="utf-8")
+
+    assert "view.failed_count + view.rejected_count" not in script
+    assert "batch_view.failed_count + batch_view.rejected_count" not in template
+    assert "view.cancelled_count" in script
+    assert "batch_view.cancelled_count" in template
 
 
 def test_local_upload_refuses_low_disk_before_writing(

@@ -1,10 +1,9 @@
 # StratWeb
 
-Обновление 0.30.0 — Product Truth: библиотека отличает импорт, структурную валидность,
-доступность Analytics/Temporal/Spatial, достаточность evidence, допустимость рекомендации и
-real-data corpus acceptance. Неполный матч больше не получает badge «Данные готовы» только из-за
-нулевого `warning_count`. Каноническая policy: [STAGE_9_7_2.md](STAGE_9_7_2.md), подробности
-релиза: [RELEASE_0_30.md](RELEASE_0_30.md).
+Обновление 0.31.0 — Import & Database Reliability: import jobs используют формальную
+state machine и CAS-переходы, записи в один DuckDB-файл сериализуются, duplicate hash
+резервируется атомарно, а batch summary честно разделяет successful, failed, skipped и
+cancelled outcomes. Подробности: [RELEASE_0_31_0.md](RELEASE_0_31_0.md).
 
 StratWeb — локальное backend-приложение для доказательного предматчевого анализа
 завершённых Counter-Strike 2 demo-файлов (`.dem`). Оно должно находить повторяемые

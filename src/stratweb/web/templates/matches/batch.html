@@ -4,7 +4,7 @@
 <section class="page-heading batch-heading">
   <div><p class="eyebrow">Тренировочный пул</p><h1>{{ batch_view.batch.display_name }}</h1>
   <p>Каждая демка обрабатывается отдельно. Ошибка одного файла не останавливает остальные.</p></div>
-  <span id="batchStatus" class="status {{ 'available' if batch_view.terminal and not batch_view.failed_count and not batch_view.rejected_count else ('unavailable' if batch_view.terminal and not batch_view.complete_count and not batch_view.duplicate_count else 'partial') }}">{% if batch_view.terminal %}Обработка завершена{% else %}Обрабатывается{% endif %}</span>
+  <span id="batchStatus" class="status {{ 'available' if batch_view.status == 'succeeded' else ('unavailable' if batch_view.status in ('failed', 'cancelled') else 'partial') }}">{% if batch_view.status == 'queued' %}В очереди{% elif batch_view.status == 'running' %}Обрабатывается{% elif batch_view.status == 'succeeded' %}Обработка завершена{% elif batch_view.status == 'partial' %}Завершено частично{% elif batch_view.status == 'failed' %}Обработка завершилась с ошибками{% else %}Обработка отменена{% endif %}</span>
 </section>
 
 <div class="job-progress" aria-label="Общий ход обработки"><div id="batchProgressBar" style="width: {{ batch_view.progress_percent }}%"></div></div>
@@ -12,9 +12,10 @@
 
 <section class="batch-summary" aria-label="Итог пакетной загрузки">
   <article><strong id="batchTotal">{{ batch_view.total_count }}</strong><span>демок в пуле</span></article>
-  <article class="available"><strong id="batchComplete">{{ batch_view.complete_count }}</strong><span>готово</span></article>
-  <article class="partial"><strong id="batchDuplicate">{{ batch_view.duplicate_count }}</strong><span>уже были загружены</span></article>
-  <article class="unavailable"><strong id="batchFailed">{{ batch_view.failed_count + batch_view.rejected_count }}</strong><span>требуют внимания</span></article>
+  <article class="available"><strong id="batchComplete">{{ batch_view.succeeded_count }}</strong><span>готово</span></article>
+  <article class="partial"><strong id="batchSkipped">{{ batch_view.skipped_count }}</strong><span>пропущено</span></article>
+  <article class="unavailable"><strong id="batchFailed">{{ batch_view.failed_count }}</strong><span>с ошибкой</span></article>
+  <article class="partial"><strong id="batchCancelled">{{ batch_view.cancelled_count }}</strong><span>отменено</span></article>
 </section>
 
 <div class="button-row">

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.31.0] - 2026-09-24
+
+### Reliability
+
+- Added a formal import-job transition policy with compare-and-set persistence updates so stale
+  workers cannot overwrite cancellation or terminal outcomes.
+- Added one process-wide writer coordinator per resolved DuckDB path. Independent import managers,
+  canonical persistence and batch registration share the same serialization boundary.
+- Demo-hash reservation and batch metadata registration are atomic and return controlled duplicate
+  or rollback outcomes instead of leaving partial records.
+- Restart recovery resumes queued jobs, marks interrupted running jobs retryable and completes
+  pending cancellation as cancelled.
+
+### Safety and contract
+
+- Import failures expose stable messages instead of local paths, parser stderr or traceback text.
+- Successful jobs remove only their owned upload and parser artifacts; retryable failures retain
+  their demo input.
+- Batch API/UI report succeeded, failed, skipped and cancelled counts and identify partial results.
+- Golden Corpus remains technically valid but product acceptance is still blocked.
+
 ## [0.30.0] - 2026-09-23
 
 ### Changed

@@ -6,8 +6,8 @@
 
 ## Принципы выполнения
 
-Текущее обновление: 0.30.0 — Product Truth, см.
-[RELEASE_0_30.md](RELEASE_0_30.md). Каноническая readiness policy находится в
+Текущее обновление: 0.31.0 — Import & Database Reliability, см.
+[RELEASE_0_31_0.md](RELEASE_0_31_0.md). Каноническая readiness policy находится в
 [STAGE_9_7_2.md](STAGE_9_7_2.md); старые пороги в исторических разделах deprecated.
 Последний завершённый продуктовый этап —
 [Stage 9.15.2](STAGE_9_15_2.md).

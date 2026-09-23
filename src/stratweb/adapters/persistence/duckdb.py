@@ -18,6 +18,7 @@ from stratweb.adapters.persistence._tactical_v2_cascade import (
     delete_tactical_v2_for_matches,
 )
 from stratweb.adapters.persistence.migrations import MIGRATIONS, Migration
+from stratweb.adapters.persistence.write_coordinator import get_write_coordinator
 from stratweb.application.canonical_models import (
     CanonicalBlind,
     CanonicalBombEvent,
@@ -203,6 +204,7 @@ class DuckDBMatchRepository:
     ) -> None:
         self._database_path = Path(database_path).expanduser().resolve()
         self._migrations = tuple(sorted(migrations, key=lambda item: item.version))
+        self._writes = get_write_coordinator(self._database_path)
 
     @property
     def database_path(self) -> Path:
@@ -296,6 +298,20 @@ class DuckDBMatchRepository:
         replace: bool = False,
     ) -> RepositorySaveResult:
         self.initialize()
+        with self._writes.serialized():
+            return self._save_match(
+                dataset,
+                source_original_name=source_original_name,
+                replace=replace,
+            )
+
+    def _save_match(
+        self,
+        dataset: CanonicalMatchDataset,
+        *,
+        source_original_name: str | None,
+        replace: bool,
+    ) -> RepositorySaveResult:
         match_id = dataset.match.match_id
         fingerprint = dataset.dataset_fingerprint
         try:
@@ -622,11 +638,12 @@ class DuckDBMatchRepository:
 
     @contextmanager
     def _connect(self, *, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
-        connection = duckdb.connect(str(self._database_path), read_only=read_only)
-        try:
-            yield connection
-        finally:
-            connection.close()
+        with self._writes.serialized():
+            connection = duckdb.connect(str(self._database_path), read_only=read_only)
+            try:
+                yield connection
+            finally:
+                connection.close()
 
     @contextmanager
     def _read_connection(self) -> Iterator[duckdb.DuckDBPyConnection]:

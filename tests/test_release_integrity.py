@@ -17,9 +17,9 @@ def test_release_version_is_consistent() -> None:
         package for package in lockfile["package"] if package["name"] == "stratweb"
     )
 
-    assert pyproject["project"]["version"] == "0.30.0"
-    assert locked_project["version"] == "0.30.0"
-    assert stratweb.__version__ == "0.30.0"
+    assert pyproject["project"]["version"] == "0.31.0"
+    assert locked_project["version"] == "0.31.0"
+    assert stratweb.__version__ == "0.31.0"
 
 
 def test_windows_launcher_uses_portable_runtime_defaults() -> None:

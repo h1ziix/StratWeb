@@ -46,7 +46,7 @@ if TYPE_CHECKING:
         ValidationIssue,
     )
     from stratweb.application.import_batch_models import ImportBatchItem, ImportBatchRecord
-    from stratweb.application.import_job_models import ImportJobRecord
+    from stratweb.application.import_job_models import ImportJobRecord, ImportJobStage
     from stratweb.application.opponent_models import (
         OpponentMatchSelection,
         OpponentProfile,
@@ -329,9 +329,16 @@ class ImportJobRepository(Protocol):
 
     def create(self, record: ImportJobRecord) -> None: ...
 
+    def create_if_sha256_absent(self, record: ImportJobRecord) -> None: ...
+
     def get(self, job_id: UUID) -> ImportJobRecord | None: ...
 
-    def update(self, record: ImportJobRecord) -> None: ...
+    def update(
+        self,
+        record: ImportJobRecord,
+        *,
+        expected_stage: ImportJobStage | None = None,
+    ) -> None: ...
 
     def list_unfinished(self) -> tuple[ImportJobRecord, ...]: ...
 
@@ -349,6 +356,12 @@ class ImportBatchRepository(Protocol):
     def create(self, record: ImportBatchRecord) -> None: ...
 
     def add_item(self, item: ImportBatchItem) -> None: ...
+
+    def create_with_items(
+        self,
+        record: ImportBatchRecord,
+        items: tuple[ImportBatchItem, ...],
+    ) -> None: ...
 
     def get(self, batch_id: UUID) -> ImportBatchRecord | None: ...
 

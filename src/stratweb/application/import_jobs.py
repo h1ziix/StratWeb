@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from shutil import rmtree
 from threading import BoundedSemaphore, Event, Lock
 from uuid import UUID, uuid4
 
@@ -18,10 +21,16 @@ from stratweb.adapters.persistence import (
     DuckDBTemporalRepository,
     DuckDBZoneAssignmentRepository,
 )
+from stratweb.adapters.persistence.write_coordinator import get_write_coordinator
 from stratweb.analytics.models import AnalyticsConfig
 from stratweb.application.analytics import ComputeMatchAnalyticsService
 from stratweb.application.economy import ComputeEconomyService
-from stratweb.application.import_job_models import ImportJobRecord, ImportJobStage, stage_progress
+from stratweb.application.import_job_models import (
+    ImportJobRecord,
+    ImportJobStage,
+    stage_progress,
+    validate_stage_transition,
+)
 from stratweb.application.import_worker import (
     ParserWorkerRunner,
     WorkerEconomyExtractor,
@@ -29,14 +38,13 @@ from stratweb.application.import_worker import (
 )
 from stratweb.application.inspection import inspect_local_file
 from stratweb.application.persistence import ImportCanonicalMatchService
-from stratweb.application.persistence_models import ImportStatus, MatchQueryFilters
+from stratweb.application.persistence_models import ImportStatus
 from stratweb.application.round_features import ComputeRoundFeaturesService
 from stratweb.application.spatial import ComputeSpatialStateService
 from stratweb.application.temporal import ComputeTemporalStateService
 from stratweb.application.zone_assignments import ComputeZoneAssignmentsService
 from stratweb.economy.models import EconomyConfig
 from stratweb.exceptions import (
-    ImportDuplicateError,
     ImportJobNotCancellableError,
     ImportJobNotFoundError,
     ImportJobNotRetryableError,
@@ -47,6 +55,26 @@ from stratweb.features.models import RoundFeatureConfig
 from stratweb.ports import ImportJobRepository
 from stratweb.spatial.models import SpatialConfig
 from stratweb.temporal.models import TemporalConfig
+
+_SAFE_IMPORT_ERROR_MESSAGES = {
+    "import_worker_timeout": "Parser worker timed out. The retained demo can be retried.",
+    "import_worker_memory_limit": (
+        "Parser worker exceeded its memory limit. The retained demo can be retried."
+    ),
+    "import_disk_space_low": (
+        "Import stopped because runtime disk space is low. The retained demo can be retried."
+    ),
+    "fatal_validation_error": "Canonical match data failed validation.",
+    "dataset_integrity_error": "Canonical match data failed integrity checks.",
+}
+
+
+def _safe_import_error_message(error: Exception) -> str:
+    error_code = str(getattr(error, "error_code", "import_job_failed"))
+    return _SAFE_IMPORT_ERROR_MESSAGES.get(
+        error_code,
+        "Import failed during processing. The retained demo can be retried.",
+    )
 
 
 class LocalImportJobManager:
@@ -65,6 +93,7 @@ class LocalImportJobManager:
         repository: ImportJobRepository | None = None,
     ) -> None:
         self._database_path = database_path.expanduser().resolve()
+        self._write_coordinator = get_write_coordinator(self._database_path)
         self._sampling_interval_ticks = sampling_interval_ticks
         self._repository = repository or DuckDBImportJobRepository(self._database_path)
         self._upload_directory = (self._database_path.parent / "uploads").resolve()
@@ -93,7 +122,6 @@ class LocalImportJobManager:
             snapshot = inspect_local_file(demo_path)
             demo_sha256 = demo_sha256 or snapshot.sha256
             file_size_bytes = snapshot.size_bytes if file_size_bytes is None else file_size_bytes
-        self._reject_duplicate(demo_sha256)
         if not self._capacity.acquire(blocking=False):
             raise ImportQueueFullError("Import queue is full. Wait for an active job to finish.")
         now = datetime.now(UTC)
@@ -106,7 +134,7 @@ class LocalImportJobManager:
             now=now,
         )
         try:
-            self._repository.create(record)
+            self._repository.create_if_sha256_absent(record)
             self._schedule(record, demo_path)
         except Exception:
             self._capacity.release()
@@ -174,7 +202,7 @@ class LocalImportJobManager:
             }
         )
         try:
-            self._repository.update(queued)
+            self._repository.update(queued, expected_stage=previous.stage)
             self._schedule(queued, demo_path)
         except Exception:
             self._capacity.release()
@@ -195,7 +223,8 @@ class LocalImportJobManager:
                     "cancel_requested_at": now,
                     "updated_at": now,
                 }
-            )
+            ),
+            expected_stage=previous.stage,
         )
         with self._lock:
             event = self._cancel_events.get(job_id)
@@ -256,7 +285,7 @@ class LocalImportJobManager:
                         "updated_at": datetime.now(UTC),
                     }
                 )
-                self._repository.update(record)
+                self._repository.update(record, expected_stage=record.stage)
             sha256 = record.demo_sha256
             if sha256 is None:  # model/database invariant guard
                 raise RuntimeError("Import job does not have a demo SHA-256.")
@@ -273,9 +302,10 @@ class LocalImportJobManager:
                 match_id=dataset.match.match_id,
             )
             matches = DuckDBMatchRepository(self._database_path)
-            result = ImportCanonicalMatchService(matches).import_dataset(
-                dataset, source_original_name=original_name
-            )
+            with self._database_write():
+                result = ImportCanonicalMatchService(matches).import_dataset(
+                    dataset, source_original_name=original_name
+                )
             if result.status is ImportStatus.FAILED:
                 raise RuntimeError(result.warnings[-1] if result.warnings else "Import failed")
             self._checkpoint(job_id, ImportJobStage.IMPORTING)
@@ -283,58 +313,64 @@ class LocalImportJobManager:
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.ECONOMY, "Capturing equipment and buys")
             economy_repository = DuckDBEconomyRepository(self._database_path)
-            ComputeEconomyService(
-                matches, economy_repository, WorkerEconomyExtractor(runner)
-            ).compute(dataset.match.match_id, demo_path, config=EconomyConfig())
+            with self._database_write():
+                ComputeEconomyService(
+                    matches, economy_repository, WorkerEconomyExtractor(runner)
+                ).compute(dataset.match.match_id, demo_path, config=EconomyConfig())
             self._checkpoint(job_id, ImportJobStage.ECONOMY)
 
             self._check_cancel(job_id, event)
             analytics = DuckDBAnalyticsRepository(self._database_path)
             self._update(job_id, ImportJobStage.ANALYTICS, "Computing deterministic analytics")
-            ComputeMatchAnalyticsService(matches, analytics).compute(
-                dataset.match.match_id, config=AnalyticsConfig()
-            )
+            with self._database_write():
+                ComputeMatchAnalyticsService(matches, analytics).compute(
+                    dataset.match.match_id, config=AnalyticsConfig()
+                )
             self._checkpoint(job_id, ImportJobStage.ANALYTICS)
 
             self._check_cancel(job_id, event)
             temporal = DuckDBTemporalRepository(self._database_path)
             self._update(job_id, ImportJobStage.TEMPORAL, "Computing Temporal 1.1")
-            ComputeTemporalStateService(matches, temporal, analytics_repository=analytics).compute(
-                dataset.match.match_id, config=TemporalConfig()
-            )
+            with self._database_write():
+                ComputeTemporalStateService(
+                    matches, temporal, analytics_repository=analytics
+                ).compute(dataset.match.match_id, config=TemporalConfig())
             self._checkpoint(job_id, ImportJobStage.TEMPORAL)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.SPATIAL, "Extracting spatial samples")
             spatial_repository = DuckDBSpatialRepository(self._database_path)
-            spatial_result = ComputeSpatialStateService(
-                matches, temporal, spatial_repository, WorkerSpatialExtractor(runner)
-            ).compute(
-                dataset.match.match_id,
-                demo_path,
-                config=SpatialConfig(sampling_interval_ticks=self._sampling_interval_ticks),
-            )
+            with self._database_write():
+                spatial_result = ComputeSpatialStateService(
+                    matches, temporal, spatial_repository, WorkerSpatialExtractor(runner)
+                ).compute(
+                    dataset.match.match_id,
+                    demo_path,
+                    config=SpatialConfig(sampling_interval_ticks=self._sampling_interval_ticks),
+                )
             self._checkpoint(job_id, ImportJobStage.SPATIAL)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.ZONES, "Assigning version-pinned map zones")
             zone_repository = DuckDBZoneAssignmentRepository(self._database_path)
-            ComputeZoneAssignmentsService(spatial_repository, zone_repository).compute(
-                dataset.match.match_id, spatial_run_id=spatial_result.spatial_run_id
-            )
+            with self._database_write():
+                ComputeZoneAssignmentsService(spatial_repository, zone_repository).compute(
+                    dataset.match.match_id, spatial_run_id=spatial_result.spatial_run_id
+                )
             self._checkpoint(job_id, ImportJobStage.ZONES)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.FEATURES, "Materializing round facts")
-            ComputeRoundFeaturesService(
-                matches,
-                analytics,
-                temporal,
-                spatial_repository,
-                zone_repository,
-                DuckDBRoundFeatureRepository(self._database_path),
-                economy_repository=economy_repository,
-            ).compute(dataset.match.match_id, config=RoundFeatureConfig())
+            with self._database_write():
+                ComputeRoundFeaturesService(
+                    matches,
+                    analytics,
+                    temporal,
+                    spatial_repository,
+                    zone_repository,
+                    DuckDBRoundFeatureRepository(self._database_path),
+                    economy_repository=economy_repository,
+                ).compute(dataset.match.match_id, config=RoundFeatureConfig())
             self._checkpoint(job_id, ImportJobStage.FEATURES)
             self._update(
                 job_id,
@@ -343,6 +379,7 @@ class LocalImportJobManager:
                 match_id=dataset.match.match_id,
                 completed_at=datetime.now(UTC),
             )
+            self._cleanup_completed_job(job_id, demo_path.name)
         except ImportWorkerCancelledError:
             self._mark_cancelled(job_id)
         except Exception as exc:
@@ -350,7 +387,7 @@ class LocalImportJobManager:
                 self._update(
                     job_id,
                     ImportJobStage.FAILED,
-                    str(exc)[:400] or "Import failed",
+                    _safe_import_error_message(exc),
                     error_code=str(getattr(exc, "error_code", "import_job_failed")),
                     recoverable=demo_path.is_file(),
                 )
@@ -366,14 +403,16 @@ class LocalImportJobManager:
         self._repository.update(
             previous.model_copy(
                 update={"last_completed_stage": stage, "updated_at": datetime.now(UTC)}
-            )
+            ),
+            expected_stage=previous.stage,
         )
 
     def _worker_pid(self, job_id: UUID, pid: int | None) -> None:
         try:
             previous = self._require_job(job_id)
             self._repository.update(
-                previous.model_copy(update={"worker_pid": pid, "updated_at": datetime.now(UTC)})
+                previous.model_copy(update={"worker_pid": pid, "updated_at": datetime.now(UTC)}),
+                expected_stage=previous.stage,
             )
         except ImportJobNotFoundError:
             pass
@@ -389,7 +428,8 @@ class LocalImportJobManager:
                         ),
                         "updated_at": datetime.now(UTC),
                     }
-                )
+                ),
+                expected_stage=previous.stage,
             )
         except ImportJobNotFoundError:
             pass
@@ -397,6 +437,13 @@ class LocalImportJobManager:
     def _mark_cancelled(self, job_id: UUID) -> None:
         try:
             record = self._require_job(job_id)
+            if record.stage is not ImportJobStage.CANCEL_REQUESTED:
+                self._update(
+                    job_id,
+                    ImportJobStage.CANCEL_REQUESTED,
+                    "Cancellation requested; stopping at a safe boundary",
+                )
+                record = self._require_job(job_id)
             self._update(
                 job_id,
                 ImportJobStage.CANCELLED,
@@ -420,6 +467,7 @@ class LocalImportJobManager:
         completed_at: datetime | None = None,
     ) -> None:
         previous = self._require_job(job_id)
+        validate_stage_transition(previous.stage, stage)
         self._repository.update(
             previous.model_copy(
                 update={
@@ -433,7 +481,8 @@ class LocalImportJobManager:
                     "progress_percent": stage_progress(stage, previous.progress_percent),
                     "updated_at": datetime.now(UTC),
                 }
-            )
+            ),
+            expected_stage=previous.stage,
         )
 
     def _require_job(self, job_id: UUID) -> ImportJobRecord:
@@ -441,22 +490,6 @@ class LocalImportJobManager:
         if record is None:
             raise ImportJobNotFoundError(f"Import job not found: {job_id}")
         return record
-
-    def _reject_duplicate(self, sha256: str) -> None:
-        existing = self._repository.find_by_sha256(sha256)
-        if existing is not None:
-            raise ImportDuplicateError(
-                "This exact demo is already imported or queued.",
-                job_id=existing.job_id,
-                match_id=existing.match_id,
-            )
-        matches = DuckDBMatchRepository(self._database_path)
-        found = matches.list_matches(MatchQueryFilters(source_demo_sha256=sha256, limit=1))
-        if found:
-            raise ImportDuplicateError(
-                "This exact demo is already present in the match library.",
-                match_id=found[0].match_id,
-            )
 
     def _ensure_started(self) -> None:
         if self._started:
@@ -468,6 +501,26 @@ class LocalImportJobManager:
             now = datetime.now(UTC)
             for record in self._repository.list_unfinished():
                 demo_path = self._demo_path(record.internal_name)
+                if record.stage is ImportJobStage.QUEUED and demo_path.is_file():
+                    if self._capacity.acquire(blocking=False):
+                        self._schedule(record, demo_path)
+                        continue
+                if record.stage is ImportJobStage.CANCEL_REQUESTED:
+                    self._repository.update(
+                        record.model_copy(
+                            update={
+                                "stage": ImportJobStage.CANCELLED,
+                                "message": "Import cancelled during server restart",
+                                "error_code": "import_worker_cancelled",
+                                "recoverable": demo_path.is_file(),
+                                "worker_pid": None,
+                                "completed_at": now,
+                                "updated_at": now,
+                            }
+                        ),
+                        expected_stage=record.stage,
+                    )
+                    continue
                 self._repository.update(
                     record.model_copy(
                         update={
@@ -480,7 +533,8 @@ class LocalImportJobManager:
                             "worker_pid": None,
                             "updated_at": now,
                         }
-                    )
+                    ),
+                    expected_stage=record.stage,
                 )
             self._started = True
 
@@ -493,6 +547,26 @@ class LocalImportJobManager:
         ):
             raise ImportJobNotRetryableError("Stored import filename is unsafe.")
         return candidate
+
+    @contextmanager
+    def _database_write(self) -> Iterator[None]:
+        with self._write_coordinator.serialized():
+            yield
+
+    def _cleanup_completed_job(self, job_id: UUID, internal_name: str) -> None:
+        demo_path = self._demo_path(internal_name)
+        artifact_directory = (self._artifact_root / str(job_id)).resolve()
+        if artifact_directory.parent != self._artifact_root or artifact_directory.name != str(
+            job_id
+        ):
+            raise ImportJobNotRetryableError("Stored import artifact path is unsafe.")
+        try:
+            demo_path.unlink(missing_ok=True)
+            if artifact_directory.is_dir():
+                rmtree(artifact_directory)
+        except OSError:
+            # The import is already durable; stale runtime files can be cleaned later.
+            return
 
 
 __all__ = ["LocalImportJobManager"]

@@ -49,6 +49,32 @@ _STAGE_PROGRESS = {
     ImportJobStage.FAILED: 0,
 }
 
+_PIPELINE_STAGES = (
+    ImportJobStage.QUEUED,
+    ImportJobStage.CANONICALIZING,
+    ImportJobStage.IMPORTING,
+    ImportJobStage.ECONOMY,
+    ImportJobStage.ANALYTICS,
+    ImportJobStage.TEMPORAL,
+    ImportJobStage.SPATIAL,
+    ImportJobStage.ZONES,
+    ImportJobStage.FEATURES,
+)
+
+_ALLOWED_STAGE_TRANSITIONS = {
+    current: {following, ImportJobStage.CANCEL_REQUESTED, ImportJobStage.FAILED}
+    for current, following in zip(_PIPELINE_STAGES, _PIPELINE_STAGES[1:], strict=False)
+}
+_ALLOWED_STAGE_TRANSITIONS[ImportJobStage.FEATURES] = {
+    ImportJobStage.COMPLETE,
+    ImportJobStage.CANCEL_REQUESTED,
+    ImportJobStage.FAILED,
+}
+_ALLOWED_STAGE_TRANSITIONS[ImportJobStage.CANCEL_REQUESTED] = {ImportJobStage.CANCELLED}
+_ALLOWED_STAGE_TRANSITIONS[ImportJobStage.CANCELLED] = {ImportJobStage.QUEUED}
+_ALLOWED_STAGE_TRANSITIONS[ImportJobStage.FAILED] = {ImportJobStage.QUEUED}
+_ALLOWED_STAGE_TRANSITIONS[ImportJobStage.COMPLETE] = set()
+
 
 class ImportJobRecord(BaseModel):
     """One durable import attempt and its latest pipeline checkpoint."""
@@ -113,4 +139,17 @@ def stage_progress(stage: ImportJobStage, previous: int = 0) -> int:
     return _STAGE_PROGRESS[stage]
 
 
-__all__ = ["ImportJobRecord", "ImportJobStage", "stage_progress"]
+def validate_stage_transition(current: ImportJobStage, target: ImportJobStage) -> None:
+    """Reject stage jumps and attempts to overwrite terminal outcomes."""
+
+    if target == current or target in _ALLOWED_STAGE_TRANSITIONS[current]:
+        return
+    raise ValueError(f"Invalid import job transition: {current.value} -> {target.value}")
+
+
+__all__ = [
+    "ImportJobRecord",
+    "ImportJobStage",
+    "stage_progress",
+    "validate_stage_transition",
+]

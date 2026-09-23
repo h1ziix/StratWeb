@@ -28,6 +28,10 @@ contract (`status`, `severity`, `reasons`, `missing_layers`, `next_action`) and 
 positive badge from `warning_count`. A small-sample recommendation must retain its reliability
 limitation. A blocked finding and a blocked Golden Corpus must not be presented as accepted.
 
+For Import & Database Reliability releases also verify deterministic concurrency coverage,
+CAS-protected terminal states, rollback of batch registration, restart recovery and filesystem
+cleanup ownership. Partial batch success must never be labelled full success.
+
 ## Release identity
 
 - package version must agree between `pyproject.toml` and `stratweb.__version__`;

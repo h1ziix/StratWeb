@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -10,6 +11,7 @@ import pytest
 
 from stratweb.adapters.persistence import DuckDBMatchRepository
 from stratweb.adapters.persistence.migrations import MIGRATIONS
+from stratweb.adapters.persistence.write_coordinator import get_write_coordinator
 from stratweb.application.canonical_models import (
     CanonicalBlind,
     CapabilityCoverageStatus,
@@ -116,6 +118,37 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
     assert rows[31][0:2] == (32, "interactive_2d_telestrator")
     assert rows[32][0:2] == (33, "optional_local_ai_briefings")
     assert rows[33][0:2] == (34, "opponent_player_or_team_subject")
+
+
+def test_match_save_uses_shared_write_coordinator(
+    tmp_path: Path, canonical_dataset_factory: Any
+) -> None:
+    database = tmp_path / "matches.duckdb"
+    repository = DuckDBMatchRepository(database)
+    repository.initialize()
+    coordinator = get_write_coordinator(database)
+    assert repository._writes is coordinator
+    dataset = canonical_dataset_factory("coordinated")
+    saved = Event()
+    errors: list[BaseException] = []
+
+    def save_match() -> None:
+        try:
+            repository.save_match(dataset)
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            saved.set()
+
+    with coordinator.serialized():
+        writer = Thread(target=save_match)
+        writer.start()
+        assert not saved.wait(timeout=0.1)
+
+    writer.join(timeout=3)
+    assert not writer.is_alive()
+    assert saved.is_set()
+    assert errors == []
 
 
 def test_modified_applied_migration_checksum_is_rejected(tmp_path: Path) -> None:

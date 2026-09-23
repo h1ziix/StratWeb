@@ -8,10 +8,19 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.application.import_job_models import ImportJobRecord
-from stratweb.exceptions import PersistenceError
+from stratweb.application.import_job_models import (
+    ImportJobRecord,
+    ImportJobStage,
+    validate_stage_transition,
+)
+from stratweb.exceptions import (
+    ImportDuplicateError,
+    ImportJobTransitionConflictError,
+    PersistenceError,
+)
 
 from .duckdb import DuckDBMatchRepository
+from .write_coordinator import get_write_coordinator
 
 
 class DuckDBImportJobRepository:
@@ -20,6 +29,7 @@ class DuckDBImportJobRepository:
     def __init__(self, database_path: str | Path) -> None:
         self._database_path = Path(database_path).expanduser().resolve()
         self._matches = DuckDBMatchRepository(self._database_path)
+        self._writes = get_write_coordinator(self._database_path)
 
     def initialize(self) -> tuple[int, ...]:
         return self._matches.initialize()
@@ -27,22 +37,80 @@ class DuckDBImportJobRepository:
     def create(self, record: ImportJobRecord) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
-                connection.execute(
-                    """
-                    INSERT INTO import_jobs (
-                        job_id, stage, original_name, internal_name, match_id,
-                        message, error_code, attempt_count, recoverable,
-                        progress_percent, created_at, updated_at, demo_sha256,
-                        file_size_bytes, last_completed_stage, worker_version,
-                        worker_pid, peak_worker_memory_bytes, cancel_requested_at,
-                        completed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    _parameters(record),
-                )
+            with self._writes.serialized():
+                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                    connection.execute(
+                        """
+                        INSERT INTO import_jobs (
+                            job_id, stage, original_name, internal_name, match_id,
+                            message, error_code, attempt_count, recoverable,
+                            progress_percent, created_at, updated_at, demo_sha256,
+                            file_size_bytes, last_completed_stage, worker_version,
+                            worker_pid, peak_worker_memory_bytes, cancel_requested_at,
+                            completed_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        _parameters(record),
+                    )
         except duckdb.Error as exc:
             raise PersistenceError(f"Could not create import job {record.job_id}.") from exc
+
+    def create_if_sha256_absent(self, record: ImportJobRecord) -> None:
+        self.initialize()
+        if record.demo_sha256 is None:
+            raise ValueError("Atomic import-job reservation requires a demo SHA-256.")
+        try:
+            with self._writes.serialized():
+                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                    connection.execute("BEGIN TRANSACTION")
+                    try:
+                        existing_job = connection.execute(
+                            """
+                            SELECT job_id, match_id FROM import_jobs
+                            WHERE demo_sha256 = ? AND stage != 'cancelled'
+                            ORDER BY updated_at DESC, job_id LIMIT 1
+                            """,
+                            [record.demo_sha256],
+                        ).fetchone()
+                        if existing_job is not None:
+                            raise ImportDuplicateError(
+                                "This exact demo is already imported or queued.",
+                                job_id=existing_job[0],
+                                match_id=existing_job[1],
+                            )
+                        existing_match = connection.execute(
+                            """
+                            SELECT match_id FROM matches
+                            WHERE source_demo_sha256 = ? LIMIT 1
+                            """,
+                            [record.demo_sha256],
+                        ).fetchone()
+                        if existing_match is not None:
+                            raise ImportDuplicateError(
+                                "This exact demo is already present in the match library.",
+                                match_id=existing_match[0],
+                            )
+                        connection.execute(
+                            """
+                            INSERT INTO import_jobs (
+                                job_id, stage, original_name, internal_name, match_id,
+                                message, error_code, attempt_count, recoverable,
+                                progress_percent, created_at, updated_at, demo_sha256,
+                                file_size_bytes, last_completed_stage, worker_version,
+                                worker_pid, peak_worker_memory_bytes, cancel_requested_at,
+                                completed_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            _parameters(record),
+                        )
+                        connection.execute("COMMIT")
+                    except Exception:
+                        connection.execute("ROLLBACK")
+                        raise
+        except ImportDuplicateError:
+            raise
+        except duckdb.Error as exc:
+            raise PersistenceError(f"Could not reserve import job {record.job_id}.") from exc
 
     def get(self, job_id: UUID) -> ImportJobRecord | None:
         self.initialize()
@@ -57,23 +125,42 @@ class DuckDBImportJobRepository:
             raise PersistenceError(f"Could not read import job {job_id}.") from exc
         return _record(result) if result is not None else None
 
-    def update(self, record: ImportJobRecord) -> None:
+    def update(
+        self,
+        record: ImportJobRecord,
+        *,
+        expected_stage: ImportJobStage | None = None,
+    ) -> None:
         self.initialize()
+        if expected_stage is not None:
+            validate_stage_transition(expected_stage, record.stage)
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
-                connection.execute(
+            with self._writes.serialized():
+                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                    statement = """
+                        UPDATE import_jobs SET
+                            stage = ?, original_name = ?, internal_name = ?, match_id = ?,
+                            message = ?, error_code = ?, attempt_count = ?, recoverable = ?,
+                            progress_percent = ?, created_at = ?, updated_at = ?,
+                            demo_sha256 = ?, file_size_bytes = ?, last_completed_stage = ?,
+                            worker_version = ?, worker_pid = ?, peak_worker_memory_bytes = ?,
+                            cancel_requested_at = ?, completed_at = ?
+                        WHERE job_id = ?
                     """
-                    UPDATE import_jobs SET
-                        stage = ?, original_name = ?, internal_name = ?, match_id = ?,
-                        message = ?, error_code = ?, attempt_count = ?, recoverable = ?,
-                        progress_percent = ?, created_at = ?, updated_at = ?,
-                        demo_sha256 = ?, file_size_bytes = ?, last_completed_stage = ?,
-                        worker_version = ?, worker_pid = ?, peak_worker_memory_bytes = ?,
-                        cancel_requested_at = ?, completed_at = ?
-                    WHERE job_id = ?
-                    """,
-                    [*_parameters(record)[1:], record.job_id],
-                )
+                    parameters = [*_parameters(record)[1:], record.job_id]
+                    if expected_stage is not None:
+                        statement += " AND stage = ? RETURNING job_id"
+                        parameters.append(expected_stage.value)
+                    cursor = connection.execute(
+                        statement,
+                        parameters,
+                    )
+                    if expected_stage is not None and cursor.fetchone() is None:
+                        raise ImportJobTransitionConflictError(
+                            f"Import job {record.job_id} changed before the update completed."
+                        )
+        except ImportJobTransitionConflictError:
+            raise
         except duckdb.Error as exc:
             raise PersistenceError(f"Could not update import job {record.job_id}.") from exc
 

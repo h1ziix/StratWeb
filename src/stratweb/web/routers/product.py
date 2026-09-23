@@ -417,7 +417,7 @@ def product_router(
             opponent_profile_id=opponent.profile_id,
             created_at=now,
         )
-        batch_repository.create(batch)
+        batch_items: list[ImportBatchItem] = []
         item_index = 0
         for demo_file in retained:
             try:
@@ -460,10 +460,10 @@ def product_router(
                     message="Import queue is full; this file was not retained",
                     created_at=now,
                 )
-            batch_repository.add_item(item)
+            batch_items.append(item)
             item_index += 1
         for rejection in rejected:
-            batch_repository.add_item(
+            batch_items.append(
                 ImportBatchItem(
                     batch_id=batch.batch_id,
                     item_index=item_index,
@@ -475,6 +475,7 @@ def product_router(
                 )
             )
             item_index += 1
+        batch_repository.create_with_items(batch, tuple(batch_items))
 
         view = _batch_view(batch_repository, jobs, batch.batch_id)
         if "text/html" in request.headers.get("accept", ""):

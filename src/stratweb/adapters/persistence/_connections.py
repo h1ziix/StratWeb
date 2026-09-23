@@ -10,6 +10,8 @@ import duckdb
 
 from stratweb.exceptions import PersistenceError
 
+from .write_coordinator import get_write_coordinator
+
 
 @contextmanager
 def read_connection(database_path: Path, subsystem: str) -> Iterator[duckdb.DuckDBPyConnection]:
@@ -19,8 +21,10 @@ def read_connection(database_path: Path, subsystem: str) -> Iterator[duckdb.Duck
     requires a uniform configuration for all connections to the same file.
     """
 
+    coordinator = get_write_coordinator(database_path)
     try:
-        with duckdb.connect(str(database_path), read_only=False) as connection:
-            yield connection
+        with coordinator.serialized():
+            with duckdb.connect(str(database_path), read_only=False) as connection:
+                yield connection
     except duckdb.Error as exc:
         raise PersistenceError(f"Could not read {subsystem} data.") from exc

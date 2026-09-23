@@ -12,12 +12,14 @@ from stratweb.application.import_batch_models import ImportBatchItem, ImportBatc
 from stratweb.exceptions import PersistenceError
 
 from .duckdb import DuckDBMatchRepository
+from .write_coordinator import get_write_coordinator
 
 
 class DuckDBImportBatchRepository:
     def __init__(self, database_path: str | Path) -> None:
         self._database_path = Path(database_path).expanduser().resolve()
         self._matches = DuckDBMatchRepository(self._database_path)
+        self._writes = get_write_coordinator(self._database_path)
 
     def initialize(self) -> tuple[int, ...]:
         return self._matches.initialize()
@@ -63,6 +65,45 @@ class DuckDBImportBatchRepository:
                 )
         except duckdb.Error as exc:
             raise PersistenceError("Could not add import-batch item.") from exc
+
+    def create_with_items(
+        self,
+        record: ImportBatchRecord,
+        items: tuple[ImportBatchItem, ...],
+    ) -> None:
+        self.initialize()
+        if any(item.batch_id != record.batch_id for item in items):
+            raise ValueError("Every import-batch item must belong to the batch.")
+        try:
+            with self._writes.serialized():
+                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                    connection.execute("BEGIN TRANSACTION")
+                    try:
+                        connection.execute(
+                            "INSERT INTO import_batches VALUES (?, ?, ?, ?)",
+                            [
+                                record.batch_id,
+                                record.display_name,
+                                record.opponent_profile_id,
+                                _utc_naive(record.created_at),
+                            ],
+                        )
+                        for item in items:
+                            connection.execute(
+                                """
+                                INSERT INTO import_batch_items (
+                                    batch_id, item_index, original_name, disposition, job_id,
+                                    existing_match_id, error_code, message, created_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                _item_parameters(item),
+                            )
+                        connection.execute("COMMIT")
+                    except Exception:
+                        connection.execute("ROLLBACK")
+                        raise
+        except duckdb.Error as exc:
+            raise PersistenceError("Could not register import batch.") from exc
 
     def get(self, batch_id: UUID) -> ImportBatchRecord | None:
         self.initialize()
@@ -127,6 +168,20 @@ def _aware(row: dict[str, object]) -> dict[str, object]:
 
 def _utc_naive(value: datetime) -> datetime:
     return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def _item_parameters(item: ImportBatchItem) -> list[object]:
+    return [
+        item.batch_id,
+        item.item_index,
+        item.original_name,
+        item.disposition.value,
+        item.job_id,
+        item.existing_match_id,
+        item.error_code,
+        item.message,
+        _utc_naive(item.created_at),
+    ]
 
 
 __all__ = ["DuckDBImportBatchRepository"]
