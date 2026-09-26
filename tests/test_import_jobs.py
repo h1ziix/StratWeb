@@ -99,6 +99,78 @@ def test_import_failure_message_does_not_expose_path_or_traceback() -> None:
     assert "secret-token" not in message
 
 
+def test_import_logs_original_error_with_job_id_but_persists_safe_message(
+    tmp_path: Path, monkeypatch: Any, caplog: Any
+) -> None:
+    from stratweb.exceptions import PersistenceError
+
+    directory = tmp_path / "uploads"
+    directory.mkdir()
+    demo = directory / "owned.dem"
+    demo.write_bytes(b"PBDEMS2fixture")
+    repository = DuckDBImportJobRepository(tmp_path / "jobs.duckdb")
+    record = _queued_record(demo.name)
+    repository.create(record)
+    manager = LocalImportJobManager(tmp_path / "jobs.duckdb", repository=repository)
+
+    def fail(*args: Any, **kwargs: Any) -> Any:
+        try:
+            raise duckdb.ConstraintException("original-private-cause")
+        except duckdb.Error as exc:
+            raise PersistenceError("safe adapter error") from exc
+
+    monkeypatch.setattr(ParserWorkerRunner, "canonicalize", fail)
+    manager._run(record.job_id, demo, demo.name, Event())
+    failed = repository.get(record.job_id)
+    assert failed is not None and failed.stage is ImportJobStage.FAILED
+    assert failed.error_code == "persistence_error"
+    assert "original-private-cause" not in failed.message
+    assert str(record.job_id) in caplog.text
+    assert "original-private-cause" in caplog.text
+    manager.shutdown()
+
+
+def test_save_progress_does_not_block_cancellation_while_waiting_for_writer(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from threading import Thread
+
+    from stratweb.exceptions import ImportWorkerCancelledError
+
+    repository = DuckDBImportJobRepository(tmp_path / "jobs.duckdb")
+    record = _queued_record()
+    repository.create(record)
+    manager = LocalImportJobManager(tmp_path / "jobs.duckdb", repository=repository)
+    attempted = Event()
+    cancelled = Event()
+    event = Event()
+    coordinator = manager._write_coordinator
+    serialized = coordinator.serialized
+
+    def observed(*, timeout: float = -1) -> Any:
+        if timeout == 0.1:
+            attempted.set()
+        return serialized(timeout=timeout)
+
+    monkeypatch.setattr(coordinator, "serialized", observed)
+
+    def worker() -> None:
+        try:
+            with manager._database_write(record.job_id, event):
+                pytest.fail("cancelled worker entered save")
+        except ImportWorkerCancelledError:
+            cancelled.set()
+
+    with serialized():
+        thread = Thread(target=worker, daemon=True)
+        thread.start()
+        assert attempted.wait(2)
+        event.set()
+        assert cancelled.wait(2)
+    thread.join(2)
+    manager.shutdown()
+
+
 def test_import_job_repository_round_trip_and_unfinished_query(tmp_path: Path) -> None:
     repository = DuckDBImportJobRepository(tmp_path / "jobs.duckdb")
     record = _queued_record()
@@ -345,7 +417,7 @@ def test_manager_database_write_section_serializes_across_instances(tmp_path: Pa
     second.shutdown()
 
 
-def test_completed_job_cleanup_removes_only_job_owned_runtime_files(tmp_path: Path) -> None:
+def test_completed_job_retains_source_and_artifacts(tmp_path: Path) -> None:
     database = tmp_path / "jobs.duckdb"
     manager = LocalImportJobManager(database)
     job_id = uuid4()
@@ -365,8 +437,8 @@ def test_completed_job_cleanup_removes_only_job_owned_runtime_files(tmp_path: Pa
 
     manager._cleanup_completed_job(job_id, owned_demo.name)
 
-    assert not owned_demo.exists()
-    assert not owned_artifact.parent.exists()
+    assert owned_demo.read_bytes() == b"owned"
+    assert owned_artifact.read_text(encoding="utf-8") == "owned"
     assert other_demo.read_bytes() == b"other"
     assert other_artifact.read_text(encoding="utf-8") == "other"
     manager.shutdown()

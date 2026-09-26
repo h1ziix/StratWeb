@@ -10,7 +10,8 @@ from uuid import UUID
 import duckdb
 from pydantic import BaseModel
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._bulk import insert_rows
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
@@ -64,7 +65,7 @@ class DuckDBTemporalRepository:
         fingerprint = state.temporal_fingerprint
         expected = _row_counts(state)
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     match = connection.execute(
@@ -335,7 +336,7 @@ class DuckDBTemporalRepository:
     def delete_temporal(self, match_id: UUID) -> bool:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     exists = connection.execute(
@@ -552,12 +553,8 @@ class DuckDBTemporalRepository:
         columns = tuple(rows[0])
         if any(tuple(row) != columns for row in rows):
             raise TemporalIntegrityError(f"Temporal batch for {table!r} has inconsistent columns.")
-        quoted_columns = ", ".join(f'"{column}"' for column in columns)
-        placeholders = ", ".join("?" for _ in columns)
         values = [[row[column] for column in columns] for row in rows]
-        connection.executemany(
-            f'INSERT INTO "{table}" ({quoted_columns}) VALUES ({placeholders})', values
-        )
+        insert_rows(connection, table, columns, values)
 
     def _payload_models(
         self,

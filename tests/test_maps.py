@@ -261,6 +261,56 @@ def test_registry_asset_cache_does_not_erase_run_selection_evidence(tmp_path: Pa
     assert "map_revision_unproven" in pinned.model.warnings
 
 
+def test_recovered_resources_resolve_exact_pins_and_preserve_existing_files(tmp_path: Path) -> None:
+    from stratweb.map_resources import restore_map_resources
+
+    assets, registry = _asset_fixture(tmp_path)
+    target = tmp_path / "runtime" / "map_overviews"
+    definition = registry.preferred_definition("de_mirage")
+    assert definition is not None and definition.overview_asset is not None
+    image = target / definition.overview_asset.relative_path
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"existing-user-file")
+    assert restore_map_resources(assets, target) > 0
+    assert image.read_bytes() == b"existing-user-file"
+    unavailable = MapOverviewRegistry(target, registry).get_definition(definition)
+    assert unavailable.model.status.value == "unavailable"
+    assert "pinned_overview_asset_missing_or_checksum_mismatch" in unavailable.model.warnings
+    clean_target = tmp_path / "clean"
+    assert restore_map_resources(assets, clean_target) > 0
+    assert restore_map_resources(assets, clean_target) == 0
+    pin = registry.pin(
+        registry.select(
+            MapSelectionEvidence(raw_map_name="de_mirage", patch_version="unmatched-build")
+        )
+    )
+    recovered = MapOverviewRegistry(clean_target, registry).get_for_run("de_mirage", pin)
+    assert recovered.model.status.value == "available"
+    assert recovered.model.image_sha256 == definition.overview_asset.sha256
+    assert recovered.model.revision_selection_status is MapSelectionStatus.UNPROVEN
+    assert "map_revision_unproven" in recovered.model.warnings
+
+
+def test_map_resource_default_matches_launcher_and_explicit_environment(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    import os
+
+    from stratweb.config import Settings
+    from stratweb.map_resources import default_map_overview_dir
+
+    monkeypatch.delenv("STRATWEB_MAP_OVERVIEW_DIR", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+    expected = (
+        tmp_path / "local/StratWeb/map_overviews" if os.name == "nt" else Path("data/map_overviews")
+    )
+    assert default_map_overview_dir() == expected
+    assert Settings(_env_file=None).map_overview_dir == expected
+    custom = tmp_path / "custom"
+    monkeypatch.setenv("STRATWEB_MAP_OVERVIEW_DIR", str(custom))
+    assert Settings(_env_file=None).map_overview_dir == custom
+
+
 def test_spatial_run_pins_definition_and_registry_edits_do_not_reproject(
     tmp_path: Path, canonical_dataset_factory: Any
 ) -> None:
@@ -283,7 +333,7 @@ def test_spatial_run_pins_definition_and_registry_edits_do_not_reproject(
     assert summary is not None and summary.map_semantics is not None
     assert summary.map_semantics.selection_status is MapSelectionStatus.PROVEN
     assert summary.legacy_map_semantics is False
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         persisted = connection.execute(
             "SELECT canonical_map_name, selected_map_revision, map_definition_version, "
             "overview_checksum, transform_rule_version, map_definition_fingerprint "

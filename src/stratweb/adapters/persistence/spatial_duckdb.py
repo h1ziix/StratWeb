@@ -9,7 +9,8 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._bulk import insert_rows
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.adapters.persistence.storage_layout import uses_canonical_index_layout
@@ -64,7 +65,7 @@ class DuckDBSpatialRepository:
         self.initialize()
         expected = _row_counts(state)
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     match = connection.execute(
@@ -131,6 +132,17 @@ class DuckDBSpatialRepository:
                     if exact is not None and not collisions:
                         self._delete_run(connection, UUID(str(exact[0])))
                     self._insert(connection, state, expected)
+                    if not uses_canonical_index_layout(connection):
+                        for table, count in (
+                            ("spatial_snapshot_query_rows", len(state.snapshots)),
+                            ("bomb_position_query_rows", len(state.bomb_positions)),
+                        ):
+                            row = connection.execute(
+                                f'SELECT count(*) FROM "{table}" WHERE spatial_run_id = ?',
+                                [state.spatial_run_id],
+                            ).fetchone()
+                            if row is None or int(row[0]) != count:
+                                raise SpatialIntegrityError("Spatial lookup row counts differ.")
                     actual = self._counts_in_connection(connection, state.spatial_run_id)
                     if actual != expected:
                         raise SpatialIntegrityError(
@@ -544,7 +556,7 @@ class DuckDBSpatialRepository:
 
     def delete_spatial(self, match_id: UUID) -> int:
         self.initialize()
-        with duckdb.connect(str(self._database_path)) as connection:
+        with write_connection(self._database_path) as connection:
             runs = connection.execute(
                 "SELECT spatial_run_id FROM spatial_runs WHERE match_id = ?", [match_id]
             ).fetchall()
@@ -657,17 +669,34 @@ class DuckDBSpatialRepository:
             ],
         )
         if state.snapshots:
-            connection.executemany(
-                """
-                INSERT INTO spatial_snapshots (
-                    spatial_run_id, snapshot_id, match_id, temporal_run_id, round_id,
-                    round_number, tick, participant_id, x, y, z, yaw, pitch, alive,
-                    has_bomb, physical_team_id, side, map_name, position_authority,
-                    availability, payload, tick_lookup_key, player_path_key
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
-                """,
+            insert_rows(
+                connection,
+                "spatial_snapshots",
+                (
+                    "spatial_run_id",
+                    "snapshot_id",
+                    "match_id",
+                    "temporal_run_id",
+                    "round_id",
+                    "round_number",
+                    "tick",
+                    "participant_id",
+                    "x",
+                    "y",
+                    "z",
+                    "yaw",
+                    "pitch",
+                    "alive",
+                    "has_bomb",
+                    "physical_team_id",
+                    "side",
+                    "map_name",
+                    "position_authority",
+                    "availability",
+                    "payload",
+                    "tick_lookup_key",
+                    "player_path_key",
+                ),
                 [
                     [
                         state.spatial_run_id,
@@ -704,49 +733,43 @@ class DuckDBSpatialRepository:
                 ],
             )
             if not uses_canonical_index_layout(connection):
-                connection.executemany(
+                connection.execute(
                     """
                     INSERT INTO spatial_snapshot_query_rows (
-                        spatial_run_id, snapshot_id, round_number, tick, participant_id,
-                        physical_team_id, alive, has_bomb, x, position_authority,
-                        tick_lookup_key, player_path_key, payload, match_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        spatial_run_id, snapshot_id, round_number, tick,
+                        participant_id, physical_team_id, alive, has_bomb,
+                        x, position_authority, tick_lookup_key, player_path_key,
+                        payload, match_id
+                    ) SELECT
+                        spatial_run_id, snapshot_id, round_number, tick,
+                        participant_id, physical_team_id, alive, has_bomb,
+                        x, position_authority, tick_lookup_key, player_path_key,
+                        payload, match_id
+                    FROM spatial_snapshots WHERE spatial_run_id = ?
                     """,
-                    [
-                        [
-                            state.spatial_run_id,
-                            snapshot.snapshot_id,
-                            snapshot.round_number,
-                            snapshot.tick,
-                            snapshot.participant_id,
-                            snapshot.physical_team_id,
-                            snapshot.alive,
-                            snapshot.has_bomb,
-                            snapshot.x,
-                            snapshot.position_authority.value,
-                            _tick_lookup_key(
-                                state.spatial_run_id, snapshot.round_number, snapshot.tick
-                            ),
-                            _player_path_key(
-                                state.spatial_run_id,
-                                snapshot.round_number,
-                                snapshot.participant_id,
-                            ),
-                            _payload(snapshot),
-                            snapshot.match_id,
-                        ]
-                        for snapshot in state.snapshots
-                    ],
+                    [state.spatial_run_id],
                 )
         if state.bomb_positions:
-            connection.executemany(
-                """
-                INSERT INTO bomb_position_snapshots (
-                    spatial_run_id, snapshot_id, match_id, temporal_run_id, round_id,
-                    round_number, tick, x, y, z, carrier_participant_id,
-                    position_authority, source, payload, tick_lookup_key
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            insert_rows(
+                connection,
+                "bomb_position_snapshots",
+                (
+                    "spatial_run_id",
+                    "snapshot_id",
+                    "match_id",
+                    "temporal_run_id",
+                    "round_id",
+                    "round_number",
+                    "tick",
+                    "x",
+                    "y",
+                    "z",
+                    "carrier_participant_id",
+                    "position_authority",
+                    "source",
+                    "payload",
+                    "tick_lookup_key",
+                ),
                 [
                     [
                         state.spatial_run_id,
@@ -769,35 +792,35 @@ class DuckDBSpatialRepository:
                 ],
             )
             if not uses_canonical_index_layout(connection):
-                connection.executemany(
+                connection.execute(
                     """
                     INSERT INTO bomb_position_query_rows (
                         spatial_run_id, snapshot_id, round_number, tick,
                         tick_lookup_key, payload, match_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ) SELECT
+                        spatial_run_id, snapshot_id, round_number, tick,
+                        tick_lookup_key, payload, match_id
+                    FROM bomb_position_snapshots WHERE spatial_run_id = ?
                     """,
-                    [
-                        [
-                            state.spatial_run_id,
-                            bomb.snapshot_id,
-                            bomb.round_number,
-                            bomb.tick,
-                            _tick_lookup_key(state.spatial_run_id, bomb.round_number, bomb.tick),
-                            _payload(bomb),
-                            bomb.match_id,
-                        ]
-                        for bomb in state.bomb_positions
-                    ],
+                    [state.spatial_run_id],
                 )
         if state.projectiles:
-            connection.executemany(
-                """
-                INSERT INTO spatial_projectiles (
-                    spatial_run_id, projectile_id, match_id, temporal_run_id, round_id,
-                    round_number, first_position_tick, terminal_tick, projectile_type,
-                    owner_participant_id, payload
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            insert_rows(
+                connection,
+                "spatial_projectiles",
+                (
+                    "spatial_run_id",
+                    "projectile_id",
+                    "match_id",
+                    "temporal_run_id",
+                    "round_id",
+                    "round_number",
+                    "first_position_tick",
+                    "terminal_tick",
+                    "projectile_type",
+                    "owner_participant_id",
+                    "payload",
+                ),
                 [
                     [
                         state.spatial_run_id,
@@ -816,13 +839,21 @@ class DuckDBSpatialRepository:
                 ],
             )
         if state.projectile_snapshots:
-            connection.executemany(
-                """
-                INSERT INTO spatial_projectile_snapshots (
-                    spatial_run_id, snapshot_id, projectile_id, match_id,
-                    temporal_run_id, round_id, round_number, tick, lifecycle, payload
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            insert_rows(
+                connection,
+                "spatial_projectile_snapshots",
+                (
+                    "spatial_run_id",
+                    "snapshot_id",
+                    "projectile_id",
+                    "match_id",
+                    "temporal_run_id",
+                    "round_id",
+                    "round_number",
+                    "tick",
+                    "lifecycle",
+                    "payload",
+                ),
                 [
                     [
                         state.spatial_run_id,
@@ -840,14 +871,22 @@ class DuckDBSpatialRepository:
                 ],
             )
         if state.utility_effects:
-            connection.executemany(
-                """
-                INSERT INTO spatial_utility_effects (
-                    spatial_run_id, effect_id, projectile_id, match_id,
-                    temporal_run_id, round_id, round_number, start_tick, end_tick,
-                    effect_type, payload
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            insert_rows(
+                connection,
+                "spatial_utility_effects",
+                (
+                    "spatial_run_id",
+                    "effect_id",
+                    "projectile_id",
+                    "match_id",
+                    "temporal_run_id",
+                    "round_id",
+                    "round_number",
+                    "start_tick",
+                    "end_tick",
+                    "effect_type",
+                    "payload",
+                ),
                 [
                     [
                         state.spatial_run_id,
@@ -866,8 +905,20 @@ class DuckDBSpatialRepository:
                 ],
             )
         if state.validation_issues:
-            connection.executemany(
-                "INSERT INTO spatial_validation_issues VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            insert_rows(
+                connection,
+                "spatial_validation_issues",
+                (
+                    "spatial_run_id",
+                    "issue_index",
+                    "match_id",
+                    "code",
+                    "severity",
+                    "is_fatal",
+                    "entity_type",
+                    "entity_id",
+                    "payload",
+                ),
                 [
                     [
                         state.spatial_run_id,

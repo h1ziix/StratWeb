@@ -10,7 +10,7 @@ from uuid import UUID
 import duckdb
 import polars as pl
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
@@ -49,7 +49,7 @@ class DuckDBEconomyRepository:
             "team_economy_snapshots": len(state.team_snapshots),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -245,7 +245,7 @@ class DuckDBEconomyRepository:
     def delete_economy(self, match_id: UUID) -> int:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     rows = connection.execute(

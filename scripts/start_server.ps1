@@ -60,6 +60,14 @@ if ($listener) {
 $env:STRATWEB_DUCKDB_PATH = $resolvedDatabasePath
 $env:STRATWEB_MAP_OVERVIEW_DIR = $resolvedMapOverviewDir
 
+& $pythonPath -m stratweb.map_resources --target $resolvedMapOverviewDir
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not recover missing map resources. Existing files were preserved."
+}
+if (-not (Get-ChildItem -LiteralPath $resolvedMapOverviewDir -Filter *.png -Recurse -File)) {
+    Write-Warning "Map resources are missing. Run scripts/install_map_overview.py for your pinned CS2 VPK or set STRATWEB_MAP_OVERVIEW_DIR to an installed pack."
+}
+
 $uvicornArguments = @(
     "-m",
     "uvicorn",

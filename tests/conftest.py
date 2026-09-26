@@ -7,6 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 import polars as pl
 import pytest
 
+from stratweb.adapters.persistence._connections import close_database_connections
 from stratweb.application.canonical_models import (
     CanonicalBombEvent,
     CanonicalDamage,
@@ -35,6 +36,12 @@ from stratweb.application.inspection import DemoInspectionService
 from stratweb.application.inspection_models import DemoInspectionReport
 from stratweb.contracts import ParsedDemo, ParseRequest, ParserIdentity
 from stratweb.domain.enums import Side
+
+
+@pytest.fixture(autouse=True)
+def managed_database_cleanup():  # type: ignore[no-untyped-def]
+    yield
+    close_database_connections()
 
 
 class FakeInspectionParser:

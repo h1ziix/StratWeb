@@ -60,7 +60,7 @@
           <img id="upperOverview" class="upper-overview" src="{{ overview.image_url }}" alt="Official {{ overview.map_name }} upper overview" draggable="false">
           {% if overview.lower_image_url %}<img id="lowerOverview" class="lower-overview" src="{{ overview.lower_image_url }}" alt="Official {{ overview.map_name }} lower overview" draggable="false">{% endif %}
           {% else %}
-          <div class="map-overview-missing" role="img" aria-label="Изображение карты недоступно"></div>
+          <div class="map-overview-missing" role="img" aria-label="Изображение карты недоступно">Ресурсы этой версии карты отсутствуют или не прошли проверку. Установите проверенный пакет карт в STRATWEB_MAP_OVERVIEW_DIR; инструкция — MAP_ASSETS.md.</div>
           {% endif %}
           <canvas id="projectileTrailsLayer" class="render-layer projectile-trails-layer" aria-hidden="true"></canvas>
           <div id="playersLayer" class="render-layer players-layer"></div>

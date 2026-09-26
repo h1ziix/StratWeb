@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from time import perf_counter
 from uuid import UUID
 
@@ -61,6 +62,7 @@ class ComputeTemporalStateService:
         *,
         config: TemporalConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> TemporalComputeResult:
         started = perf_counter()
         source = self._load_input(match_id)
@@ -72,7 +74,8 @@ class ComputeTemporalStateService:
                 f"Temporal validation found structural contradictions: {codes}."
             )
         self._cross_check_analytics(result.timelines)
-        saved = self._temporal.save_temporal(result, replace=replace)
+        with save_context or nullcontext():
+            saved = self._temporal.save_temporal(result, replace=replace)
         return TemporalComputeResult(
             match_id=match_id,
             dataset_fingerprint=source.dataset_fingerprint,

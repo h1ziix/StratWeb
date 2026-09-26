@@ -8,7 +8,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError
@@ -32,7 +32,7 @@ class DuckDBHeadToHeadRepository:
     def save(self, state: HeadToHeadRun) -> HeadToHeadSaveResult:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     _preflight(connection, state)

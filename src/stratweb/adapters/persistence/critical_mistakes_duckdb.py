@@ -10,7 +10,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.analytics.models import ANALYTICS_RULE_VERSION, ANALYTICS_SCHEMA_VERSION
 from stratweb.application.normalization_utils import canonical_json
@@ -330,7 +330,7 @@ class DuckDBCriticalMistakesRepository:
     def save(self, state: CriticalMistakesRun) -> CriticalSaveResult:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 existing = connection.execute(
                     "SELECT critical_run_id FROM critical_mistake_runs "
                     "WHERE critical_fingerprint=?",

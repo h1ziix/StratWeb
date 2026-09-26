@@ -70,7 +70,7 @@ class SpatialExplorerService:
         self._opening_cache: dict[UUID, tuple[OpeningDuel, ...]] = {}
         self._trade_cache: dict[tuple[UUID, int], tuple[TradeEvent, ...]] = {}
         self._round_events_cache: dict[tuple[UUID, int], RoundEvents | None] = {}
-        self._zone_summary_cache: dict[tuple[UUID, UUID], ZoneAssignmentRunSummary | None] = {}
+        self._zone_summary_cache: dict[tuple[UUID, UUID], ZoneAssignmentRunSummary] = {}
 
     def list_round_ticks(
         self,
@@ -573,11 +573,15 @@ class SpatialExplorerService:
         if self._zones is None:
             return None, {}
         key = (spatial.match_id, spatial.spatial_run_id)
-        if key not in self._zone_summary_cache:
-            self._zone_summary_cache[key] = self._zones.get_summary_for_spatial_run(
+        summary = self._zone_summary_cache.get(key)
+        if summary is None:
+            summary = self._zones.get_summary_for_spatial_run(
                 spatial.match_id, spatial.spatial_run_id
             )
-        summary = self._zone_summary_cache[key]
+            # The map can be opened while the import is still materializing zones.
+            # A missing run is transient; only immutable saved runs may be cached.
+            if summary is not None:
+                self._zone_summary_cache[key] = summary
         if summary is None or not rows:
             return summary, {}
         assignments = self._zones.get_assignments(

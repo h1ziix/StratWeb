@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from shutil import rmtree
-from threading import BoundedSemaphore, Event, Lock
+from threading import BoundedSemaphore, Event, Lock, Thread
+from time import monotonic
 from uuid import UUID, uuid4
 
 from stratweb.adapters.persistence import (
@@ -21,6 +22,7 @@ from stratweb.adapters.persistence import (
     DuckDBTemporalRepository,
     DuckDBZoneAssignmentRepository,
 )
+from stratweb.adapters.persistence._connections import close_database_connections
 from stratweb.adapters.persistence.write_coordinator import get_write_coordinator
 from stratweb.analytics.models import AnalyticsConfig
 from stratweb.application.analytics import ComputeMatchAnalyticsService
@@ -48,6 +50,7 @@ from stratweb.exceptions import (
     ImportJobNotCancellableError,
     ImportJobNotFoundError,
     ImportJobNotRetryableError,
+    ImportJobTransitionConflictError,
     ImportQueueFullError,
     ImportWorkerCancelledError,
 )
@@ -56,7 +59,10 @@ from stratweb.ports import ImportJobRepository
 from stratweb.spatial.models import SpatialConfig
 from stratweb.temporal.models import TemporalConfig
 
+logger = logging.getLogger(__name__)
+
 _SAFE_IMPORT_ERROR_MESSAGES = {
+    "persistence_error": "Could not save import data. The retained demo can be retried.",
     "import_worker_timeout": "Parser worker timed out. The retained demo can be retried.",
     "import_worker_memory_limit": (
         "Parser worker exceeded its memory limit. The retained demo can be retried."
@@ -90,6 +96,7 @@ class LocalImportJobManager:
         parser_memory_limit_bytes: int = 4 * 1024 * 1024 * 1024,
         minimum_free_disk_bytes: int = 2 * 1024 * 1024 * 1024,
         cancel_grace_seconds: float = 5.0,
+        shutdown_timeout_seconds: float | None = None,
         repository: ImportJobRepository | None = None,
     ) -> None:
         self._database_path = database_path.expanduser().resolve()
@@ -102,12 +109,20 @@ class LocalImportJobManager:
         self._parser_memory_limit_bytes = parser_memory_limit_bytes
         self._minimum_free_disk_bytes = minimum_free_disk_bytes
         self._cancel_grace_seconds = cancel_grace_seconds
+        self._shutdown_timeout = (
+            cancel_grace_seconds + 6.0
+            if shutdown_timeout_seconds is None
+            else max(0.0, shutdown_timeout_seconds)
+        )
+        self._stopping = False
         self._lock = Lock()
+        self._startup_lock = Lock()
         self._started = False
         self._capacity = BoundedSemaphore(max_queue_size + 1)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="stratweb-import")
         self._cancel_events: dict[UUID, Event] = {}
         self._futures: dict[UUID, Future[None]] = {}
+        self._stage_started: dict[UUID, tuple[ImportJobStage, float]] = {}
 
     def submit(
         self,
@@ -150,26 +165,38 @@ class LocalImportJobManager:
         return self._repository.list_recent(limit)
 
     def shutdown(self) -> None:
-        """Stop parser children and persist retryable cancellation on graceful shutdown."""
-
+        """Signal all jobs immediately; bound waits for workers and status persistence."""
+        deadline = monotonic() + self._shutdown_timeout
         with self._lock:
+            self._stopping = True
             events = tuple(self._cancel_events.items())
-            futures = tuple(self._futures.values())
+            futures_by_job = self._futures.copy()
+            futures = tuple(futures_by_job.values())
         for _job_id, event in events:
             event.set()
         for future in futures:
             future.cancel()
-        self._executor.shutdown(wait=True, cancel_futures=True)
-        for job_id, _event in events:
+        self._executor.shutdown(wait=False, cancel_futures=True)
+        for future in futures:
             try:
-                record = self._require_job(job_id)
-                if not record.stage.terminal:
-                    self._mark_cancelled(job_id)
-            except ImportJobNotFoundError:
+                future.result(timeout=max(0.0, deadline - monotonic()))
+            except (CancelledError, TimeoutError):
                 pass
-        with self._lock:
-            self._cancel_events.clear()
-            self._futures.clear()
+
+        def persist_cancellation() -> None:
+            # Running workers persist cancellation only after reaching a safe
+            # boundary. Publishing it earlier would permit retry over an active run.
+            for job_id, future in futures_by_job.items():
+                if future.cancelled():
+                    try:
+                        self._mark_cancelled(job_id)
+                    finally:
+                        self._finish_slot(job_id)
+
+        # A blocked database must not make application lifespan shutdown unbounded.
+        cleanup = Thread(target=persist_cancellation, name="stratweb-stop", daemon=True)
+        cleanup.start()
+        cleanup.join(max(0.0, deadline - monotonic()))
 
     def retry(self, job_id: UUID) -> ImportJobRecord:
         self._ensure_started()
@@ -211,26 +238,33 @@ class LocalImportJobManager:
 
     def cancel(self, job_id: UUID) -> ImportJobRecord:
         self._ensure_started()
-        previous = self._require_job(job_id)
-        if previous.stage.terminal or previous.stage is ImportJobStage.CANCEL_REQUESTED:
-            raise ImportJobNotCancellableError("This import is not currently cancellable.")
-        now = datetime.now(UTC)
-        self._repository.update(
-            previous.model_copy(
-                update={
-                    "stage": ImportJobStage.CANCEL_REQUESTED,
-                    "message": "Cancellation requested; stopping at a safe boundary",
-                    "cancel_requested_at": now,
-                    "updated_at": now,
-                }
-            ),
-            expected_stage=previous.stage,
-        )
         with self._lock:
             event = self._cancel_events.get(job_id)
             future = self._futures.get(job_id)
+        # Deliver the signal before any database read or write can block.
         if event is not None:
             event.set()
+        with self._write_coordinator.serialized():
+            previous = self._require_job(job_id)
+            if event is not None and previous.stage in {
+                ImportJobStage.CANCEL_REQUESTED,
+                ImportJobStage.CANCELLED,
+            }:
+                return previous
+            if previous.stage.terminal or previous.stage is ImportJobStage.CANCEL_REQUESTED:
+                raise ImportJobNotCancellableError("This import is not currently cancellable.")
+            now = datetime.now(UTC)
+            self._repository.update(
+                previous.model_copy(
+                    update={
+                        "stage": ImportJobStage.CANCEL_REQUESTED,
+                        "message": "Cancellation requested; stopping at a safe boundary",
+                        "cancel_requested_at": now,
+                        "updated_at": now,
+                    }
+                ),
+                expected_stage=previous.stage,
+            )
         if future is not None and future.cancel():
             self._mark_cancelled(job_id)
             self._finish_slot(job_id)
@@ -239,6 +273,8 @@ class LocalImportJobManager:
     def _schedule(self, record: ImportJobRecord, demo_path: Path) -> None:
         event = Event()
         with self._lock:
+            if self._stopping:
+                raise RuntimeError("Import manager is shutting down.")
             self._cancel_events[record.job_id] = event
             self._futures[record.job_id] = self._executor.submit(
                 self._run_and_release, record.job_id, demo_path, record.original_name, event
@@ -256,8 +292,13 @@ class LocalImportJobManager:
         with self._lock:
             removed = self._cancel_events.pop(job_id, None)
             self._futures.pop(job_id, None)
+            stopping = self._stopping
         if removed is not None:
             self._capacity.release()
+        if stopping:
+            # A worker may persist cancellation after bounded app shutdown and
+            # reopen a pool. Release those late resources at its final boundary.
+            close_database_connections(self._database_path)
 
     def _run(self, job_id: UUID, demo_path: Path, original_name: str, event: Event) -> None:
         runner = ParserWorkerRunner(
@@ -302,10 +343,11 @@ class LocalImportJobManager:
                 match_id=dataset.match.match_id,
             )
             matches = DuckDBMatchRepository(self._database_path)
-            with self._database_write():
-                result = ImportCanonicalMatchService(matches).import_dataset(
-                    dataset, source_original_name=original_name
-                )
+            result = ImportCanonicalMatchService(matches).import_dataset(
+                dataset,
+                source_original_name=original_name,
+                save_context=self._database_write(job_id, event),
+            )
             if result.status is ImportStatus.FAILED:
                 raise RuntimeError(result.warnings[-1] if result.warnings else "Import failed")
             self._checkpoint(job_id, ImportJobStage.IMPORTING)
@@ -313,64 +355,74 @@ class LocalImportJobManager:
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.ECONOMY, "Capturing equipment and buys")
             economy_repository = DuckDBEconomyRepository(self._database_path)
-            with self._database_write():
-                ComputeEconomyService(
-                    matches, economy_repository, WorkerEconomyExtractor(runner)
-                ).compute(dataset.match.match_id, demo_path, config=EconomyConfig())
+            ComputeEconomyService(
+                matches, economy_repository, WorkerEconomyExtractor(runner)
+            ).compute(
+                dataset.match.match_id,
+                demo_path,
+                config=EconomyConfig(),
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.ECONOMY)
 
             self._check_cancel(job_id, event)
             analytics = DuckDBAnalyticsRepository(self._database_path)
             self._update(job_id, ImportJobStage.ANALYTICS, "Computing deterministic analytics")
-            with self._database_write():
-                ComputeMatchAnalyticsService(matches, analytics).compute(
-                    dataset.match.match_id, config=AnalyticsConfig()
-                )
+            ComputeMatchAnalyticsService(matches, analytics).compute(
+                dataset.match.match_id,
+                config=AnalyticsConfig(),
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.ANALYTICS)
 
             self._check_cancel(job_id, event)
             temporal = DuckDBTemporalRepository(self._database_path)
             self._update(job_id, ImportJobStage.TEMPORAL, "Computing Temporal 1.1")
-            with self._database_write():
-                ComputeTemporalStateService(
-                    matches, temporal, analytics_repository=analytics
-                ).compute(dataset.match.match_id, config=TemporalConfig())
+            ComputeTemporalStateService(matches, temporal, analytics_repository=analytics).compute(
+                dataset.match.match_id,
+                config=TemporalConfig(),
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.TEMPORAL)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.SPATIAL, "Extracting spatial samples")
             spatial_repository = DuckDBSpatialRepository(self._database_path)
-            with self._database_write():
-                spatial_result = ComputeSpatialStateService(
-                    matches, temporal, spatial_repository, WorkerSpatialExtractor(runner)
-                ).compute(
-                    dataset.match.match_id,
-                    demo_path,
-                    config=SpatialConfig(sampling_interval_ticks=self._sampling_interval_ticks),
-                )
+            spatial_result = ComputeSpatialStateService(
+                matches, temporal, spatial_repository, WorkerSpatialExtractor(runner)
+            ).compute(
+                dataset.match.match_id,
+                demo_path,
+                config=SpatialConfig(sampling_interval_ticks=self._sampling_interval_ticks),
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.SPATIAL)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.ZONES, "Assigning version-pinned map zones")
             zone_repository = DuckDBZoneAssignmentRepository(self._database_path)
-            with self._database_write():
-                ComputeZoneAssignmentsService(spatial_repository, zone_repository).compute(
-                    dataset.match.match_id, spatial_run_id=spatial_result.spatial_run_id
-                )
+            ComputeZoneAssignmentsService(spatial_repository, zone_repository).compute(
+                dataset.match.match_id,
+                spatial_run_id=spatial_result.spatial_run_id,
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.ZONES)
 
             self._check_cancel(job_id, event)
             self._update(job_id, ImportJobStage.FEATURES, "Materializing round facts")
-            with self._database_write():
-                ComputeRoundFeaturesService(
-                    matches,
-                    analytics,
-                    temporal,
-                    spatial_repository,
-                    zone_repository,
-                    DuckDBRoundFeatureRepository(self._database_path),
-                    economy_repository=economy_repository,
-                ).compute(dataset.match.match_id, config=RoundFeatureConfig())
+            ComputeRoundFeaturesService(
+                matches,
+                analytics,
+                temporal,
+                spatial_repository,
+                zone_repository,
+                DuckDBRoundFeatureRepository(self._database_path),
+                economy_repository=economy_repository,
+            ).compute(
+                dataset.match.match_id,
+                config=RoundFeatureConfig(),
+                save_context=self._database_write(job_id, event),
+            )
             self._checkpoint(job_id, ImportJobStage.FEATURES)
             self._update(
                 job_id,
@@ -383,6 +435,10 @@ class LocalImportJobManager:
         except ImportWorkerCancelledError:
             self._mark_cancelled(job_id)
         except Exception as exc:
+            logger.exception("Import failed job_id=%s", job_id)
+            if event.is_set():
+                self._mark_cancelled(job_id)
+                return
             try:
                 self._update(
                     job_id,
@@ -391,6 +447,8 @@ class LocalImportJobManager:
                     error_code=str(getattr(exc, "error_code", "import_job_failed")),
                     recoverable=demo_path.is_file(),
                 )
+            except ImportWorkerCancelledError:
+                self._mark_cancelled(job_id)
             except ImportJobNotFoundError:
                 pass
 
@@ -399,61 +457,79 @@ class LocalImportJobManager:
             raise ImportWorkerCancelledError("Import cancelled by the user.")
 
     def _checkpoint(self, job_id: UUID, stage: ImportJobStage) -> None:
-        previous = self._require_job(job_id)
-        self._repository.update(
-            previous.model_copy(
-                update={"last_completed_stage": stage, "updated_at": datetime.now(UTC)}
-            ),
-            expected_stage=previous.stage,
-        )
+        with self._lock:
+            event = self._cancel_events.get(job_id)
+        with self._write_coordinator.serialized():
+            if event is not None and event.is_set():
+                raise ImportWorkerCancelledError("Import cancelled by the user.")
+            previous = self._require_job(job_id)
+            self._repository.update(
+                previous.model_copy(
+                    update={"last_completed_stage": stage, "updated_at": datetime.now(UTC)}
+                ),
+                expected_stage=previous.stage,
+            )
 
     def _worker_pid(self, job_id: UUID, pid: int | None) -> None:
         try:
-            previous = self._require_job(job_id)
-            self._repository.update(
-                previous.model_copy(update={"worker_pid": pid, "updated_at": datetime.now(UTC)}),
-                expected_stage=previous.stage,
-            )
-        except ImportJobNotFoundError:
+            with self._write_coordinator.serialized(timeout=0):
+                try:
+                    previous = self._require_job(job_id)
+                    self._repository.update(
+                        previous.model_copy(
+                            update={"worker_pid": pid, "updated_at": datetime.now(UTC)}
+                        ),
+                        expected_stage=previous.stage,
+                    )
+                except (ImportJobNotFoundError, ImportJobTransitionConflictError):
+                    pass
+        except TimeoutError:
             pass
 
     def _peak_memory(self, job_id: UUID, value: int) -> None:
         try:
-            previous = self._require_job(job_id)
-            self._repository.update(
-                previous.model_copy(
-                    update={
-                        "peak_worker_memory_bytes": max(
-                            previous.peak_worker_memory_bytes or 0, value
+            with self._write_coordinator.serialized(timeout=0):
+                try:
+                    previous = self._require_job(job_id)
+                    self._repository.update(
+                        previous.model_copy(
+                            update={
+                                "peak_worker_memory_bytes": max(
+                                    previous.peak_worker_memory_bytes or 0, value
+                                ),
+                                "updated_at": datetime.now(UTC),
+                            }
                         ),
-                        "updated_at": datetime.now(UTC),
-                    }
-                ),
-                expected_stage=previous.stage,
-            )
-        except ImportJobNotFoundError:
+                        expected_stage=previous.stage,
+                    )
+                except (ImportJobNotFoundError, ImportJobTransitionConflictError):
+                    pass
+        except TimeoutError:
             pass
 
     def _mark_cancelled(self, job_id: UUID) -> None:
-        try:
-            record = self._require_job(job_id)
-            if record.stage is not ImportJobStage.CANCEL_REQUESTED:
+        with self._write_coordinator.serialized():
+            try:
+                record = self._require_job(job_id)
+                if record.stage.terminal:
+                    return
+                if record.stage is not ImportJobStage.CANCEL_REQUESTED:
+                    self._update(
+                        job_id,
+                        ImportJobStage.CANCEL_REQUESTED,
+                        "Cancellation requested; stopping at a safe boundary",
+                    )
+                    record = self._require_job(job_id)
                 self._update(
                     job_id,
-                    ImportJobStage.CANCEL_REQUESTED,
-                    "Cancellation requested; stopping at a safe boundary",
+                    ImportJobStage.CANCELLED,
+                    "Import cancelled; retained demo can be retried",
+                    error_code="import_worker_cancelled",
+                    recoverable=self._demo_path(record.internal_name).is_file(),
+                    completed_at=datetime.now(UTC),
                 )
-                record = self._require_job(job_id)
-            self._update(
-                job_id,
-                ImportJobStage.CANCELLED,
-                "Import cancelled; retained demo can be retried",
-                error_code="import_worker_cancelled",
-                recoverable=self._demo_path(record.internal_name).is_file(),
-                completed_at=datetime.now(UTC),
-            )
-        except ImportJobNotFoundError:
-            pass
+            except ImportJobNotFoundError:
+                pass
 
     def _update(
         self,
@@ -466,24 +542,42 @@ class LocalImportJobManager:
         recoverable: bool = False,
         completed_at: datetime | None = None,
     ) -> None:
-        previous = self._require_job(job_id)
-        validate_stage_transition(previous.stage, stage)
-        self._repository.update(
-            previous.model_copy(
-                update={
-                    "stage": stage,
-                    "message": message,
-                    "match_id": match_id if match_id is not None else previous.match_id,
-                    "error_code": error_code,
-                    "recoverable": recoverable,
-                    "worker_pid": None,
-                    "completed_at": completed_at,
-                    "progress_percent": stage_progress(stage, previous.progress_percent),
-                    "updated_at": datetime.now(UTC),
-                }
-            ),
-            expected_stage=previous.stage,
-        )
+        with self._lock:
+            event = self._cancel_events.get(job_id)
+        with self._write_coordinator.serialized():
+            if stage not in {ImportJobStage.CANCEL_REQUESTED, ImportJobStage.CANCELLED}:
+                if event is not None and event.is_set():
+                    raise ImportWorkerCancelledError("Import cancelled by the user.")
+            previous = self._require_job(job_id)
+            validate_stage_transition(previous.stage, stage)
+            if stage != previous.stage:
+                timing = self._stage_started.pop(job_id, None)
+                if timing is not None:
+                    logger.info(
+                        "Import stage job_id=%s stage=%s duration_seconds=%.3f outcome=%s",
+                        job_id,
+                        timing[0].value,
+                        monotonic() - timing[1],
+                        stage.value,
+                    )
+                if not stage.terminal:
+                    self._stage_started[job_id] = (stage, monotonic())
+            self._repository.update(
+                previous.model_copy(
+                    update={
+                        "stage": stage,
+                        "message": message,
+                        "match_id": match_id if match_id is not None else previous.match_id,
+                        "error_code": error_code,
+                        "recoverable": recoverable,
+                        "worker_pid": None,
+                        "completed_at": completed_at,
+                        "progress_percent": stage_progress(stage, previous.progress_percent),
+                        "updated_at": datetime.now(UTC),
+                    }
+                ),
+                expected_stage=previous.stage,
+            )
 
     def _require_job(self, job_id: UUID) -> ImportJobRecord:
         record = self._repository.get(job_id)
@@ -494,7 +588,7 @@ class LocalImportJobManager:
     def _ensure_started(self) -> None:
         if self._started:
             return
-        with self._lock:
+        with self._startup_lock:
             if self._started:
                 return
             self._repository.initialize()
@@ -549,24 +643,57 @@ class LocalImportJobManager:
         return candidate
 
     @contextmanager
-    def _database_write(self) -> Iterator[None]:
-        with self._write_coordinator.serialized():
-            yield
+    def _database_write(
+        self, job_id: UUID | None = None, event: Event | None = None
+    ) -> Iterator[None]:
+        started = monotonic()
+        stage = self._require_job(job_id).stage if job_id is not None else None
+        # Poll acquisition so a cancelled worker need not wait for another writer.
+        while True:
+            if event is not None and event.is_set():
+                raise ImportWorkerCancelledError("Import cancelled by the user.")
+            context = self._write_coordinator.serialized(timeout=0.1)
+            try:
+                context.__enter__()
+                break
+            except TimeoutError:
+                continue
+        try:
+            if event is not None and job_id is not None:
+                self._check_cancel(job_id, event)
+            if job_id is not None and stage is not None:
+                self._update(
+                    job_id,
+                    stage,
+                    f"Saving {stage.value} data; "
+                    "cancellation waits for a safe transaction boundary",
+                )
+            acquired = monotonic()
+            try:
+                yield
+            finally:
+                if job_id is not None:
+                    logger.info(
+                        "Import persistence job_id=%s stage=%s "
+                        "wait_seconds=%.3f write_seconds=%.3f",
+                        job_id,
+                        stage.value if stage else "unknown",
+                        acquired - started,
+                        monotonic() - acquired,
+                    )
+        finally:
+            context.__exit__(None, None, None)
 
     def _cleanup_completed_job(self, job_id: UUID, internal_name: str) -> None:
-        demo_path = self._demo_path(internal_name)
+        self._demo_path(internal_name)
         artifact_directory = (self._artifact_root / str(job_id)).resolve()
         if artifact_directory.parent != self._artifact_root or artifact_directory.name != str(
             job_id
         ):
             raise ImportJobNotRetryableError("Stored import artifact path is unsafe.")
-        try:
-            demo_path.unlink(missing_ok=True)
-            if artifact_directory.is_dir():
-                rmtree(artifact_directory)
-        except OSError:
-            # The import is already durable; stale runtime files can be cleaned later.
-            return
+        # Keep source demos and verified artifacts for reproducible local replay.
+        # Completion is a durable status transition, not a data retention policy.
+        logger.info("Import complete; source and artifacts retained job_id=%s", job_id)
 
 
 __all__ = ["LocalImportJobManager"]

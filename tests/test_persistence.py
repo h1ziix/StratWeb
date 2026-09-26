@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from threading import Event, Thread
 from typing import Any
@@ -10,7 +13,7 @@ import duckdb
 import pytest
 
 from stratweb.adapters.persistence import DuckDBMatchRepository
-from stratweb.adapters.persistence.migrations import MIGRATIONS
+from stratweb.adapters.persistence.migrations import MIGRATIONS, Migration
 from stratweb.adapters.persistence.write_coordinator import get_write_coordinator
 from stratweb.application.canonical_models import (
     CanonicalBlind,
@@ -29,6 +32,7 @@ from stratweb.application.persistence import (
 from stratweb.application.persistence_models import ImportStatus, MatchQueryFilters
 from stratweb.exceptions import (
     CanonicalSchemaVersionError,
+    DatabaseInitializationError,
     DatasetFingerprintMismatchError,
     DatasetIntegrityError,
     FatalValidationError,
@@ -78,7 +82,7 @@ def test_database_initialization_and_migrations_are_idempotent(tmp_path: Path) -
     )
     assert repository.initialize() == ()
 
-    with duckdb.connect(str(repository.database_path), read_only=True) as connection:
+    with duckdb.connect(str(repository.database_path), read_only=False) as connection:
         rows = connection.execute(
             "SELECT version, name, checksum FROM schema_migrations"
         ).fetchall()
@@ -158,7 +162,115 @@ def test_modified_applied_migration_checksum_is_rejected(tmp_path: Path) -> None
         connection.execute("UPDATE schema_migrations SET checksum = ?", ["0" * 64])
 
     with pytest.raises(MigrationChecksumError):
+        repository.initialize(force=True)
+
+    # Failed explicit verification must also invalidate the fast-path cache.
+    with pytest.raises(MigrationChecksumError):
         repository.initialize()
+
+
+def test_schema_cache_survives_data_mtime_changes(
+    tmp_path: Path, canonical_dataset_factory: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "matches.duckdb"
+    repository = DuckDBMatchRepository(database)
+    repository.save_match(canonical_dataset_factory("cache"))
+    stat = database.stat()
+    os.utime(database, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+
+    def unexpected_connection(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("Data mtime changes must not rerun schema initialization")
+
+    monkeypatch.setattr(duckdb, "connect", unexpected_connection)
+    assert DuckDBMatchRepository(database).initialize() == ()
+
+
+def test_schema_cache_detects_replaced_file_and_changed_manifest(tmp_path: Path) -> None:
+    database = tmp_path / "matches.duckdb"
+    replacement = tmp_path / "replacement.duckdb"
+    repository = DuckDBMatchRepository(database, migrations=MIGRATIONS[:1])
+    assert repository.initialize() == (1,)
+    with duckdb.connect(str(replacement)) as connection:
+        connection.execute("CREATE TABLE replacement_marker (value INTEGER)")
+    repository.close()
+    os.replace(replacement, database)
+    assert repository.initialize() == (1,)
+    changed = Migration(1, MIGRATIONS[0].name, MIGRATIONS[0].sql + "\n-- changed")
+    with pytest.raises(MigrationChecksumError):
+        DuckDBMatchRepository(database, migrations=(changed,)).initialize()
+
+
+def test_schema_cache_does_not_hide_newer_migrations(tmp_path: Path) -> None:
+    database = tmp_path / "matches.duckdb"
+    old = DuckDBMatchRepository(database, migrations=MIGRATIONS[:1])
+    assert old.initialize() == (1,)
+    assert DuckDBMatchRepository(database, migrations=MIGRATIONS[:2]).initialize() == (2,)
+    with pytest.raises(DatabaseInitializationError, match="unknown"):
+        old.initialize()
+
+
+def test_failed_migration_rolls_back_and_can_be_retried(tmp_path: Path) -> None:
+    database = tmp_path / "matches.duckdb"
+    first = Migration(1, "first", "CREATE TABLE first_table (value INTEGER)")
+    failing = Migration(
+        2, "second", "CREATE TABLE second_table (value INTEGER); INSERT INTO missing VALUES (1)"
+    )
+    repository = DuckDBMatchRepository(database, migrations=(first, failing))
+    with pytest.raises(DatabaseInitializationError):
+        repository.initialize()
+    with duckdb.connect(str(database)) as connection:
+        assert connection.execute("SELECT version FROM schema_migrations").fetchall() == [(1,)]
+        assert (
+            connection.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'second_table'"
+            ).fetchall()
+            == []
+        )
+    fixed = Migration(2, "second", "CREATE TABLE second_table (value INTEGER)")
+    repaired = DuckDBMatchRepository(database, migrations=(first, fixed))
+    assert repaired.initialize() == (2,)
+    assert repaired.initialize(force=True) == ()
+
+
+def test_read_does_not_initialize_or_create_a_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = DuckDBMatchRepository(tmp_path / "matches.duckdb")
+
+    def unexpected_initialization(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("A read must not initialize the schema")
+
+    monkeypatch.setattr(repository, "initialize", unexpected_initialization)
+    with pytest.raises(DatabaseInitializationError, match="does not exist"):
+        repository.count_matches(MatchQueryFilters())
+    assert not repository.database_path.exists()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_initialization_import_and_read_finish_with_bounded_wait(
+    tmp_path: Path, canonical_dataset_factory: Any, legacy: bool
+) -> None:
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(
+        canonical_dataset_factory("concurrent").model_dump_json(), encoding="utf-8"
+    )
+    # A killable child prevents a lock regression from hanging the pytest process
+    # or poisoning its global locks. The probe uses events, never scheduling sleeps.
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).with_name("persistence_concurrency_probe.py")),
+            str(tmp_path / "concurrent.duckdb"),
+            str(dataset_path),
+            str(int(legacy)),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Concurrent initialization/import/read: OK" in result.stdout
 
 
 def test_stage4_database_migration_preserves_match_round_and_event_rows(
@@ -252,7 +364,7 @@ def test_stage4_database_migration_preserves_match_round_and_event_rows(
         33,
         34,
     )
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         after = {}
         for table in before:
             row = connection.execute(f"SELECT count(*) FROM {table}").fetchone()

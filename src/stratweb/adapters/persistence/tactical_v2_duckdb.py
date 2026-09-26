@@ -10,7 +10,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._tactical_v2_cascade import delete_tactical_v2_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
@@ -618,7 +618,7 @@ class DuckDBTacticalV2Repository:
             "tactical_v2_evidence": sum(len(item.evidence_references) for item in state.insights),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -792,7 +792,7 @@ class DuckDBTacticalV2Repository:
     def delete(self, profile_id: UUID) -> int:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     rows = connection.execute(

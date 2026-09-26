@@ -8,6 +8,7 @@ from uuid import UUID
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import write_connection
 from stratweb.application.import_job_models import (
     ImportJobRecord,
     ImportJobStage,
@@ -19,6 +20,7 @@ from stratweb.exceptions import (
     PersistenceError,
 )
 
+from ._connections import read_connection
 from .duckdb import DuckDBMatchRepository
 from .write_coordinator import get_write_coordinator
 
@@ -38,7 +40,7 @@ class DuckDBImportJobRepository:
         self.initialize()
         try:
             with self._writes.serialized():
-                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                with write_connection(self._database_path) as connection:
                     connection.execute(
                         """
                         INSERT INTO import_jobs (
@@ -61,7 +63,7 @@ class DuckDBImportJobRepository:
             raise ValueError("Atomic import-job reservation requires a demo SHA-256.")
         try:
             with self._writes.serialized():
-                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                with write_connection(self._database_path) as connection:
                     connection.execute("BEGIN TRANSACTION")
                     try:
                         existing_job = connection.execute(
@@ -115,7 +117,7 @@ class DuckDBImportJobRepository:
     def get(self, job_id: UUID) -> ImportJobRecord | None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import jobs") as connection:
                 row = connection.execute(
                     "SELECT * FROM import_jobs WHERE job_id = ?",
                     [job_id],
@@ -136,7 +138,7 @@ class DuckDBImportJobRepository:
             validate_stage_transition(expected_stage, record.stage)
         try:
             with self._writes.serialized():
-                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                with write_connection(self._database_path) as connection:
                     statement = """
                         UPDATE import_jobs SET
                             stage = ?, original_name = ?, internal_name = ?, match_id = ?,
@@ -167,7 +169,7 @@ class DuckDBImportJobRepository:
     def list_unfinished(self) -> tuple[ImportJobRecord, ...]:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import jobs") as connection:
                 cursor = connection.execute(
                     """
                     SELECT * FROM import_jobs
@@ -186,7 +188,7 @@ class DuckDBImportJobRepository:
             raise ValueError("limit must be positive")
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import jobs") as connection:
                 cursor = connection.execute(
                     """
                     SELECT * FROM import_jobs
@@ -204,7 +206,7 @@ class DuckDBImportJobRepository:
     def find_by_sha256(self, sha256: str) -> ImportJobRecord | None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import jobs") as connection:
                 cursor = connection.execute(
                     """
                     SELECT * FROM import_jobs

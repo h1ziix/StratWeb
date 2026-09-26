@@ -36,7 +36,7 @@ All PNGs are 1024×1024. Metadata checksums refer to the matching Valve
 | de_overpass | `2a59b62668e80037b5a88e980f56af360269f5ea581d52eb0669d78a981f0d96` | — | `23b44305d79a15dc9feea71528a7015d6f3612044a8367f29b20c65aec2e7897` |
 
 The full machine-readable record is generated at
-`data/map_overviews/vpk-d263aa1118fb/manifest.json` and includes byte sizes, original VPK
+`<overview-root>/vpk-d263aa1118fb/manifest.json` and includes byte sizes, original VPK
 paths, build metadata, extractor version, and license status.
 
 ## Local installation
@@ -46,15 +46,27 @@ Run the verified extractor once per map from the project root:
 ```powershell
 python .\scripts\install_map_overview.py de_mirage `
   --cs2-root "C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive" `
-  --vrf-cli "C:\path\to\Source2Viewer-CLI.exe" `
-  --output .\data\map_overviews\vpk-d263aa1118fb
+  --vrf-cli "C:\path\to\Source2Viewer-CLI.exe"
 ```
 
 Repeat with the other canonical names. The installer validates the exact extractor
 version, PNG signature/dimensions, metadata presence, and writes the manifest atomically.
 Nuke's metadata triggers extraction of the lower image automatically.
 
-At runtime set `STRATWEB_MAP_OVERVIEW_DIR=.\data\map_overviews`. Assets are resolved by
+On Windows the installer, application settings and `scripts/start_server.ps1` use
+`%LOCALAPPDATA%\StratWeb\map_overviews` by default; other platforms use
+`data/map_overviews`. `STRATWEB_MAP_OVERVIEW_DIR` overrides this root. Without
+`--output`, extraction writes to its `vpk-<SHA256 prefix>` subdirectory. `--output`
+continues to mean an exact revision directory. A different VPK is never relabeled
+as the pinned revision; its assets remain unavailable until independently verified.
+
+The Windows launcher recovers only missing files from
+`%USERPROFILE%\StratWeb-data\map_overviews`; existing files are preserved, including
+files that subsequently fail checksum validation. Manual recovery is available via
+`python -m stratweb.map_resources --source <old-root> --target <overview-root>`.
+This copies resources, not databases or demos, and never changes map definitions.
+
+Assets are resolved by
 revision plus checksum, not by a mutable filename alone. Missing, wrong-size, or
 checksum-mismatched assets produce a placeholder and warning; no other map is substituted.
 

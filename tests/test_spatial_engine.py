@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import pytest
 from fastapi.testclient import TestClient
 
 from stratweb import cli
@@ -23,6 +24,95 @@ from stratweb.spatial.models import (
     SpatialExtraction,
     SpatialSourceSample,
 )
+
+
+@pytest.mark.parametrize("v2", [False, True])
+def test_spatial_bulk_round_trip_lookup_parity_and_retry(
+    tmp_path: Path, canonical_dataset_factory: Any, monkeypatch: Any, v2: bool
+) -> None:
+    from stratweb.adapters.persistence import spatial_duckdb
+    from stratweb.storage_migration.migrator import DuckDBStorageMigrator
+    from stratweb.storage_migration.models import StorageMigrationConfig
+
+    database, dataset, _ = _compute_fixture(tmp_path, canonical_dataset_factory)
+    matches = DuckDBMatchRepository(database)
+    if v2:
+        matches.close()
+        report = DuckDBStorageMigrator().migrate(
+            database,
+            tmp_path / "backup.duckdb",
+            config=StorageMigrationConfig(benchmark_iterations=1),
+        )
+        assert report.activated
+    seen: list[str] = []
+    original = spatial_duckdb.insert_rows
+
+    def counted(connection: Any, table: str, columns: Any, rows: Any) -> None:
+        seen.append(table)
+        original(connection, table, columns, rows)
+
+    monkeypatch.setattr(spatial_duckdb, "insert_rows", counted)
+    repository = DuckDBSpatialRepository(database)
+    service = ComputeSpatialStateService(
+        matches,
+        DuckDBTemporalRepository(database),
+        repository,
+        FakeSpatialExtractor(dataset.players),
+    )
+    replaced = service.compute(dataset.match.match_id, tmp_path / "ignored.dem", replace=True)
+    assert {"spatial_snapshots", "bomb_position_snapshots"} <= set(seen)
+    snapshots = repository.list_snapshots(dataset.match.match_id, limit=10_000)
+    first = snapshots[0]
+    tick_rows = repository.get_tick_snapshots(
+        dataset.match.match_id, first.round_number, first.tick
+    )
+    assert first in tick_rows
+    with duckdb.connect(str(database)) as connection:
+        canonical = connection.execute("SELECT count(*) FROM spatial_snapshots").fetchone()[0]
+        lookup = connection.execute("SELECT count(*) FROM spatial_snapshot_query_rows").fetchone()[
+            0
+        ]
+        assert lookup == (0 if v2 else canonical)
+        if not v2:
+            assert connection.execute(
+                "SELECT count(*) FROM spatial_snapshot_query_rows q "
+                "JOIN spatial_snapshots s USING (spatial_run_id, snapshot_id) "
+                "WHERE q.payload <> s.payload OR q.tick_lookup_key <> s.tick_lookup_key "
+                "OR q.player_path_key <> s.player_path_key"
+            ).fetchone() == (0,)
+    seen.clear()
+    repeated = service.compute(dataset.match.match_id, tmp_path / "ignored.dem")
+    assert repeated.status is SpatialComputeStatus.ALREADY_EXISTS
+    assert repeated.row_counts == replaced.row_counts and seen == []
+
+
+def test_spatial_batch_failure_restores_existing_run(
+    tmp_path: Path, canonical_dataset_factory: Any, monkeypatch: Any
+) -> None:
+    from stratweb.adapters.persistence import spatial_duckdb
+    from stratweb.exceptions import PersistenceError
+
+    database, dataset, _ = _compute_fixture(tmp_path, canonical_dataset_factory)
+    repository = DuckDBSpatialRepository(database)
+    before = repository.list_snapshots(dataset.match.match_id, limit=10_000)
+    original = spatial_duckdb.insert_rows
+
+    def fail_after_snapshots(connection: Any, table: str, columns: Any, rows: Any) -> None:
+        if table == "bomb_position_snapshots":
+            raise duckdb.ConstraintException("injected failure after snapshots and lookup inserts")
+        original(connection, table, columns, rows)
+
+    monkeypatch.setattr(spatial_duckdb, "insert_rows", fail_after_snapshots)
+    service = ComputeSpatialStateService(
+        DuckDBMatchRepository(database),
+        DuckDBTemporalRepository(database),
+        repository,
+        FakeSpatialExtractor(dataset.players),
+    )
+    with pytest.raises(PersistenceError):
+        service.compute(dataset.match.match_id, tmp_path / "ignored.dem", replace=True)
+    assert repository.list_snapshots(dataset.match.match_id, limit=10_000) == before
+    assert len(repository.list_runs(dataset.match.match_id)) == 1
 
 
 class FakeSpatialExtractor:
@@ -219,7 +309,7 @@ def test_migrations_007_through_014_preserve_canonical_and_temporal_rows(
         dataset.match.match_id
     )
     temporal_count_before: tuple[int] | None
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         temporal_count_before = connection.execute("SELECT count(*) FROM temporal_runs").fetchone()
 
     with duckdb.connect(str(database)) as connection:
@@ -239,8 +329,9 @@ def test_migrations_007_through_014_preserve_canonical_and_temporal_rows(
             "DELETE FROM schema_migrations WHERE version IN (7, 8, 9, 10, 11, 12, 13, 14)"
         )
 
-    assert DuckDBMatchRepository(database).initialize() == (7, 8, 9, 10, 11, 12, 13, 14)
-    with duckdb.connect(str(database), read_only=True) as connection:
+    # This test deliberately edits schema metadata outside repository coordination.
+    assert DuckDBMatchRepository(database).initialize(force=True) == (7, 8, 9, 10, 11, 12, 13, 14)
+    with duckdb.connect(str(database), read_only=False) as connection:
         assert connection.execute("SELECT count(*) FROM matches").fetchone() == (1,)
         assert connection.execute("SELECT count(*) FROM temporal_runs").fetchone() == (
             temporal_count_before

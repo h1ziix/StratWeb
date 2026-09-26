@@ -8,6 +8,7 @@ from uuid import UUID
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_profile
 from stratweb.adapters.persistence._tactical_v2_cascade import (
     delete_tactical_v2_for_profile,
@@ -34,7 +35,7 @@ class DuckDBOpponentRepository:
     def create_profile(self, profile: OpponentProfile) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     """
                     INSERT INTO opponent_profiles (
@@ -62,7 +63,7 @@ class DuckDBOpponentRepository:
     def get_profile(self, profile_id: UUID) -> OpponentProfile | None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "opponents_duckdb") as connection:
                 cursor = connection.execute(
                     "SELECT * FROM opponent_profiles WHERE profile_id = ?",
                     [profile_id],
@@ -75,7 +76,7 @@ class DuckDBOpponentRepository:
     def list_profiles(self) -> tuple[OpponentProfile, ...]:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "opponents_duckdb") as connection:
                 cursor = connection.execute(
                     "SELECT * FROM opponent_profiles ORDER BY display_name, profile_id"
                 )
@@ -87,7 +88,7 @@ class DuckDBOpponentRepository:
     def rename_profile(self, profile_id: UUID, display_name: str, updated_at: datetime) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     "UPDATE opponent_profiles SET display_name = ?, updated_at = ? "
                     "WHERE profile_id = ?",
@@ -103,7 +104,7 @@ class DuckDBOpponentRepository:
     def update_subject(self, profile: OpponentProfile) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     """
                     UPDATE opponent_profiles
@@ -127,7 +128,7 @@ class DuckDBOpponentRepository:
     def delete_profile(self, profile_id: UUID) -> bool:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 existing = connection.execute(
                     "SELECT 1 FROM opponent_profiles WHERE profile_id = ?",
                     [profile_id],
@@ -173,7 +174,7 @@ class DuckDBOpponentRepository:
             return
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     connection.executemany(
@@ -214,7 +215,7 @@ class DuckDBOpponentRepository:
     def list_selections(self, profile_id: UUID) -> tuple[OpponentMatchSelection, ...]:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "opponents_duckdb") as connection:
                 cursor = connection.execute(
                     """
                     SELECT * FROM opponent_match_selections
@@ -231,7 +232,7 @@ class DuckDBOpponentRepository:
     def remove_selection(self, profile_id: UUID, match_id: UUID) -> bool:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 existing = connection.execute(
                     """
                     SELECT 1 FROM opponent_match_selections

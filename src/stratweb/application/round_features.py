@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from time import perf_counter
 from uuid import UUID
 
@@ -69,6 +70,7 @@ class ComputeRoundFeaturesService:
         *,
         config: RoundFeatureConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> RoundFeatureComputeResult:
         started = perf_counter()
         selected_config = config or RoundFeatureConfig()
@@ -176,7 +178,8 @@ class ComputeRoundFeaturesService:
             ),
             selected_config,
         )
-        saved = self._features.save_features(state, replace=replace)
+        with save_context or nullcontext():
+            saved = self._features.save_features(state, replace=replace)
         return RoundFeatureComputeResult(
             feature_run_id=saved.feature_run_id,
             feature_fingerprint=saved.feature_fingerprint,

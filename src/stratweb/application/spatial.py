@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from time import perf_counter
 from uuid import UUID
@@ -64,6 +65,7 @@ class ComputeSpatialStateService:
         *,
         config: SpatialConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> SpatialComputeResult:
         started = perf_counter()
         resolved = config or SpatialConfig()
@@ -109,7 +111,8 @@ class ComputeSpatialStateService:
             raise SpatialIntegrityError(
                 f"Spatial validation found structural contradictions: {codes}."
             )
-        saved = self._spatial.save_spatial(state, replace=replace)
+        with save_context or nullcontext():
+            saved = self._spatial.save_spatial(state, replace=replace)
         return SpatialComputeResult(
             spatial_run_id=saved.spatial_run_id,
             spatial_fingerprint=saved.spatial_fingerprint,

@@ -149,100 +149,101 @@ def spatial_explorer_router(
         bomb_carrier_only: bool = False,
         mode: Annotated[str, Query(pattern="^(smooth|exact)$")] = "smooth",
     ) -> HTMLResponse:
-        try:
-            ticks = explorer.list_round_ticks(
-                match_id,
-                round_number,
-                spatial_run_id=run_id,
-            )
-            if not ticks:
-                raise HTTPException(
-                    status_code=404,
-                    detail="No authoritative spatial samples exist for this round.",
+        with matches.read_session():
+            try:
+                ticks = explorer.list_round_ticks(
+                    match_id,
+                    round_number,
+                    spatial_run_id=run_id,
                 )
-            initial_index = ticks.index(tick) if tick in ticks else 0
-            initial_from = max(0, initial_index - 16)
-            chunk = explorer.get_playback_chunk(
-                match_id,
-                round_number,
-                from_index=initial_from,
-                limit=PLAYBACK_CHUNK_SIZE,
-                spatial_run_id=run_id,
-                physical_team_id=team_id,
-                participant_id=participant_id,
-                alive_only=alive_only,
-                bomb_carrier_only=bomb_carrier_only,
+                if not ticks:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="No authoritative spatial samples exist for this round.",
+                    )
+                initial_index = ticks.index(tick) if tick in ticks else 0
+                initial_from = max(0, initial_index - 16)
+                chunk = explorer.get_playback_chunk(
+                    match_id,
+                    round_number,
+                    from_index=initial_from,
+                    limit=PLAYBACK_CHUNK_SIZE,
+                    spatial_run_id=run_id,
+                    physical_team_id=team_id,
+                    participant_id=participant_id,
+                    alive_only=alive_only,
+                    bomb_carrier_only=bomb_carrier_only,
+                )
+            except SpatialNotFoundError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            stored = matches.get_match(match_id)
+            if stored is None:
+                raise HTTPException(status_code=404, detail="Match not found")
+            players = matches.get_players(match_id)
+            teams = matches.get_teams(match_id)
+            rounds = matches.get_rounds(match_id)
+            team_by_player = {
+                player_id: team.team_id
+                for team in sorted(teams, key=lambda item: str(item.team_id))
+                for player_id in team.starting_player_ids
+            }
+            available_ticks = set(ticks)
+            events = tuple(
+                event
+                for event in _round_events(temporal, chunk.temporal_run_id, match_id, round_number)
+                if event["tick"] in available_ticks
             )
-        except SpatialNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        stored = matches.get_match(match_id)
-        if stored is None:
-            raise HTTPException(status_code=404, detail="Match not found")
-        players = matches.get_players(match_id)
-        teams = matches.get_teams(match_id)
-        rounds = matches.get_rounds(match_id)
-        team_by_player = {
-            player_id: team.team_id
-            for team in sorted(teams, key=lambda item: str(item.team_id))
-            for player_id in team.starting_player_ids
-        }
-        available_ticks = set(ticks)
-        events = tuple(
-            event
-            for event in _round_events(temporal, chunk.temporal_run_id, match_id, round_number)
-            if event["tick"] in available_ticks
-        )
-        config = {
-            "match_id": str(match_id),
-            "round_number": round_number,
-            "spatial_run_id": str(chunk.spatial_run_id),
-            "temporal_run_id": str(chunk.temporal_run_id),
-            "initial_index": initial_index,
-            "total_samples": len(ticks),
-            "chunk_limit": PLAYBACK_CHUNK_SIZE,
-            "ticks": ticks,
-            "event_ticks": tuple(item["tick"] for item in events),
-            "playback_clock": chunk.clock.model_dump(mode="json"),
-            "label_roster": tuple(
-                {
-                    "participant_id": str(player.player_id),
-                    "player_name": player.current_name,
-                    "physical_team_id": (
-                        str(team_by_player[player.player_id])
-                        if player.player_id in team_by_player
-                        else None
-                    ),
-                }
-                for player in sorted(players, key=lambda item: str(item.player_id))
-            ),
-            "mode": mode,
-        }
-        return HTMLResponse(
-            render_template(
-                "spatial/explorer.html",
-                match_context=build_match_context(stored, teams, rounds),
-                round_number=round_number,
-                round_numbers=tuple(row.round_number for row in rounds),
-                players=players,
-                teams=teams,
-                events=events,
-                filters={
-                    "team": team_id,
-                    "player": participant_id,
-                    "alive_only": alive_only,
-                    "bomb_carrier_only": bomb_carrier_only,
-                },
-                overview=chunk.overview,
-                overview_unavailable=(
-                    chunk.overview.status is not SpatialAvailabilityStatus.AVAILABLE
+            config = {
+                "match_id": str(match_id),
+                "round_number": round_number,
+                "spatial_run_id": str(chunk.spatial_run_id),
+                "temporal_run_id": str(chunk.temporal_run_id),
+                "initial_index": initial_index,
+                "total_samples": len(ticks),
+                "chunk_limit": PLAYBACK_CHUNK_SIZE,
+                "ticks": ticks,
+                "event_ticks": tuple(item["tick"] for item in events),
+                "playback_clock": chunk.clock.model_dump(mode="json"),
+                "label_roster": tuple(
+                    {
+                        "participant_id": str(player.player_id),
+                        "player_name": player.current_name,
+                        "physical_team_id": (
+                            str(team_by_player[player.player_id])
+                            if player.player_id in team_by_player
+                            else None
+                        ),
+                    }
+                    for player in sorted(players, key=lambda item: str(item.player_id))
                 ),
-                initial_index=initial_index,
-                total_samples=len(ticks),
-                initial_chunk=chunk,
-                initial_chunk_json=_json_for_script(chunk.model_dump(mode="json")),
-                config_json=_json_for_script(config),
+                "mode": mode,
+            }
+            return HTMLResponse(
+                render_template(
+                    "spatial/explorer.html",
+                    match_context=build_match_context(stored, teams, rounds),
+                    round_number=round_number,
+                    round_numbers=tuple(row.round_number for row in rounds),
+                    players=players,
+                    teams=teams,
+                    events=events,
+                    filters={
+                        "team": team_id,
+                        "player": participant_id,
+                        "alive_only": alive_only,
+                        "bomb_carrier_only": bomb_carrier_only,
+                    },
+                    overview=chunk.overview,
+                    overview_unavailable=(
+                        chunk.overview.status is not SpatialAvailabilityStatus.AVAILABLE
+                    ),
+                    initial_index=initial_index,
+                    total_samples=len(ticks),
+                    initial_chunk=chunk,
+                    initial_chunk_json=_json_for_script(chunk.model_dump(mode="json")),
+                    config_json=_json_for_script(config),
+                )
             )
-        )
 
     @router.get(
         "/ui/spatial/{match_id}/rounds/{round_number}/players/{participant_id}/path",
@@ -297,20 +298,21 @@ def spatial_explorer_router(
         alive_only: bool = False,
         bomb_carrier_only: bool = False,
     ) -> dict[str, Any]:
-        try:
-            return explorer.get_playback_chunk(
-                match_id,
-                round_number,
-                from_index=from_index,
-                limit=limit,
-                spatial_run_id=run_id,
-                physical_team_id=team_id,
-                participant_id=participant_id,
-                alive_only=alive_only,
-                bomb_carrier_only=bomb_carrier_only,
-            ).model_dump(mode="json")
-        except PlaybackIndexError as exc:
-            raise HTTPException(status_code=416, detail=str(exc)) from exc
+        with matches.read_session():
+            try:
+                return explorer.get_playback_chunk(
+                    match_id,
+                    round_number,
+                    from_index=from_index,
+                    limit=limit,
+                    spatial_run_id=run_id,
+                    physical_team_id=team_id,
+                    participant_id=participant_id,
+                    alive_only=alive_only,
+                    bomb_carrier_only=bomb_carrier_only,
+                ).model_dump(mode="json")
+            except PlaybackIndexError as exc:
+                raise HTTPException(status_code=416, detail=str(exc)) from exc
 
     @router.get("/api/spatial/{match_id}/rounds/{round_number}/ticks", tags=["spatial-query"])
     def api_ticks(match_id: UUID, round_number: int, run_id: UUID | None = None) -> dict[str, Any]:

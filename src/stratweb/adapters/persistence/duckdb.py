@@ -13,6 +13,13 @@ from uuid import UUID
 import duckdb
 import polars as pl
 
+from stratweb.adapters.persistence._connections import (
+    close_database_connections,
+    get_connection_manager,
+    read_connection,
+    read_session,
+    write_connection,
+)
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_matches
 from stratweb.adapters.persistence._tactical_v2_cascade import (
     delete_tactical_v2_for_matches,
@@ -141,7 +148,7 @@ def _match_scoped_tables(connection: duckdb.DuckDBPyConnection) -> tuple[str, ..
 
 _INITIALIZATION_LOCK = threading.Lock()
 _INITIALIZED_DATABASES: dict[
-    tuple[Path, tuple[tuple[int, str, str], ...]], tuple[int, int, int]
+    Path, tuple[tuple[tuple[int, str, str], ...], tuple[int, int, int]]
 ] = {}
 
 
@@ -150,7 +157,9 @@ def _database_identity(path: Path) -> tuple[int, int, int] | None:
         stat = path.stat()
     except FileNotFoundError:
         return None
-    return stat.st_dev, stat.st_ino, stat.st_mtime_ns
+    # Data writes/checkpoints change mtime without changing the schema. File
+    # replacement must still invalidate the cache (birthtime is available on Windows).
+    return stat.st_dev, stat.st_ino, getattr(stat, "st_birthtime_ns", 0)
 
 
 def _match_query_parts(filters: MatchQueryFilters) -> tuple[str, list[object]]:
@@ -194,7 +203,7 @@ def _match_order(sort: str) -> str:
 
 
 class DuckDBMatchRepository:
-    """Owns DuckDB connections; every canonical dataset is one transaction."""
+    """Lease managed connections; every canonical dataset is one transaction."""
 
     def __init__(
         self,
@@ -210,15 +219,48 @@ class DuckDBMatchRepository:
     def database_path(self) -> Path:
         return self._database_path
 
-    def initialize(self) -> tuple[int, ...]:
+    @contextmanager
+    def read_session(self) -> Iterator[duckdb.DuckDBPyConnection]:
+        """Compose reads across repositories using one thread-local MVCC snapshot."""
+        self.initialize()
+        with read_session(self._database_path) as connection:
+            yield connection
+
+    def close(self) -> None:
+        """Release this database's idle pool; active leases drain on return."""
+        close_database_connections(self._database_path)
+
+    def initialize(self, *, force: bool = False) -> tuple[int, ...]:
+        """Ensure the schema, or revalidate on-disk migration metadata with force=True.
+
+        The cache tracks file identity and the migration manifest, not data mtime.
+        External schema edits require explicit revalidation or a process restart.
+        """
         migration_key = tuple((item.version, item.name, item.checksum) for item in self._migrations)
-        cache_key = (self._database_path, migration_key)
-        with _INITIALIZATION_LOCK:
+        # Cache hits never wait for ordinary writers. Migration misses retain
+        # writer -> schema gate -> cache lock order, with a second cache check.
+        if not force:
+            with _INITIALIZATION_LOCK:
+                identity = _database_identity(self._database_path)
+                if identity is not None and _INITIALIZED_DATABASES.get(self._database_path) == (
+                    migration_key,
+                    identity,
+                ):
+                    return ()
+        if get_connection_manager(self._database_path).in_read_session:
+            raise PersistenceError("Cannot initialize schema inside a DuckDB read session.")
+        with self._writes.serialized(), self._writes.schema_change(), _INITIALIZATION_LOCK:
             current_identity = _database_identity(self._database_path)
-            if current_identity is not None and _INITIALIZED_DATABASES.get(cache_key) == (
-                current_identity
+            if (
+                not force
+                and current_identity is not None
+                and _INITIALIZED_DATABASES.get(self._database_path)
+                == (migration_key, current_identity)
             ):
                 return ()
+            # A failed verification must not leave an older manifest cached.
+            _INITIALIZED_DATABASES.pop(self._database_path, None)
+            close_database_connections(self._database_path)
             self._database_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with self._connect() as connection:
@@ -281,7 +323,7 @@ class DuckDBMatchRepository:
                         newly_applied.append(migration.version)
                 identity = _database_identity(self._database_path)
                 if identity is not None:
-                    _INITIALIZED_DATABASES[cache_key] = identity
+                    _INITIALIZED_DATABASES[self._database_path] = (migration_key, identity)
                 return tuple(newly_applied)
             except MigrationChecksumError:
                 raise
@@ -637,26 +679,21 @@ class DuckDBMatchRepository:
             return self._table_counts(connection, match_id)
 
     @contextmanager
-    def _connect(self, *, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
-        with self._writes.serialized():
-            connection = duckdb.connect(str(self._database_path), read_only=read_only)
-            try:
-                yield connection
-            finally:
-                connection.close()
+    def _connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
+        with write_connection(self._database_path) as connection:
+            yield connection
 
     @contextmanager
     def _read_connection(self) -> Iterator[duckdb.DuckDBPyConnection]:
-        if not self._database_path.is_file():
-            raise DatabaseInitializationError(
-                f"DuckDB database does not exist: {self._database_path}"
-            )
         try:
-            # DuckDB requires every connection to one file in a process to use the
-            # same configuration. Imports hold read-write connections, so query
-            # connections must also use read-write configuration.
-            with self._connect(read_only=False) as connection:
-                yield connection
+            # Queries use MVCC and the schema gate, without the writer lock.
+            with self._writes.schema_read():
+                if not self._database_path.is_file():
+                    raise DatabaseInitializationError(
+                        f"DuckDB database does not exist: {self._database_path}"
+                    )
+                with read_connection(self._database_path, "canonical") as connection:
+                    yield connection
         except duckdb.Error as exc:
             raise PersistenceError(
                 f"Could not read DuckDB database: {self._database_path}"

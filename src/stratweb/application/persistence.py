@@ -6,6 +6,7 @@ import json
 import os
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from time import perf_counter
 from uuid import UUID
@@ -117,16 +118,18 @@ class ImportCanonicalMatchService:
         *,
         source_original_name: str | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> ImportResult:
         started = perf_counter()
         validate_import_dataset(dataset)
         warnings = _import_warnings(dataset)
         try:
-            saved = self._repository.save_match(
-                dataset,
-                source_original_name=_metadata_filename(source_original_name),
-                replace=replace,
-            )
+            with save_context or nullcontext():
+                saved = self._repository.save_match(
+                    dataset,
+                    source_original_name=_metadata_filename(source_original_name),
+                    replace=replace,
+                )
         except PersistenceError as exc:
             return ImportResult(
                 match_id=dataset.match.match_id,

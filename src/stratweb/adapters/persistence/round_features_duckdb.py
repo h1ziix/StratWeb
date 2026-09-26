@@ -10,7 +10,7 @@ from uuid import UUID
 import duckdb
 import polars as pl
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._pattern_cascade import delete_patterns_for_feature_runs
 from stratweb.adapters.persistence._tactical_v2_cascade import (
     delete_tactical_v2_for_feature_runs,
@@ -51,7 +51,7 @@ class DuckDBRoundFeatureRepository:
         self.initialize()
         expected = {"round_feature_runs": 1, "round_features": len(state.features)}
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -258,7 +258,7 @@ class DuckDBRoundFeatureRepository:
     def delete_features(self, match_id: UUID) -> int:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     rows = connection.execute(

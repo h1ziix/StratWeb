@@ -121,83 +121,89 @@ def product_router(
         sort: Annotated[str, Query(pattern="^(newest|map|rounds)$")] = "newest",
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> HTMLResponse:
-        page_view = service.list_matches(
-            search=search,
-            sort=sort,
-            page=page,
-            page_size=_MATCH_LIBRARY_PAGE_SIZE,
-        )
-        matches = page_view.items
-        thumbnails = {
-            item.match_id: _map_overview(
-                item.match_id,
-                item.map_name,
+        # Restart recovery may write job statuses; finish it before the read snapshot.
+        recent_jobs = jobs.list_recent(8)
+        with match_repository.read_session():
+            page_view = service.list_matches(
+                search=search,
+                sort=sort,
+                page=page,
+                page_size=_MATCH_LIBRARY_PAGE_SIZE,
+            )
+            matches = page_view.items
+            thumbnails = {
+                item.match_id: _map_overview(
+                    item.match_id,
+                    item.map_name,
+                    spatial_repository,
+                    definitions,
+                    map_assets,
+                )
+                for item in matches
+            }
+            return HTMLResponse(
+                render_template(
+                    "matches/library.html",
+                    matches=matches,
+                    page_view=page_view,
+                    previous_href=(
+                        _match_library_href(search, sort, page_view.page - 1)
+                        if page_view.page > 1
+                        else None
+                    ),
+                    next_href=(
+                        _match_library_href(search, sort, page_view.page + 1)
+                        if page_view.page < page_view.page_count
+                        else None
+                    ),
+                    search=search,
+                    sort=sort,
+                    map_thumbnails=thumbnails,
+                    recent_jobs=recent_jobs,
+                    recent_batches=tuple(
+                        _batch_view(batch_repository, jobs, item.batch_id)
+                        for item in batch_repository.list_recent(5)
+                    ),
+                    opponent_profiles=opponent_service.list_profiles(),
+                    match_context=None,
+                )
+            )
+
+    @router.get("/ui/matches/{match_id}", response_class=HTMLResponse, include_in_schema=False)
+    def match_overview(match_id: UUID) -> HTMLResponse:
+        with match_repository.read_session():
+            overview = _overview(service, match_id)
+            map_overview = _map_overview(
+                match_id,
+                overview.match.map_name,
                 spatial_repository,
                 definitions,
                 map_assets,
             )
-            for item in matches
-        }
-        return HTMLResponse(
-            render_template(
-                "matches/library.html",
-                matches=matches,
-                page_view=page_view,
-                previous_href=(
-                    _match_library_href(search, sort, page_view.page - 1)
-                    if page_view.page > 1
-                    else None
-                ),
-                next_href=(
-                    _match_library_href(search, sort, page_view.page + 1)
-                    if page_view.page < page_view.page_count
-                    else None
-                ),
-                search=search,
-                sort=sort,
-                map_thumbnails=thumbnails,
-                recent_jobs=jobs.list_recent(8),
-                recent_batches=tuple(
-                    _batch_view(batch_repository, jobs, item.batch_id)
-                    for item in batch_repository.list_recent(5)
-                ),
-                opponent_profiles=opponent_service.list_profiles(),
-                match_context=None,
+            spatial_summary = spatial_repository.get_summary(match_id)
+            zone_summary = (
+                zone_repository.get_summary_for_spatial_run(
+                    match_id, spatial_summary.spatial_run_id
+                )
+                if spatial_summary is not None
+                else None
             )
-        )
-
-    @router.get("/ui/matches/{match_id}", response_class=HTMLResponse, include_in_schema=False)
-    def match_overview(match_id: UUID) -> HTMLResponse:
-        overview = _overview(service, match_id)
-        map_overview = _map_overview(
-            match_id,
-            overview.match.map_name,
-            spatial_repository,
-            definitions,
-            map_assets,
-        )
-        spatial_summary = spatial_repository.get_summary(match_id)
-        zone_summary = (
-            zone_repository.get_summary_for_spatial_run(match_id, spatial_summary.spatial_run_id)
-            if spatial_summary is not None
-            else None
-        )
-        readiness = build_match_readiness(overview, map_overview, zone_summary)
-        return HTMLResponse(
-            render_template(
-                "matches/overview.html",
-                overview=overview,
-                readiness=readiness,
-                hub=build_match_hub(
-                    overview,
-                    readiness,
-                    map_overview,
-                    economy_available=economy_repository.get_summary(match_id) is not None,
-                    features_available=feature_repository.get_summary(match_id) is not None,
-                ),
-                match_context=_match_context(overview.match),
+            readiness = build_match_readiness(overview, map_overview, zone_summary)
+            return HTMLResponse(
+                render_template(
+                    "matches/overview.html",
+                    overview=overview,
+                    readiness=readiness,
+                    hub=build_match_hub(
+                        overview,
+                        readiness,
+                        map_overview,
+                        economy_available=economy_repository.get_summary(match_id) is not None,
+                        features_available=feature_repository.get_summary(match_id) is not None,
+                    ),
+                    match_context=_match_context(overview.match),
+                )
             )
-        )
 
     @router.get(
         "/ui/matches/{match_id}/players",

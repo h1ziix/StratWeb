@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from math import isfinite
 from time import perf_counter
 from uuid import UUID
@@ -57,6 +58,7 @@ class ComputeMatchAnalyticsService:
         *,
         config: AnalyticsConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> AnalyticsComputeResult:
         started = perf_counter()
         source = self._load_input(match_id)
@@ -67,7 +69,8 @@ class ComputeMatchAnalyticsService:
             raise AnalyticsIntegrityError(
                 f"Analytics validation found structural contradictions: {codes}."
             )
-        saved = self._analytics.save_analytics(result, replace=replace)
+        with save_context or nullcontext():
+            saved = self._analytics.save_analytics(result, replace=replace)
         return AnalyticsComputeResult(
             match_id=match_id,
             dataset_fingerprint=source.dataset_fingerprint,

@@ -9,7 +9,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._counter_strategy_cascade import delete_strategy_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
@@ -55,7 +55,7 @@ class DuckDBCounterStrategyRepository:
             ),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -230,7 +230,7 @@ class DuckDBCounterStrategyRepository:
 
     def delete_strategies(self, profile_id: UUID) -> int:
         self.initialize()
-        with duckdb.connect(str(self._database_path)) as connection:
+        with write_connection(self._database_path) as connection:
             rows = connection.execute(
                 "SELECT strategy_run_id FROM counter_strategy_runs WHERE profile_id = ?",
                 [profile_id],

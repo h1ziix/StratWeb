@@ -9,6 +9,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.application.telestrator import (
@@ -27,7 +28,7 @@ class DuckDBTelestratorRepository:
     def get(self, match_id: UUID, round_number: int) -> TelestratorBoard:
         self._initialize_and_validate_round(match_id, round_number)
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "telestrator_duckdb") as connection:
                 row = connection.execute(
                     "SELECT payload FROM telestrator_boards WHERE match_id=? AND round_number=?",
                     [match_id, round_number],
@@ -48,7 +49,7 @@ class DuckDBTelestratorRepository:
         now = datetime.now(UTC)
         board_id = _board_id(match_id, round_number)
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     existing = connection.execute(
@@ -108,7 +109,7 @@ class DuckDBTelestratorRepository:
             raise ValueError("round_number must be positive")
         DuckDBMatchRepository(self._database_path).initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "telestrator_duckdb") as connection:
                 exists = connection.execute(
                     "SELECT 1 FROM rounds WHERE match_id=? AND round_number=?",
                     [match_id, round_number],

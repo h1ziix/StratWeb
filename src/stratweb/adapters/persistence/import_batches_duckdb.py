@@ -8,6 +8,7 @@ from uuid import UUID
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.application.import_batch_models import ImportBatchItem, ImportBatchRecord
 from stratweb.exceptions import PersistenceError
 
@@ -27,7 +28,7 @@ class DuckDBImportBatchRepository:
     def create(self, record: ImportBatchRecord) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     "INSERT INTO import_batches VALUES (?, ?, ?, ?)",
                     [
@@ -43,7 +44,7 @@ class DuckDBImportBatchRepository:
     def add_item(self, item: ImportBatchItem) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     """
                     INSERT INTO import_batch_items (
@@ -76,7 +77,7 @@ class DuckDBImportBatchRepository:
             raise ValueError("Every import-batch item must belong to the batch.")
         try:
             with self._writes.serialized():
-                with duckdb.connect(str(self._database_path), read_only=False) as connection:
+                with write_connection(self._database_path) as connection:
                     connection.execute("BEGIN TRANSACTION")
                     try:
                         connection.execute(
@@ -108,7 +109,7 @@ class DuckDBImportBatchRepository:
     def get(self, batch_id: UUID) -> ImportBatchRecord | None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import_batches_duckdb") as connection:
                 cursor = connection.execute(
                     "SELECT * FROM import_batches WHERE batch_id = ?", [batch_id]
                 )
@@ -120,7 +121,7 @@ class DuckDBImportBatchRepository:
     def list_items(self, batch_id: UUID) -> tuple[ImportBatchItem, ...]:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import_batches_duckdb") as connection:
                 cursor = connection.execute(
                     """
                     SELECT * FROM import_batch_items
@@ -139,7 +140,7 @@ class DuckDBImportBatchRepository:
             raise ValueError("limit must be positive")
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "import_batches_duckdb") as connection:
                 cursor = connection.execute(
                     "SELECT * FROM import_batches ORDER BY created_at DESC, batch_id LIMIT ?",
                     [limit],

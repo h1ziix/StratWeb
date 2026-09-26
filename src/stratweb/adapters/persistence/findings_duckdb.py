@@ -10,7 +10,7 @@ from uuid import UUID
 import duckdb
 
 from stratweb.adapters.persistence._analysis_cascade import delete_analysis_runs
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.domain.enums import Side
@@ -52,7 +52,7 @@ class DuckDBAnalysisRepository:
             ),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -230,7 +230,7 @@ class DuckDBAnalysisRepository:
 
     def delete_analysis(self, profile_id: UUID) -> int:
         self.initialize()
-        with duckdb.connect(str(self._database_path)) as connection:
+        with write_connection(self._database_path) as connection:
             rows = connection.execute(
                 "SELECT analysis_run_id FROM analysis_runs WHERE profile_id = ?", [profile_id]
             ).fetchall()

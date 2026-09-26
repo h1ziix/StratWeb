@@ -8,7 +8,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.ai_briefing.models import (
     AI_BRIEFING_PROMPT_VERSION,
@@ -84,7 +84,7 @@ class DuckDBAiBriefingRepository:
     def save(self, artifact: AiBriefingArtifact) -> None:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     """INSERT INTO ai_briefings VALUES (
                            ?,?,?,?,?,?,?,?,?,?,?,?,?

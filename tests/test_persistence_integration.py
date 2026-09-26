@@ -59,6 +59,7 @@ def test_faceit_fixture_round_trip_through_temporary_duckdb(tmp_path: Path) -> N
         "shots": len(dataset.shots),
         "grenades": len(dataset.grenades),
         "bomb_events": len(dataset.bomb_events),
+        "blinds": len(dataset.blinds),
         "validation_issues": len(dataset.validation_report.issues),
         "normalization_metadata": 1,
     }

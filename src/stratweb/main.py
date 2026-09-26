@@ -11,6 +11,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from stratweb import __version__
+from stratweb.adapters.persistence._connections import close_database_connections
 from stratweb.application.ai_briefing import AiBriefingProvider
 from stratweb.config import get_settings
 from stratweb.exceptions import (
@@ -75,6 +76,12 @@ def create_app(
         description="Offline analysis of completed Counter-Strike 2 demo files.",
     )
     application.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+    application.router.add_event_handler(
+        "startup",
+        lambda: logging.basicConfig(
+            level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
+        ),
+    )
 
     @application.get("/health", tags=["system"])
     def health() -> dict[str, str]:
@@ -282,6 +289,11 @@ def create_app(
         )
     )
 
+    # Registered after the import manager's shutdown handler. Active workers that
+    # outlive its bounded wait keep their exclusive leases until safe return.
+    application.router.add_event_handler(
+        "shutdown", lambda: close_database_connections(selected_database)
+    )
     return application
 
 

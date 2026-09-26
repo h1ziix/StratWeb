@@ -33,6 +33,13 @@ _validate_catalogs()
 
 _WARNING_LABELS: Final[dict[str, str]] = {
     "match is ready": "Матч готов",
+    "pinned_overview_asset_missing_or_checksum_mismatch": (
+        "Ресурсы закреплённой версии карты отсутствуют или не прошли проверку SHA-256. "
+        "Установите проверенный пакет карт; инструкция — MAP_ASSETS.md."
+    ),
+    "pinned_overview_metadata_missing_or_checksum_mismatch": (
+        "Метаданные закреплённой версии карты отсутствуют или не прошли проверку SHA-256."
+    ),
     (
         "no match team is confirmed. roster overlap remains unscored until the first "
         "manual selection."

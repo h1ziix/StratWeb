@@ -6,12 +6,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import struct
 import subprocess
 import tempfile
 from pathlib import Path
+
+from stratweb.map_resources import default_map_overview_dir
 
 EXPECTED_VRF_VERSION = "Version: 19.2.6339+c72208352f5bf62f1482447ed166c548f303f8fa"
 MAP_NAME = re.compile(r"^de_[a-z0-9_]+$")
@@ -25,17 +28,23 @@ def main() -> int:
     parser.add_argument("map_name", help="exact CS2 map name, for example de_ancient")
     parser.add_argument("--cs2-root", type=Path, required=True)
     parser.add_argument("--vrf-cli", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=Path("data/map_overviews"))
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Exact revision directory; default: configured overview root / vpk-<SHA256 prefix>",
+    )
     args = parser.parse_args()
 
     if MAP_NAME.fullmatch(args.map_name) is None:
         parser.error("map_name must match de_[a-z0-9_]+")
     cs2_root = args.cs2_root.expanduser().resolve()
     vrf_cli = args.vrf_cli.expanduser().resolve()
-    output = args.output.expanduser().resolve()
     vpk = cs2_root / "game" / "csgo" / "pak01_dir.vpk"
     if not vpk.is_file():
         parser.error(f"CS2 VPK not found: {vpk}")
+    overview_root = Path(os.environ.get("STRATWEB_MAP_OVERVIEW_DIR", default_map_overview_dir()))
+    output = (args.output or overview_root / f"vpk-{_sha256(vpk)[:12]}").expanduser().resolve()
     if not vrf_cli.is_file():
         parser.error(f"Source2Viewer CLI not found: {vrf_cli}")
     version = subprocess.run(

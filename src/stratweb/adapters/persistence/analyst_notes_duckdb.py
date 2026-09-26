@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.analyst_notes import (
     ANALYST_NOTE_SCHEMA_VERSION,
@@ -26,7 +27,7 @@ class DuckDBAnalystNoteRepository:
     def get(self, profile_id: UUID, tactical_run_id: UUID, insight_id: UUID) -> AnalystNote | None:
         DuckDBMatchRepository(self._database_path).initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "analyst_notes_duckdb") as connection:
                 row = connection.execute(
                     "SELECT note_id, profile_id, tactical_run_id, insight_id, body, "
                     "note_schema_version, created_at, updated_at FROM analyst_notes "
@@ -52,7 +53,7 @@ class DuckDBAnalystNoteRepository:
         )
         now = datetime.now(UTC)
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 exists = connection.execute(
                     "SELECT 1 FROM tactical_v2_insights "
                     "WHERE profile_id = ? AND tactical_run_id = ? AND insight_id = ?",
@@ -95,7 +96,7 @@ class DuckDBAnalystNoteRepository:
     def delete(self, profile_id: UUID, tactical_run_id: UUID, insight_id: UUID) -> bool:
         DuckDBMatchRepository(self._database_path).initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 before = connection.execute(
                     "SELECT count(*) FROM analyst_notes WHERE profile_id = ? "
                     "AND tactical_run_id = ? AND insight_id = ?",

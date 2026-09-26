@@ -285,7 +285,7 @@ def test_indexed_tick_team_path_nearest_and_bomb_queries(
     assert missing.navigation.previous_tick is not None
     assert missing.navigation.next_tick == 120
 
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         indexes = connection.execute(
             "SELECT index_name, expressions FROM duckdb_indexes() "
             "WHERE index_name LIKE 'idx_spatial_snapshots_%' ORDER BY index_name"
@@ -480,3 +480,20 @@ def test_out_of_map_raw_coordinate_is_rejected_not_clamped(
     assert view.render_status is EntityRenderStatus.REJECTED
     assert view.rejection_reasons == ("projection_outside_map_image",)
     assert view.projection.pixel_x != 0 or view.projection.pixel_y != 0
+
+
+def test_map_opened_during_import_observes_later_zone_run(
+    tmp_path: Path, canonical_dataset_factory: Any
+) -> None:
+    from stratweb.adapters.persistence import DuckDBZoneAssignmentRepository
+    from stratweb.application.zone_assignments import ComputeZoneAssignmentsService
+
+    database, dataset, service, _, _ = _fixture(tmp_path, canonical_dataset_factory)
+    spatial = DuckDBSpatialRepository(database)
+    zones = DuckDBZoneAssignmentRepository(database)
+    service._zones = zones
+    summary = spatial.get_summary(dataset.match.match_id)
+    assert summary is not None
+    assert service._zone_context(summary, ())[0] is None
+    ComputeZoneAssignmentsService(spatial, zones).compute(dataset.match.match_id)
+    assert service._zone_context(summary, ())[0] is not None

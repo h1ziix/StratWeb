@@ -8,6 +8,7 @@ from uuid import UUID
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.team_names import TeamDisplayLabel, TeamNameSource
 from stratweb.exceptions import MatchNotFoundError, PersistenceError
@@ -22,7 +23,7 @@ class DuckDBTeamNameRepository:
         try:
             # DuckDB requires all in-process connections to one file to use the
             # same configuration. Import workers keep read-write connections open.
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with read_connection(self._database_path, "team_names_duckdb") as connection:
                 rows = connection.execute(
                     "SELECT match_id, team_id, display_name, source, source_reference, "
                     "updated_at FROM team_display_labels WHERE match_id = ? ORDER BY team_id",
@@ -59,7 +60,7 @@ class DuckDBTeamNameRepository:
             raise MatchNotFoundError("Команда не принадлежит выбранному матчу.")
         now = datetime.now(UTC)
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute(
                     "INSERT INTO team_display_labels VALUES (?, ?, ?, ?, ?, ?) "
                     "ON CONFLICT (match_id, team_id) DO UPDATE SET "
@@ -82,7 +83,7 @@ class DuckDBTeamNameRepository:
     def delete(self, match_id: UUID, team_id: UUID) -> bool:
         DuckDBMatchRepository(self._database_path).initialize()
         try:
-            with duckdb.connect(str(self._database_path), read_only=False) as connection:
+            with write_connection(self._database_path) as connection:
                 before = connection.execute(
                     "SELECT count(*) FROM team_display_labels WHERE match_id = ? AND team_id = ?",
                     [match_id, team_id],

@@ -238,7 +238,7 @@ def test_migration_004_preserves_and_marks_legacy_ambiguous_runs(tmp_path: Path)
     assert trade.seconds_delta is None
     assert trade.seconds_delta_status is TimeConversionStatus.LEGACY_AMBIGUOUS
     assert trade.seconds_delta_source is None
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         run_row = connection.execute(
             "SELECT config, trade_window_mode FROM analytics_runs"
         ).fetchone()

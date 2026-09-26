@@ -13,6 +13,8 @@ from typing import Any
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import maintenance_read_connection
+
 from .models import (
     DatabaseStorageMetrics,
     QueryBenchmark,
@@ -56,15 +58,13 @@ class DuckDBStorageAuditor:
         if not path.is_file():
             raise StorageAuditError(f"DuckDB file does not exist: {path}")
         try:
-            connection = duckdb.connect(str(path), read_only=True)
+            with maintenance_read_connection(path) as connection:
+                try:
+                    return self._audit_connection(connection, path, selected)
+                except duckdb.Error as exc:
+                    raise StorageAuditError(f"DuckDB storage audit failed: {exc}") from exc
         except duckdb.Error as exc:
             raise StorageAuditError(f"Could not open DuckDB read-only: {path.name}") from exc
-        try:
-            return self._audit_connection(connection, path, selected)
-        except duckdb.Error as exc:
-            raise StorageAuditError(f"DuckDB storage audit failed: {exc}") from exc
-        finally:
-            connection.close()
 
     def _audit_connection(
         self,

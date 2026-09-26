@@ -1,0 +1,2 @@
+# Preserve the bytes of the checksum-pinned canonical fixture on Windows.
+tests/fixtures/legacy-canonical-v1.json text eol=lf

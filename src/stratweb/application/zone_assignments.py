@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from time import perf_counter
 from uuid import UUID
 
@@ -52,6 +53,7 @@ class ComputeZoneAssignmentsService:
         spatial_run_id: UUID | None = None,
         config: ZoneAssignmentConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> ZoneAssignmentComputeResult:
         started = perf_counter()
         spatial = (
@@ -90,7 +92,8 @@ class ComputeZoneAssignmentsService:
             else None
         )
         state = self._engine.compute(spatial, snapshots, zone_set, config or ZoneAssignmentConfig())
-        saved = self._zones.save_zone_assignments(state, replace=replace)
+        with save_context or nullcontext():
+            saved = self._zones.save_zone_assignments(state, replace=replace)
         return ZoneAssignmentComputeResult(
             zone_assignment_run_id=saved.zone_assignment_run_id,
             zone_assignment_fingerprint=saved.zone_assignment_fingerprint,

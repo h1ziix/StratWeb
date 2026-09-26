@@ -134,10 +134,10 @@ class ParserWorkerRunner:
                 stderr=stderr_stream,
                 creationflags=creationflags,
             )
-            self._on_pid(process.pid)
             started = time.monotonic()
             peak = 0
             try:
+                self._on_pid(process.pid)
                 while process.poll() is None:
                     if self._cancel_event.wait(0.1):
                         self._stop(process)
@@ -156,6 +156,8 @@ class ParserWorkerRunner:
                                 "Parser worker exceeded its memory limit."
                             )
             finally:
+                if process.poll() is None:
+                    self._stop(process)
                 self._on_pid(None)
                 if peak:
                     self._on_peak_memory(peak)

@@ -378,7 +378,7 @@ def test_bulk_upload_groups_multiple_files_and_zip_in_one_opponent_pool(
         "second.dem",
         "third.dem",
     ]
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         assert connection.execute("SELECT count(*) FROM import_batches").fetchone() == (1,)
         assert connection.execute("SELECT count(*) FROM import_batch_items").fetchone() == (3,)
         assert connection.execute("SELECT count(*) FROM opponent_profiles").fetchone() == (1,)

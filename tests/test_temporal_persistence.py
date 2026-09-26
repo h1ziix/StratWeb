@@ -198,7 +198,7 @@ def test_simultaneous_group_and_death_effect_status_round_trip(
         for event in events
         if event.event_type == "death"
     )
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         assert connection.execute(
             "SELECT death_effect_status FROM temporal_events "
             "WHERE event_type='death' ORDER BY event_id"
@@ -360,7 +360,7 @@ def test_migration_005_preserves_canonical_and_analytics_rows(
         33,
         34,
     )
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         canonical_count = connection.execute("SELECT count(1) FROM matches").fetchone()
         analytics_count = connection.execute("SELECT count(1) FROM analytics_runs").fetchone()
         temporal_tables = connection.execute(

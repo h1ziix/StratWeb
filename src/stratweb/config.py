@@ -6,6 +6,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from stratweb.map_resources import default_map_overview_dir
+
 
 class Settings(BaseSettings):
     """Runtime settings. Importing the package never creates files or directories."""
@@ -24,7 +26,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     data_dir: Path = Path("data")
     duckdb_path: Path = Path("data/stratweb.duckdb")
-    map_overview_dir: Path = Path("data/map_overviews")
+    map_overview_dir: Path = Field(default_factory=default_map_overview_dir)
     # Optional game/csgo or game/csgo/StratWeb path used only after a local button press.
     cs2_demo_dir: Path | None = None
     max_upload_bytes: int = Field(default=2 * 1024 * 1024 * 1024, gt=0)

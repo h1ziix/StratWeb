@@ -76,7 +76,7 @@ def test_board_round_trip_revision_conflict_and_match_cascade(
         )
 
     assert matches.delete_match(dataset.match.match_id) is True
-    with duckdb.connect(str(database), read_only=True) as connection:
+    with duckdb.connect(str(database), read_only=False) as connection:
         assert connection.execute("SELECT count(*) FROM telestrator_boards").fetchone() == (0,)
 
 

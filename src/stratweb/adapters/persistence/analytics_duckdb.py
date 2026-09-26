@@ -12,7 +12,7 @@ import duckdb
 import polars as pl
 from pydantic import BaseModel
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._feature_cascade import delete_dependent_feature_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.analytics.models import (
@@ -82,7 +82,7 @@ class DuckDBAnalyticsRepository:
         fingerprint = analytics.analytics_fingerprint
         expected = _row_counts(analytics)
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     match = connection.execute(
@@ -318,7 +318,7 @@ class DuckDBAnalyticsRepository:
     def delete_analytics(self, match_id: UUID) -> bool:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     exists = connection.execute(

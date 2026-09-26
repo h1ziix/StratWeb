@@ -10,7 +10,7 @@ from uuid import UUID
 import duckdb
 from pydantic import BaseModel
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
 from stratweb.exceptions import PersistenceError, StatisticalTrustIntegrityError
@@ -47,7 +47,7 @@ class DuckDBStatisticalTrustRepository:
             "statistical_trust_assessments": len(state.assessments),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -195,7 +195,7 @@ class DuckDBStatisticalTrustRepository:
 
     def delete_trust(self, profile_id: UUID) -> int:
         self.initialize()
-        with duckdb.connect(str(self._database_path)) as connection:
+        with write_connection(self._database_path) as connection:
             rows = connection.execute(
                 "SELECT trust_run_id FROM statistical_trust_runs WHERE profile_id = ?",
                 [profile_id],

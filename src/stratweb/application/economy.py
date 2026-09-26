@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from time import perf_counter
 from uuid import UUID
@@ -45,6 +46,7 @@ class ComputeEconomyService:
         *,
         config: EconomyConfig | None = None,
         replace: bool = False,
+        save_context: AbstractContextManager[None] | None = None,
     ) -> EconomyComputeResult:
         started = perf_counter()
         match = self._matches.get_match(match_id)
@@ -67,7 +69,8 @@ class ComputeEconomyService:
             extraction,
             config or EconomyConfig(),
         )
-        saved = self._economy.save_economy(state, replace=replace)
+        with save_context or nullcontext():
+            saved = self._economy.save_economy(state, replace=replace)
         return EconomyComputeResult(
             economy_run_id=saved.economy_run_id,
             economy_fingerprint=saved.economy_fingerprint,

@@ -1,5 +1,115 @@
 # Changelog
 
+## [0.31.4] - 2026-09-27
+
+### Fixed
+
+- Windows map installation, settings and launcher now share the runtime overview root.
+  Default extraction uses a VPK SHA-256 directory; the launcher copies missing legacy
+  resources without overwriting existing files. Exact revision, metadata/image SHA-256
+  and dimensions remain mandatory. Missing resources have an actionable message.
+- Spatial and Temporal use bounded Polars relations and INSERT SELECT instead of
+  per-row executemany. V1 lookup mirrors are populated from canonical rows once;
+  V2 keeps its canonical indexes without requiring a storage migration.
+  UUID/JSON/lookup keys, SQL constraints and whole-run transactions are preserved.
+- Stage and persistence timings are logged with job_id. Original exception chains
+  are retained in local logs while user messages stay safe. Save progress identifies
+  the stage and cancellation boundary. Completed source demos/artifacts are retained.
+- A map opened during import no longer permanently caches a missing zone run.
+
+### Validation
+
+- Same real 21-round FACEIT Dust2 artifact replay: Spatial write 131.78 -> 6.03 s,
+  whole Spatial 138.59 -> 12.83 s. Temporal 3.61 -> 1.04 s.
+- Retried the saved cancelled job to complete without duplicating its spatial run.
+  A separate real HTTP upload was cancelled at Spatial, retried, and reached complete.
+  Browser map/player/event interactions and successive playback blocks were checked.
+- Added batch/constraint/rollback, V1/V2 retry, map path/checksum recovery, error logging
+  and transient zone-cache regressions. Detailed release gate: RELEASE_0_31_4.md.
+
+
+## [0.31.3] - 2026-09-27
+
+### Fixed
+
+- Repositories now exclusively lease reusable DuckDB connections from one manager per
+  resolved database path, with uniform read-write configuration and up to four idle handles.
+  Concurrent threads receive separate active handles; all repository writes use the shared writer.
+- Added nested thread-local read sessions with one connection and one MVCC transaction for
+  complete match-library, match-overview and playback responses. Job restart recovery finishes
+  before the library snapshot. Writes and schema changes inside read scopes fail before lock
+  acquisition, preventing writer/schema lock inversion.
+- Unfinished transactions roll back on lease return; failed leases are discarded. Application
+  shutdown and explicit close release idle handles and drain active leases without interrupting SQL.
+  Offline read-only storage checks drain pools under exclusive writer/schema gates.
+
+### Validation
+
+- Added bounded subprocess regressions for concurrent snapshots, distinct active handles,
+  serialized writes, migrations and shutdown, plus pooling/rollback/lifecycle checks.
+- Reproducible before/after HTTP timings, connection counts and separate SQL timings are
+  documented in `RELEASE_0_31_3.md`; raw samples are retained locally.
+- Final local gate: 484 non-integration tests passed (6 deselected) in 172.60 seconds;
+  Ruff, strict mypy, JavaScript syntax, HTTP smoke, Golden Corpus contract, wheel build
+  and Compose validation succeeded. Warm fixture requests improved from 3050/987/183 ms
+  to 131/59/12 ms (library/overview/playback), with 85/27/5 new connections reduced to zero.
+
+## [0.31.2] - 2026-09-26
+
+### Fixed
+
+- Import parsing, parser subprocess waits and Economy, Analytics, Temporal, Spatial, Zones
+  and Round Features computation now run outside the shared database writer. Save boundaries
+  check cancellation after acquiring the lock; adapter transactions revalidate canonical
+  fingerprints and pinned source runs before committing atomically.
+- Layer save/delete transactions share the same coordinator as canonical writes, so source
+  replacement/deletion cannot race preflight checks and leave stale derived rows.
+- Canonical and layer reads use concurrent MVCC connections without acquiring the writer.
+  A separate schema gate excludes reads only during complete migration sequences; cached
+  initialization bypasses ordinary writers while preserving writer/schema/cache lock order.
+- Cancellation signals the active worker before any database access. Status updates serialize
+  read/modify/write, and cancellation at compute/save boundaries cannot become a failed job.
+  Parser PID/memory callbacks skip a busy writer so subprocess monitoring can continue.
+- Shutdown signals all jobs immediately and uses one bounded wait budget (11 seconds with
+  default parser grace). Delayed cancellation persistence continues after that budget;
+  retained input and restart recovery remain available. Parser cleanup also runs if a callback
+  fails after process creation.
+- DEBUG writer timing reports outer acquisition wait and hold durations.
+
+### Validation
+
+- Added event-controlled long-pipeline HTTP/progress checks, writer availability at nine
+  extraction/compute boundaries, rejection of six stale source saves, cancellation during
+  lock acquisition, schema exclusion/concurrent reads, and cancellation of a real sleeping
+  subprocess while status persistence is blocked. See `RELEASE_0_31_2.md` for measured results.
+- Final local gate passed: 477 non-integration tests passed (6 integration tests deselected)
+  in 665.40 seconds; Ruff, strict mypy, JavaScript syntax, HTTP smoke, Golden Corpus contract,
+  wheel build and Compose validation succeeded. Golden Corpus product readiness remains blocked.
+
+## [0.31.1] - 2026-09-26
+
+### Fixed
+
+- Initialization always acquires the shared DuckDB writer coordinator before the schema/cache
+  lock, including cache hits and nested import calls. The writer lock covers all migration
+  connections so readers cannot observe a partially migrated schema.
+- Schema caching uses file identity and one current migration manifest per database instead of
+  file modification time. Ordinary data writes no longer trigger schema initialization from
+  adapter reads; replacing a file or changing the manifest still invalidates the cache.
+- Explicit `initialize(force=True)` revalidates on-disk migration names, checksums and unknown
+  versions after external schema edits. Failed verification removes the cached schema entry.
+- Pinned the checksum-protected legacy JSON fixture to LF in `.gitattributes`, preventing
+  Windows checkout line-ending conversion from changing its verified bytes.
+
+### Validation
+
+- Added event-controlled concurrent initialization/import/read regressions in killable child
+  processes, with a 15-second thread deadline and a 30-second process timeout.
+- Covered fresh databases and migration of an existing database while preserving match/event
+  counts, exact migration records, checksum validation and file replacement invalidation.
+- Local release gate passed: 466 non-integration tests passed (6 integration tests deselected),
+  Ruff, strict mypy, JavaScript syntax, HTTP smoke, wheel build and Compose validation succeeded.
+
 ## [0.31.0] - 2026-09-24
 
 ### Reliability

@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 import duckdb
 
+from stratweb.adapters.persistence._connections import maintenance_read_connection
 from stratweb.adapters.persistence.storage_layout import (
     STORAGE_LAYOUT_SCHEMA_VERSION,
     STORAGE_LAYOUT_V1,
@@ -40,13 +41,10 @@ class DuckDBStorageMigrator:
     def status(self, database_path: Path) -> StorageLayoutStatus:
         path = _existing_database(database_path)
         try:
-            connection = duckdb.connect(str(path), read_only=True)
+            with maintenance_read_connection(path) as connection:
+                return self._status_connection(connection)
         except duckdb.Error as exc:
             raise StorageMigrationError(f"Could not open DuckDB read-only: {path.name}") from exc
-        try:
-            return self._status_connection(connection)
-        finally:
-            connection.close()
 
     def migrate(
         self,
@@ -276,18 +274,19 @@ class DuckDBStorageMigrator:
         partial = backup.with_name(f"{backup.name}.partial")
         if partial.exists():
             raise StorageMigrationError(f"Partial backup already exists: {partial}")
-        connection = duckdb.connect()
-        try:
-            connection.execute(f"ATTACH {_literal(source)} AS source_db (READ_ONLY)")
-            connection.execute(f"ATTACH {_literal(partial)} AS backup_db")
-            connection.execute("COPY FROM DATABASE source_db TO backup_db")
-            connection.execute("CHECKPOINT backup_db")
-            connection.execute("DETACH backup_db")
-            connection.execute("DETACH source_db")
-        except duckdb.Error as exc:
-            raise StorageMigrationError(f"Could not create DuckDB backup: {exc}") from exc
-        finally:
-            connection.close()
+        with maintenance_read_connection(source):
+            connection = duckdb.connect()
+            try:
+                connection.execute(f"ATTACH {_literal(source)} AS source_db (READ_ONLY)")
+                connection.execute(f"ATTACH {_literal(partial)} AS backup_db")
+                connection.execute("COPY FROM DATABASE source_db TO backup_db")
+                connection.execute("CHECKPOINT backup_db")
+                connection.execute("DETACH backup_db")
+                connection.execute("DETACH source_db")
+            except duckdb.Error as exc:
+                raise StorageMigrationError(f"Could not create DuckDB backup: {exc}") from exc
+            finally:
+                connection.close()
         partial.replace(backup)
 
         source_counts = _table_counts(source)
@@ -666,8 +665,7 @@ def _existing_database(path: Path) -> Path:
 
 
 def _table_counts(path: Path) -> dict[str, int]:
-    connection = duckdb.connect(str(path), read_only=True)
-    try:
+    with maintenance_read_connection(path) as connection:
         tables = [
             str(row[0])
             for row in connection.execute(
@@ -679,8 +677,6 @@ def _table_counts(path: Path) -> dict[str, int]:
             ).fetchall()
         ]
         return {table: _count(connection, table) for table in tables}
-    finally:
-        connection.close()
 
 
 def _count(connection: duckdb.DuckDBPyConnection, table: str) -> int:

@@ -9,7 +9,7 @@ from uuid import UUID
 
 import duckdb
 
-from stratweb.adapters.persistence._connections import read_connection
+from stratweb.adapters.persistence._connections import read_connection, write_connection
 from stratweb.adapters.persistence._pattern_cascade import delete_pattern_runs
 from stratweb.adapters.persistence.duckdb import DuckDBMatchRepository
 from stratweb.application.normalization_utils import canonical_json
@@ -54,7 +54,7 @@ class DuckDBPatternRepository:
             "pattern_round_exclusions": sum(len(item.excluded_rounds) for item in state.patterns),
         }
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 connection.execute("BEGIN TRANSACTION")
                 try:
                     self._preflight(connection, state)
@@ -234,7 +234,7 @@ class DuckDBPatternRepository:
     def delete_patterns(self, profile_id: UUID) -> int:
         self.initialize()
         try:
-            with duckdb.connect(str(self._database_path)) as connection:
+            with write_connection(self._database_path) as connection:
                 rows = connection.execute(
                     "SELECT pattern_run_id FROM cross_match_pattern_runs WHERE profile_id = ?",
                     [profile_id],
